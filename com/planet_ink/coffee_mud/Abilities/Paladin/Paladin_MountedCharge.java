@@ -2,6 +2,7 @@ package com.planet_ink.coffee_mud.Abilities.Paladin;
 import com.planet_ink.coffee_mud.Abilities.StdAbility;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -10,20 +11,21 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2004-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,23 +34,25 @@ import java.util.*;
    limitations under the License.
 */
 
-@SuppressWarnings("unchecked")
+
 public class Paladin_MountedCharge extends StdAbility
 {
-	public String ID() { return "Paladin_MountedCharge"; }
-	public String name(){ return "Mounted Charge";}
-	private static final String[] triggerStrings = {"MOUNTEDCHARGE","MCHARGE"};
-	public int abstractQuality(){return Ability.QUALITY_MALICIOUS;}
-	public String[] triggerStrings(){return triggerStrings;}
-	protected int canAffectCode(){return 0;}
-	protected int canTargetCode(){return Ability.CAN_MOBS;}
-    public int classificationCode(){return Ability.ACODE_SKILL|Ability.DOMAIN_ANIMALAFFINITY;}
-	public int usageType(){return USAGE_MOVEMENT;}
-	public int minRange(){return 1;}
-	public int maxRange(){return 99;}
+	@Override public String ID() { return "Paladin_MountedCharge"; }
+	private final static String localizedName = CMLib.lang().L("Mounted Charge");
+	@Override public String name() { return localizedName; }
+	private static final String[] triggerStrings =I(new String[] {"MOUNTEDCHARGE","MCHARGE"});
+	@Override public int abstractQuality(){return Ability.QUALITY_MALICIOUS;}
+	@Override public String[] triggerStrings(){return triggerStrings;}
+	@Override protected int canAffectCode(){return 0;}
+	@Override protected int canTargetCode(){return Ability.CAN_MOBS;}
+	@Override public int classificationCode(){return Ability.ACODE_SKILL|Ability.DOMAIN_ANIMALAFFINITY;}
+	@Override public int usageType(){return USAGE_MOVEMENT;}
+	@Override public int minRange(){return 1;}
+	@Override public int maxRange(){return 99;}
 	public boolean done=false;
 
-	public void executeMsg(Environmental myHost, CMMsg msg)
+	@Override
+	public void executeMsg(final Environmental myHost, final CMMsg msg)
 	{
 		if((affected!=null)
 		&&(affected instanceof MOB)
@@ -58,23 +62,27 @@ public class Paladin_MountedCharge extends StdAbility
 		super.executeMsg(myHost,msg);
 	}
 
+	@Override
 	public boolean tick(Tickable ticking, int tickID)
 	{
 		if(tickID==Tickable.TICKID_MOB)
-			if(done) unInvoke();
+			if(done)
+				unInvoke();
 		return super.tick(ticking,tickID);
 	}
 
-	public void affectEnvStats(Environmental affected, EnvStats affectableStats)
+	@Override
+	public void affectPhyStats(Physical affected, PhyStats affectableStats)
 	{
-		super.affectEnvStats(affected,affectableStats);
-		int xlvl=adjustedLevel(invoker(),0);
+		super.affectPhyStats(affected,affectableStats);
+		final int xlvl=adjustedLevel(invoker(),0);
 		affectableStats.setAttackAdjustment(affectableStats.attackAdjustment()+(4*xlvl));
 		affectableStats.setArmor(affectableStats.armor()+(4*xlvl));
 		affectableStats.setDamage(affectableStats.damage()+xlvl);
 	}
 
-	public int castingQuality(MOB mob, Environmental target)
+	@Override
+	public int castingQuality(MOB mob, Physical target)
 	{
 		if((mob!=null)&&(target!=null))
 		{
@@ -85,51 +93,45 @@ public class Paladin_MountedCharge extends StdAbility
 		}
 		return super.castingQuality(mob,target);
 	}
-	
-	public boolean invoke(MOB mob, Vector commands, Environmental givenTarget, boolean auto, int asLevel)
+
+	@Override
+	public boolean invoke(MOB mob, List<String> commands, Physical givenTarget, boolean auto, int asLevel)
 	{
-		boolean notInCombat=!mob.isInCombat();
-		MOB target=this.getTarget(mob,commands,givenTarget);
-		if(target==null) return false;
+		final boolean notInCombat=!mob.isInCombat();
+		final MOB target=this.getTarget(mob,commands,givenTarget);
+		if(target==null)
+			return false;
 
 		if((mob.isInCombat())
 		&&(mob.rangeToTarget()<=0))
 		{
-			mob.tell("You can not charge while in melee!");
+			mob.tell(L("You can not charge while in melee!"));
 			return false;
 		}
 
 		if(mob.riding()==null)
 		{
-			mob.tell("You must be mounted to use this skill.");
+			mob.tell(L("You must be mounted to use this skill."));
 			return false;
 		}
 
-		// the invoke method for spells receives as
-		// parameters the invoker, and the REMAINING
-		// command line parameters, divided into words,
-		// and added as String objects to a vector.
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
 			return false;
 
 		// now see if it worked
-		boolean success=proficiencyCheck(mob,0,auto);
+		final boolean success=proficiencyCheck(mob,0,auto);
 		if(success)
 		{
-			// it worked, so build a copy of this ability,
-			// and add it to the affects list of the
-			// affected MOB.  Then tell everyone else
-			// what happened.
-			CMMsg msg=CMClass.getMsg(mob,target,this,CMMsg.MASK_MALICIOUS|CMMsg.MSG_ADVANCE,"<S-NAME> ride(s) hard at <T-NAMESELF>!");
+			final CMMsg msg=CMClass.getMsg(mob,target,this,CMMsg.MASK_MALICIOUS|CMMsg.MSG_ADVANCE,L("<S-NAME> ride(s) hard at <T-NAMESELF>!"));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);
 				if(mob.getVictim()==target)
 				{
-					mob.setAtRange(0);
-					target.setAtRange(0);
+					mob.setRangeToTarget(0);
+					target.setRangeToTarget(0);
 					beneficialAffect(mob,mob,asLevel,2);
-					mob.recoverEnvStats();
+					mob.recoverPhyStats();
 					if(notInCombat)
 					{
 						done=true;
@@ -143,7 +145,7 @@ public class Paladin_MountedCharge extends StdAbility
 			}
 		}
 		else
-			return beneficialVisualFizzle(mob,target,"<S-NAME> ride(s) at <T-NAMESELF>, but miss(es).");
+			return beneficialVisualFizzle(mob,target,L("<S-NAME> ride(s) at <T-NAMESELF>, but miss(es)."));
 
 		// return whether it worked
 		return success;

@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Thief;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,21 +10,21 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
-
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2003-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -31,79 +32,205 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
 public class Thief_Lure extends ThiefSkill implements Trap
 {
-	public String ID() { return "Thief_Lure"; }
-	public String name(){ return "Lure";}
-	protected int canAffectCode(){return 0;}
-	protected int canTargetCode(){return Ability.CAN_MOBS;}
-    public int classificationCode(){return Ability.ACODE_THIEF_SKILL|Ability.DOMAIN_DECEPTIVE;}
-	public int abstractQuality(){return Ability.QUALITY_INDIFFERENT;}
-	private static final String[] triggerStrings = {"LURE"};
-	public String[] triggerStrings(){return triggerStrings;}
-	public int usageType(){return USAGE_MOVEMENT|USAGE_MANA;}
-	public int code=0;
+	@Override
+	public String ID()
+	{
+		return "Thief_Lure";
+	}
 
-	public int abilityCode(){return code;}
-	public void setAbilityCode(int newCode){code=newCode;}
+	private final static String	localizedName	= CMLib.lang().L("Lure");
 
-	public boolean isABomb(){return false;}
-	public void activateBomb(){}
-	public boolean disabled(){return false;}
-	public boolean sprung(){return false;}
-	public void disable(){ unInvoke();}
-	public void setReset(int Reset){}
-	public int getReset(){return 0;}
-	public void spring(MOB M){}
-	public boolean maySetTrap(MOB mob, int asLevel){return false;}
-	public boolean canSetTrapOn(MOB mob, Environmental E){return false;}
-    public Vector getTrapComponents() { return new Vector(); }
-	public String requiresToSet(){return "";}
-	public Trap setTrap(MOB mob, Environmental E, int trapBonus, int qualifyingClassLevel, boolean perm)
-	{return null;}
+	@Override
+	public String name()
+	{
+		return localizedName;
+	}
 
-	public boolean invoke(MOB mob, Vector commands, Environmental givenTarget, boolean auto, int asLevel)
+	@Override
+	protected int canAffectCode()
+	{
+		return 0;
+	}
+
+	@Override
+	protected int canTargetCode()
+	{
+		return Ability.CAN_MOBS;
+	}
+
+	@Override
+	public int classificationCode()
+	{
+		return Ability.ACODE_THIEF_SKILL | Ability.DOMAIN_DECEPTIVE;
+	}
+
+	@Override
+	public int abstractQuality()
+	{
+		return Ability.QUALITY_INDIFFERENT;
+	}
+
+	private static final String[]	triggerStrings	= I(new String[] { "LURE" });
+
+	@Override
+	public String[] triggerStrings()
+	{
+		return triggerStrings;
+	}
+
+	@Override
+	public int usageType()
+	{
+		return USAGE_MOVEMENT | USAGE_MANA;
+	}
+
+	public int	code	= 0;
+
+	@Override
+	public int abilityCode()
+	{
+		return code;
+	}
+
+	@Override
+	public void setAbilityCode(int newCode)
+	{
+		code = newCode;
+	}
+
+	@Override
+	public boolean isABomb()
+	{
+		return false;
+	}
+
+	@Override
+	public void activateBomb()
+	{
+	}
+
+	@Override
+	public boolean disabled()
+	{
+		return false;
+	}
+
+	@Override
+	public boolean sprung()
+	{
+		return false;
+	}
+
+	@Override
+	public void disable()
+	{
+		unInvoke();
+	}
+
+	@Override
+	public void setReset(int Reset)
+	{
+	}
+
+	@Override
+	public int getReset()
+	{
+		return 0;
+	}
+
+	@Override
+	public void resetTrap(MOB mob)
+	{
+
+	}
+
+	@Override
+	public void spring(MOB M)
+	{
+	}
+
+	@Override
+	public boolean maySetTrap(MOB mob, int asLevel)
+	{
+		return false;
+	}
+
+	@Override
+	public boolean canSetTrapOn(MOB mob, Physical P)
+	{
+		return false;
+	}
+
+	@Override
+	public List<Item> getTrapComponents()
+	{
+		return new Vector<Item>(1);
+	}
+
+	@Override
+	public boolean canReSetTrap(MOB mob)
+	{
+		return false;
+	}
+
+	@Override
+	public String requiresToSet()
+	{
+		return "";
+	}
+
+	@Override
+	public Trap setTrap(MOB mob, Physical P, int trapBonus, int qualifyingClassLevel, boolean perm)
+	{
+		return null;
+	}
+
+	
+	@Override
+	public boolean invoke(MOB mob, List<String> commands, Physical givenTarget, boolean auto, int asLevel)
 	{
 		if(commands.size()<2)
 		{
-			mob.tell("Lure whom which direction?");
+			mob.tell(L("Lure whom which direction?"));
 			return false;
 		}
 		if(mob.isInCombat())
 		{
-			mob.tell("Not while you are fighting!");
+			mob.tell(L("Not while you are fighting!"));
 			return false;
 		}
-		String str=(String)commands.lastElement();
-		commands.removeElementAt(commands.size()-1);
-		int dirCode=Directions.getGoodDirectionCode(str);
+		String str=commands.get(commands.size()-1);
+		commands.remove(commands.size()-1);
+		final int dirCode=CMLib.directions().getGoodDirectionCode(str);
 		if((dirCode<0)||(mob.location()==null)||(mob.location().getRoomInDir(dirCode)==null)||(mob.location().getExitInDir(dirCode)==null))
 		{
-			mob.tell("'"+str+"' is not a valid direction.");
+			mob.tell(L("'@x1' is not a valid direction.",str));
 			return false;
 		}
-		String direction=Directions.getInDirectionName(dirCode);
+		final String direction=CMLib.directions().getInDirectionName(dirCode);
 
-		MOB target=this.getTarget(mob,commands,givenTarget);
-		if(target==null) return false;
+		final MOB target=this.getTarget(mob,commands,givenTarget);
+		if(target==null)
+			return false;
 
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
 			return false;
 
-		int levelDiff=target.envStats().level()-(mob.envStats().level()+abilityCode()+(getXLEVELLevel(mob)*2));
+		final int levelDiff=target.phyStats().level()-(mob.phyStats().level()+abilityCode()+(getXLEVELLevel(mob)*2));
 
 		boolean success=proficiencyCheck(mob,-(levelDiff*(!CMLib.flags().canBeSeenBy(mob,target)?5:10)),auto);
 		success=success&&(CMLib.dice().rollPercentage()+(getXLEVELLevel(mob)*3)>target.charStats().getSave(CharStats.STAT_SAVE_TRAPS));
 		success=success&&(CMLib.dice().rollPercentage()+(getXLEVELLevel(mob)*3)>target.charStats().getSave(CharStats.STAT_SAVE_MIND));
 
-		str="<S-NAME> attempt(s) to lure <T-NAME> "+direction+".";
-		CMMsg msg=CMClass.getMsg(mob,target,this,(auto?CMMsg.MASK_ALWAYS:0)|CMMsg.MSG_SPEAK,str);
+		str=L("<S-NAME> attempt(s) to lure <T-NAME> @x1.",direction);
+		final CMMsg msg=CMClass.getMsg(mob,target,this,(auto?CMMsg.MASK_ALWAYS:0)|CMMsg.MSG_SPEAK,str);
 		if(mob.location().okMessage(mob,msg))
 		{
 			mob.location().send(mob,msg);
-			if((success)&&(CMLib.tracking().move(mob,dirCode,false,false))&&(CMLib.flags().canBeHeardBy(target,mob)))
-				CMLib.tracking().move(target,dirCode,false,false);
+			if((success)&&(CMLib.tracking().walk(mob,dirCode,false,false))&&(CMLib.flags().canBeHeardSpeakingBy(target,mob)))
+				CMLib.tracking().walk(target,dirCode,false,false);
 		}
 		return success;
 	}

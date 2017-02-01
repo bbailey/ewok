@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Spells;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,22 +10,22 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
-
 import java.util.*;
 
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2003-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,53 +33,56 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
+
 public class Spell_DetectAmbush extends Spell
 {
-	public String ID() { return "Spell_DetectAmbush"; }
-	public String name(){return "Detect Ambush";}
-	public String displayText(){return "(Detecting Ambushes)";}
-	public int abstractQuality(){ return Ability.QUALITY_OK_SELF;}
-	public int enchantQuality(){return Ability.QUALITY_BENEFICIAL_SELF;}
-	protected int canAffectCode(){return CAN_MOBS;}
-	public int classificationCode(){return Ability.ACODE_SPELL|Ability.DOMAIN_DIVINATION;	}
+	@Override public String ID() { return "Spell_DetectAmbush"; }
+	private final static String localizedName = CMLib.lang().L("Detect Ambush");
+	@Override public String name() { return localizedName; }
+	private final static String localizedStaticDisplay = CMLib.lang().L("(Detecting Ambushes)");
+	@Override public String displayText() { return localizedStaticDisplay; }
+	@Override public int abstractQuality(){ return Ability.QUALITY_OK_SELF;}
+	@Override public int enchantQuality(){return Ability.QUALITY_BENEFICIAL_SELF;}
+	@Override protected int canAffectCode(){return CAN_MOBS;}
+	@Override public int classificationCode(){return Ability.ACODE_SPELL|Ability.DOMAIN_DIVINATION;	}
 
 	Room lastRoom=null;
+	@Override
 	public void unInvoke()
 	{
-		if((affected==null)||(!(affected instanceof MOB)))
+		if(!(affected instanceof MOB))
 			return;
-		MOB mob=(MOB)affected;
+		final MOB mob=(MOB)affected;
 		lastRoom=null;
 		super.unInvoke();
 		if(canBeUninvoked())
-			mob.tell("You are no longer detecting ambushes.");
+			mob.tell(L("You are no longer detecting ambushes."));
 	}
 
-	public boolean okMessage(Environmental myHost, CMMsg msg)
+	@Override
+	public boolean okMessage(final Environmental myHost, final CMMsg msg)
 	{
-		if((affected==null)||(!(affected instanceof MOB)))
+		if(!(affected instanceof MOB))
 			return super.okMessage(myHost,msg);
-		MOB mob=(MOB)affected;
+		final MOB mob=(MOB)affected;
 		if((msg.amISource(mob)
 		&&(msg.targetMinor()==CMMsg.TYP_ENTER)
-		&&(msg.target()!=null)
 		&&(msg.target()!=lastRoom)
 		&&(msg.target() instanceof Room)))
 		{
-			Room R=(Room)msg.target();
+			final Room R=(Room)msg.target();
 			boolean found=false;
 			for(int m=0;m<R.numInhabitants();m++)
 			{
-				MOB M=R.fetchInhabitant(m);
+				final MOB M=R.fetchInhabitant(m);
 				if(CMLib.flags().isHidden(M))
-				{ 
-                    found=true; 
-                    break;
-                }
-				for(int b=0;b<M.numBehaviors();b++)
 				{
-					Behavior B=M.fetchBehavior(b);
+					found=true;
+					break;
+				}
+				for(final Enumeration<Behavior> e=M.behaviors();e.hasMoreElements();)
+				{
+					final Behavior B=e.nextElement();
 					if((B!=null)&&(B.grantsAggressivenessTo(M)))
 					{ found=true; break;}
 				}
@@ -86,7 +90,7 @@ public class Spell_DetectAmbush extends Spell
 			lastRoom=R;
 			if(found)
 			{
-				mob.tell("Potential danger in that direction stops you for a second.");
+				mob.tell(L("Potential danger in that direction stops you for a second."));
 				return false;
 			}
 		}
@@ -94,20 +98,22 @@ public class Spell_DetectAmbush extends Spell
 		return super.okMessage(myHost,msg);
 	}
 
-    public int castingQuality(MOB mob, Environmental target)
-    {
-        if(mob!=null)
-        {
-            if(target instanceof MOB)
-            {
-                if(((MOB)target).isInCombat()) // too late
-                    return Ability.QUALITY_INDIFFERENT;
-            }
-        }
-        return super.castingQuality(mob,target);
-    }
-    
-	public boolean invoke(MOB mob, Vector commands, Environmental givenTarget, boolean auto, int asLevel)
+	@Override
+	public int castingQuality(MOB mob, Physical target)
+	{
+		if(mob!=null)
+		{
+			if(target instanceof MOB)
+			{
+				if(((MOB)target).isInCombat()) // too late
+					return Ability.QUALITY_INDIFFERENT;
+			}
+		}
+		return super.castingQuality(mob,target);
+	}
+
+	@Override
+	public boolean invoke(MOB mob, List<String> commands, Physical givenTarget, boolean auto, int asLevel)
 	{
 
 		MOB target=mob;
@@ -115,18 +121,18 @@ public class Spell_DetectAmbush extends Spell
 			target=(MOB)givenTarget;
 		if(target.fetchEffect(this.ID())!=null)
 		{
-			mob.tell(target,null,null,"<S-NAME> <S-IS-ARE> already detecting ambushes.");
+			mob.tell(target,null,null,L("<S-NAME> <S-IS-ARE> already detecting ambushes."));
 			return false;
 		}
 
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
 			return false;
 
-		boolean success=proficiencyCheck(mob,0,auto);
+		final boolean success=proficiencyCheck(mob,0,auto);
 
 		if(success)
 		{
-			CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),auto?"<T-NAME> gain(s) careful senses!":"^S<S-NAME> incant(s) softly, and gain(s) careful senses!^?");
+			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),auto?L("<T-NAME> gain(s) careful senses!"):L("^S<S-NAME> incant(s) softly, and gain(s) careful senses!^?"));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);
@@ -134,7 +140,7 @@ public class Spell_DetectAmbush extends Spell
 			}
 		}
 		else
-			beneficialVisualFizzle(mob,null,"<S-NAME> incant(s) and open(s) <S-HIS-HER> careful eyes, but the spell fizzles.");
+			beneficialVisualFizzle(mob,null,L("<S-NAME> incant(s) and open(s) <S-HIS-HER> careful eyes, but the spell fizzles."));
 
 		return success;
 	}

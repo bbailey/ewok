@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Commands;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
@@ -17,170 +18,218 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /**
- * <p>Title: False Realities Flavored CoffeeMUD</p>
- * <p>Description: The False Realities Version of CoffeeMUD</p>
- * <p>Copyright: Copyright (c) 2004 Jeremy Vyska</p>
- * <p>Licensed under the Apache License, Version 2.0 (the "License");
- * <p>you may not use this file except in compliance with the License.
- * <p>You may obtain a copy of the License at
+ * Title: False Realities Flavored CoffeeMUD
+ * Description: The False Realities Version of CoffeeMUD
+ * Copyright: Copyright (c) 2004 Jeremy Vyska
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * <p>       http://www.apache.org/licenses/LICENSE-2.0
+ *   	 http://www.apache.org/licenses/LICENSE-2.0
  *
- * <p>Unless required by applicable law or agreed to in writing, software
- * <p>distributed under the License is distributed on an "AS IS" BASIS,
- * <p>WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * <p>See the License for the specific language governing permissions and
- * <p>limitations under the License.
- * <p>Company: http://www.falserealities.com</p>
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * Company: http://www.falserealities.com
  * @author FR - Jeremy Vyska; CM - Bo Zimmerman
  * @version 1.0.0.0
  */
 
-@SuppressWarnings("unchecked")
 public class WillQualify  extends Skills
 {
 	public WillQualify() {}
-	private String[] access={"WILLQUALIFY"};
-	public String[] getAccessWords(){return access;}
+	private final String[] access=I(new String[]{"WILLQUALIFY"});
+	@Override public String[] getAccessWords(){return access;}
 
-	public StringBuffer getQualifiedAbilities(MOB able, 
-											  String Class,
-	                                          int maxLevel, 
-	                                          String prefix,
-	                                          Vector types)
+	public StringBuffer getQualifiedAbilities(MOB viewerM,
+											  MOB ableM,
+											  String classID,
+											  int maxLevel,
+											  String prefix,
+											  HashSet<Object> types)
 	{
-		int highestLevel = maxLevel;
-		StringBuffer msg = new StringBuffer("");
+		final int highestLevel = maxLevel;
+		final StringBuffer msg = new StringBuffer("");
 		int col = 0;
-        DVector DV=CMLib.ableMapper().getClassAllowsList(Class);
-		for (int l = 0; l <= highestLevel; l++) 
+		final int COL_LEN1=CMLib.lister().fixColWidth(3.0,viewerM);
+		final int COL_LEN2=CMLib.lister().fixColWidth(19.0,viewerM);
+		final int COL_LEN3=CMLib.lister().fixColWidth(12.0,viewerM);
+		final int COL_LEN4=CMLib.lister().fixColWidth(13.0,viewerM);
+		final List<AbilityMapper.QualifyingID> DV=CMLib.ableMapper().getClassAllowsList(classID);
+		for (int l = 0; l <= highestLevel; l++)
 		{
-			StringBuffer thisLine = new StringBuffer("");
-			for (Enumeration a = CMLib.ableMapper().getClassAbles(Class,true); a.hasMoreElements(); ) 
+			final StringBuffer thisLine = new StringBuffer("");
+			for (final Enumeration<AbilityMapper.AbilityMapping> a = CMLib.ableMapper().getClassAbles(classID,true); a.hasMoreElements(); )
 			{
-				AbilityMapper.AbilityMapping cimable=(AbilityMapper.AbilityMapping)a.nextElement();
-				if((cimable.qualLevel ==l)&&(!cimable.isSecret))
+				final AbilityMapper.AbilityMapping cimable=a.nextElement();
+				if((cimable.qualLevel() ==l)&&(!cimable.isSecret()))
 				{
-					Ability A=CMClass.getAbility(cimable.abilityName);
+					final Ability A=CMClass.getAbility(cimable.abilityID());
 					if((A!=null)
-                    &&((types.size()==0)
+					&&((types.size()==0)
 						||(types.contains(Integer.valueOf(A.classificationCode()&Ability.ALL_ACODES)))
-						||(types.contains(Integer.valueOf(A.classificationCode()&Ability.ALL_DOMAINS)))))
+						||(types.contains(Integer.valueOf(A.classificationCode()&Ability.ALL_DOMAINS))))
+					&&(CMLib.ableComponents().getSpecialSkillLimit(ableM, A).specificSkillLimit() > 0))
 					{
-						if ( (++col) > 2) 
+						if ( (++col) > 2)
 						{
-						    thisLine.append("\n\r");
-						    col = 1;
+							thisLine.append("\n\r");
+							col = 1;
 						}
-    					thisLine.append("^N[^H" + CMStrings.padRight("" + l, 3) + "^?] "
-    					        + CMStrings.padRight("^<HELP^>"+A.name()+"^</HELP^>", 19) + " "
-    					        + CMStrings.padRight(A.requirements()+(cimable.autoGain?" *":""), (col == 2) ? 12 : 13));
+						thisLine.append("^N[^H" + CMStrings.padRight("" + l, COL_LEN1) + "^?] "
+								+ CMStrings.padRight("^<HELP^>"+A.name()+"^</HELP^>", COL_LEN2) + " "
+								+ CMStrings.padRight(A.requirements(viewerM)+(cimable.autoGain()?" *":""), (col == 2) ? COL_LEN3 : COL_LEN4));
 					}
 				}
 			}
 			ExpertiseLibrary.ExpertiseDefinition E=null;
 			Integer qualLevel=null;
-			for(int d=0;d<DV.size();d++)
+			for(final AbilityMapper.QualifyingID qID : DV)
 			{
-				qualLevel=(Integer)DV.elementAt(d,2);
-				E=CMLib.expertises().getDefinition((String)DV.elementAt(d,1));
+				qualLevel=Integer.valueOf(qID.qualifyingLevel());
+				E=CMLib.expertises().getDefinition(qID.ID());
 				if(E!=null)
 				{
-	            	int minLevel=E.getMinimumLevel();
-	            	if(minLevel<qualLevel.intValue())
-	            		minLevel=qualLevel.intValue();
-	            	if(minLevel==l)
-	            	{
-						if((types.size()==0)
+					int minLevel=E.getMinimumLevel();
+					if(minLevel<qualLevel.intValue())
+						minLevel=qualLevel.intValue();
+					if((minLevel==l)
+					&&((types.size()==0)
 						||types.contains("EXPERTISE")
 						||types.contains("EXPERTISES")
-						||types.contains(E.ID.toUpperCase())
-						||types.contains(E.name.toUpperCase()))
+						||types.contains(E.ID().toUpperCase())
+						||types.contains(E.name().toUpperCase())))
+					{
+						if ( (++col) > 2)
 						{
-							if ( (++col) > 2) 
-							{
-							    thisLine.append("\n\r");
-							    col = 1;
-							}
-							thisLine.append("^N[^H" + CMStrings.padRight("" + l, 3) + "^?] "
-							        + CMStrings.padRight("^<HELP^>"+E.name+"^</HELP^>", 19) + " "
-							        + CMStrings.padRight(E.costDescription(), (col == 2) ? 12 : 13));
+							thisLine.append("\n\r");
+							col = 1;
 						}
-	            	}
+						thisLine.append("^N[^H" + CMStrings.padRight("" + l, 3) + "^?] "
+								+ CMStrings.padRight("^<HELP^>"+E.name()+"^</HELP^>", 19) + " "
+								+ CMStrings.padRight(E.costDescription(), (col == 2) ? 12 : 13));
+					}
 				}
 			}
-			if (thisLine.length() > 0) 
+			if (thisLine.length() > 0)
 			{
 				if (msg.length() == 0)
-				        msg.append("\n\r^N[^HLvl^?] Name                Requires     [^HLvl^?] Name                Requires\n\r");
+						msg.append(L("\n\r^N[^HLvl^?] Name                Requires     [^HLvl^?] Name                Requires\n\r"));
 				msg.append(thisLine);
 			}
 		}
 		if (msg.length() == 0)
-		        return msg;
+				return msg;
 		msg.insert(0, prefix);
-		msg.append("\n\r* This skill is automatically granted.");
+		msg.append(L("\n\r* This skill is automatically granted."));
 		return msg;
 	}
 
-	public boolean execute(MOB mob, Vector commands, int metaFlags)
-	                throws java.io.IOException
+	@Override
+	public boolean execute(MOB mob, List<String> commands, int metaFlags)
+					throws java.io.IOException
 	{
-		StringBuffer msg=new StringBuffer("");
-		String willQualErr = "Specify level, class, and or skill-type:  WILLQUALIFY ([LEVEL]) ([CLASS NAME]) ([SKILL TYPE]).";
-		int level=CMProps.getIntVar(CMProps.SYSTEMI_LASTPLAYERLEVEL);
+		final StringBuffer msg=new StringBuffer("");
+		final String willQualErr = "Specify level, class, and or skill-type:  WILLQUALIFY ([LEVEL]) ([CLASS NAME]) ([SKILL TYPE]).";
+		int level=CMProps.getIntVar(CMProps.Int.LASTPLAYERLEVEL);
 		CharClass C=mob.charStats().getCurrentClass();
-		Vector types=new Vector();
-		if(commands.size()>0) commands.removeElementAt(0);
-		if((commands.size()>0)&&(CMath.isNumber((String)commands.firstElement())))
+		final HashSet<Object> types=new HashSet<Object>();
+		if(commands.size()>0)
+			commands.remove(0);
+		if((commands.size()>0)&&(CMath.isNumber(commands.get(0))))
 		{
-			level=CMath.s_int((String)commands.firstElement());
+			level=CMath.s_int(commands.get(0));
 			if(level<0)
 			{
 				mob.tell(willQualErr);
 				return false;
 			}
-			commands.removeElementAt(0);
+			commands.remove(0);
 		}
 		if(commands.size()>0)
 		{
-			CharClass C2=CMClass.findCharClass((String)commands.firstElement());
-			if(C2!=null){ C=C2;commands.removeElementAt(0);}
+			final CharClass C2=CMClass.findCharClass(commands.get(0));
+			if(C2!=null){ C=C2;commands.remove(0);}
 		}
 		while(commands.size()>0)
 		{
-			String str=((String)commands.firstElement()).toUpperCase().trim();
+			final String str=commands.get(0).toUpperCase().trim();
+			final String bothStr=(commands.size()<2) ? str : 
+				commands.get(0).toUpperCase().trim() + " " + commands.get(1).toUpperCase().trim();
 			int x=CMParms.indexOf(Ability.ACODE_DESCS,str);
-			if(x<0) x=CMParms.indexOf(Ability.ACODE_DESCS,str.replace(' ','_'));
+			if(x<0)
+				x=CMParms.indexOf(Ability.ACODE_DESCS,str.replace(' ','_'));
 			if(x>=0)
-				types.addElement(Integer.valueOf(x));
+			{
+				commands.remove(0);
+				types.add(Integer.valueOf(x));
+				continue;
+			}
 			else
 			{
-				x=CMParms.indexOf(Ability.DOMAIN_DESCS,str);
+				x=CMParms.indexOf(Ability.ACODE_DESCS,bothStr);
 				if(x<0)
-					x=CMParms.indexOf(Ability.DOMAIN_DESCS,str.replace(' ','_'));
-				if(x<0)
+					x=CMParms.indexOf(Ability.ACODE_DESCS,bothStr.replace(' ','_'));
+				if(x>=0)
 				{
-					if((CMLib.expertises().findDefinition(str,false)==null)
-					&&!str.equalsIgnoreCase("EXPERTISE")
-					&&!str.equalsIgnoreCase("EXPERTISES"))
-					{
-						mob.tell("'"+str+"' is not a valid skill type, domain, expertise, or character class.");
-						mob.tell(willQualErr);
-						return false;
-					}
-					types.addElement(str.toUpperCase().trim());
+					
+					commands.remove(0);
+					commands.remove(0);
+					types.add(Integer.valueOf(x));
+					continue;
 				}
-				else
-					types.addElement(Integer.valueOf(x<<5));
 			}
-			commands.removeElementAt(0);
+			
+			x=CMParms.indexOf(Ability.DOMAIN_DESCS,str);
+			if(x<0)
+				x=CMParms.indexOf(Ability.DOMAIN_DESCS,str.replace(' ','_'));
+			if(x>=0)
+			{
+				commands.remove(0);
+				types.add(Integer.valueOf(x<<5));
+				continue;
+			}
+			else
+			{
+				x=CMParms.indexOf(Ability.DOMAIN_DESCS,bothStr);
+				if(x<0)
+					x=CMParms.indexOf(Ability.DOMAIN_DESCS,bothStr.replace(' ','_'));
+				if(x>=0)
+				{
+					commands.remove(0);
+					commands.remove(0);
+					types.add(Integer.valueOf(x<<5));
+					continue;
+				}
+			}
+				
+			if((CMLib.expertises().findDefinition(str,false)!=null)
+			||str.equalsIgnoreCase("EXPERTISE")
+			||str.equalsIgnoreCase("EXPERTISES"))
+			{
+				commands.remove(0);
+				types.add(str.toUpperCase().trim());
+				continue;
+			}
+			else
+			if((CMLib.expertises().findDefinition(bothStr,false)!=null))
+			{
+				commands.remove(0);
+				commands.remove(0);
+				types.add(bothStr.toUpperCase().trim());
+				continue;
+			}
+			mob.tell(L("'@x1' is not a valid skill type, domain, expertise, or character class.",str));
+			mob.tell(willQualErr);
+			return false;
 		}
-		
-		msg.append("At level "+level+" of class '"+C.name()+"', you could qualify for:\n\r");
-		msg.append(getQualifiedAbilities(mob,C.ID(),level,"",types));
+
+		msg.append(L("At level @x1 of class '@x2', you could qualify for:\n\r",""+level,C.name()));
+		msg.append(getQualifiedAbilities(mob,mob,C.ID(),level,"",types));
 		if(!mob.isMonster())
-		    mob.session().wraplessPrintln(msg.toString());
+			mob.session().wraplessPrintln(msg.toString());
 		return false;
 	}
 }

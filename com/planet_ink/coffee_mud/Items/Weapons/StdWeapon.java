@@ -2,6 +2,7 @@ package com.planet_ink.coffee_mud.Items.Weapons;
 import com.planet_ink.coffee_mud.Items.Basic.StdItem;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -10,20 +11,22 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
+
 import java.util.*;
 
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2001-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -31,15 +34,21 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-public class StdWeapon extends StdItem implements Weapon
+public class StdWeapon extends StdItem implements Weapon, AmmunitionWeapon
 {
-	public String ID(){	return "StdWeapon";}
-	protected int weaponType=TYPE_NATURAL;
-	protected int weaponClassification=CLASS_NATURAL;
-	protected boolean useExtendedMissString=false;
-	protected int minRange=0;
-	protected int maxRange=0;
-	protected int ammoCapacity=0;
+	@Override
+	public String ID()
+	{
+		return "StdWeapon";
+	}
+
+	protected int		weaponDamageType		= TYPE_NATURAL;
+	protected int		weaponClassification	= CLASS_NATURAL;
+	protected boolean	useExtendedMissString	= false;
+	protected int		minRange				= 0;
+	protected int		maxRange				= 0;
+	protected int		ammoCapacity			= 0;
+	protected long		lastReloadTime			= 0;
 
 	public StdWeapon()
 	{
@@ -50,66 +59,159 @@ public class StdWeapon extends StdItem implements Weapon
 		setDescription("This is a deadly looking weapon.");
 		wornLogicalAnd=false;
 		properWornBitmap=Wearable.WORN_HELD|Wearable.WORN_WIELD;
-		baseEnvStats().setAttackAdjustment(0);
-		baseEnvStats().setDamage(0);
-		baseEnvStats().setAbility(0);
+		basePhyStats().setAttackAdjustment(0);
+		basePhyStats().setDamage(0);
+		basePhyStats().setAbility(0);
 		baseGoldValue=15;
 		material=RawMaterial.RESOURCE_STEEL;
 		setUsesRemaining(100);
-		recoverEnvStats();
+		recoverPhyStats();
 	}
 
+	@Override
+	public int weaponDamageType()
+	{
+		return weaponDamageType;
+	}
 
-	public int weaponType(){return weaponType;}
-	public int weaponClassification(){return weaponClassification;}
-	public void setWeaponType(int newType){weaponType=newType;}
-	public void setWeaponClassification(int newClassification){weaponClassification=newClassification;}
+	@Override
+	public int weaponClassification()
+	{
+		return weaponClassification;
+	}
 
+	@Override
+	public void setWeaponDamageType(int newType)
+	{
+		weaponDamageType = newType;
+	}
+
+	@Override
+	public void setWeaponClassification(int newClassification)
+	{
+		weaponClassification = newClassification;
+	}
+
+	@Override
 	public String secretIdentity()
 	{
 		String id=super.secretIdentity();
-		if(envStats().ability()>0)
-			id=name()+" +"+envStats().ability()+((id.length()>0)?"\n":"")+id;
+		if(phyStats().ability()>0)
+			id=name()+" +"+phyStats().ability()+((id.length()>0)?"\n":"")+id;
 		else
-		if(envStats().ability()<0)
-			id=name()+" "+envStats().ability()+((id.length()>0)?"\n":"")+id;
-		return id+"\n\rAttack: "+envStats().attackAdjustment()+", Damage: "+envStats().damage();
-	}
-	public void affectEnvStats(Environmental affected, EnvStats affectableStats)
-	{
-		super.affectEnvStats(affected,affectableStats);
-		if(amWearingAt(Wearable.WORN_WIELD))
-		{
-            if(envStats().attackAdjustment()!=0)
-    			affectableStats.setAttackAdjustment(affectableStats.attackAdjustment()+(envStats().attackAdjustment()));
-			if(envStats().damage()!=0)
-				affectableStats.setDamage(affectableStats.damage()+envStats().damage());
-		}
-	}
-	public void recoverEnvStats()
-	{
-		super.recoverEnvStats();
-        if(envStats().damage()!=0)
-        {
-            envStats().setDamage(envStats().damage()+(envStats().ability()*2));
-            envStats().setAttackAdjustment(envStats().attackAdjustment()+(envStats().ability()*10));
-        }
-		if((subjectToWearAndTear())&&(usesRemaining()<100))
-			envStats().setDamage(((int)Math.round(CMath.mul(envStats().damage(),CMath.div(usesRemaining(),100)))));
+		if(phyStats().ability()<0)
+			id=name()+" "+phyStats().ability()+((id.length()>0)?"\n":"")+id;
+		return id+L("\n\rAttack: @x1, Damage: @x2",""+phyStats().attackAdjustment(),""+phyStats().damage());
 	}
 
-	public void executeMsg(Environmental myHost, CMMsg msg)
+	@Override
+	public void affectPhyStats(Physical affected, PhyStats affectableStats)
+	{
+		super.affectPhyStats(affected,affectableStats);
+		if(amWearingAt(Wearable.WORN_WIELD))
+		{
+			if(phyStats().attackAdjustment()!=0)
+				affectableStats.setAttackAdjustment(affectableStats.attackAdjustment()+(phyStats().attackAdjustment()));
+			if(phyStats().damage()!=0)
+				affectableStats.setDamage(affectableStats.damage()+phyStats().damage());
+		}
+	}
+
+	@Override
+	public void recoverPhyStats()
+	{
+		super.recoverPhyStats();
+		if(phyStats().damage()!=0)
+		{
+			final int ability=super.wornLogicalAnd ? (phyStats().ability()*CMath.numberOfSetBits(super.myWornCode)) : phyStats().ability();
+			phyStats().setDamage(phyStats().damage()+(ability*2));
+			phyStats().setAttackAdjustment(phyStats().attackAdjustment()+(ability*10));
+		}
+		if((subjectToWearAndTear())&&(usesRemaining()<100))
+			phyStats().setDamage(((int)Math.round(CMath.mul(phyStats().damage(),CMath.div(usesRemaining(),100)))));
+	}
+
+	@Override
+	public void executeMsg(final Environmental myHost, final CMMsg msg)
 	{
 		super.executeMsg(myHost,msg);
 
-		if((msg.amITarget(this))
-		&&((msg.targetMinor()==CMMsg.TYP_LOOK)||(msg.targetMinor()==CMMsg.TYP_EXAMINE))
-		&&(CMLib.flags().canBeSeenBy(this,msg.source())))
+		if(msg.amITarget(this))
 		{
-			if(requiresAmmunition())
-				msg.source().tell(ammunitionType()+" remaining: "+ammunitionRemaining()+"/"+ammunitionCapacity()+".");
-			if((subjectToWearAndTear())&&(usesRemaining()<100))
-				msg.source().tell(weaponHealth());
+			switch(msg.targetMinor())
+			{
+			case CMMsg.TYP_LOOK:
+			case CMMsg.TYP_EXAMINE:
+				if(CMLib.flags().canBeSeenBy(this,msg.source()))
+				{
+					if(requiresAmmunition())
+						msg.source().tell(L("@x1 remaining: @x2/@x3.",ammunitionType(),""+ammunitionRemaining(),""+ammunitionCapacity()));
+					if((subjectToWearAndTear())&&(usesRemaining()<100))
+						msg.source().tell(weaponHealth());
+				}
+				break;
+			case CMMsg.TYP_RELOAD:
+				if(msg.tool() instanceof Ammunition)
+				{
+					boolean recover=false;
+					final Ammunition I=(Ammunition)msg.tool();
+					int howMuchToTake=ammunitionCapacity();
+					if(I.ammunitionRemaining()<howMuchToTake)
+						howMuchToTake=I.ammunitionRemaining();
+					if(this.ammunitionCapacity() - this.ammunitionRemaining() < howMuchToTake)
+						howMuchToTake=this.ammunitionCapacity() - this.ammunitionRemaining();
+					setAmmoRemaining(this.ammunitionRemaining() + howMuchToTake);
+					I.setAmmoRemaining(I.ammunitionRemaining()-howMuchToTake);
+					final LinkedList<Ability> removeThese=new LinkedList<Ability>();
+					for(final Enumeration<Ability> a=effects();a.hasMoreElements();)
+					{
+						final Ability A=a.nextElement();
+						if((A!=null)&&(!A.isSavable())&&(A.invoker()==null))
+							removeThese.add(A);
+					}
+					for(final Ability A : removeThese)
+						delEffect(A);
+					for(final Enumeration<Ability> a=I.effects();a.hasMoreElements();)
+					{
+						Ability A=a.nextElement();
+						if((A!=null)&&(A.isSavable())&&(fetchEffect(A.ID())==null))
+						{
+							A=(Ability)A.copyOf();
+							A.setInvoker(null);
+							A.setSavable(false);
+							addEffect(A);
+							recover=true;
+						}
+					}
+					if(I.ammunitionRemaining()<=0)
+						I.destroy();
+					if(recover)
+						recoverOwner();
+				}
+				break;
+			case CMMsg.TYP_UNLOAD:
+				if(msg.tool() instanceof Ammunition)
+				{
+					final Ammunition ammo=(Ammunition)msg.tool();
+					for(final Enumeration<Ability> a=effects();a.hasMoreElements();)
+					{
+						final Ability A=a.nextElement();
+						if((A!=null)&&(!A.isSavable())&&(A.invoker()==null))
+						{
+							final Ability ammoA=(Ability)A.copyOf();
+							ammo.addNonUninvokableEffect(ammoA);
+						}
+					}
+					setAmmoRemaining(0);
+					final Room R=msg.source().location();
+					if(R!=null)
+					{
+						R.addItem(ammo, ItemPossessor.Expire.Player_Drop);
+						CMLib.commands().postGet(msg.source(), null, ammo, true);
+					}
+				}
+				break;
+			}
 		}
 		else
 		if((msg.tool()==this)
@@ -121,23 +223,22 @@ public class StdWeapon extends StdItem implements Weapon
 		&&(msg.tool()==this)
 		&&(amWearingAt(Wearable.WORN_WIELD))
 		&&(weaponClassification()!=Weapon.CLASS_NATURAL)
-		&&(weaponType()!=Weapon.TYPE_NATURAL)
-		&&(msg.target()!=null)
+		&&(weaponDamageType()!=Weapon.TYPE_NATURAL)
 		&&(msg.target() instanceof MOB)
 		&&((msg.value())>0)
-		&&(owner()!=null)
 		&&(owner() instanceof MOB)
 		&&(msg.amISource((MOB)owner())))
 		{
-			int hurt=(msg.value());
-			MOB tmob=(MOB)msg.target();
+			final MOB ownerM=(MOB)owner();
+			final int hurt=(msg.value());
+			final MOB tmob=(MOB)msg.target();
 			if((hurt>(tmob.maxState().getHitPoints()/10)||(hurt>50))
 			&&(tmob.curState().getHitPoints()>hurt))
 			{
 				if((!tmob.isMonster())
 				   &&(CMLib.dice().rollPercentage()==1)
 				   &&(CMLib.dice().rollPercentage()>(tmob.charStats().getStat(CharStats.STAT_CONSTITUTION)*4))
-				   &&(!CMSecurity.isDisabled("AUTODISEASE")))
+				   &&(!CMSecurity.isDisabled(CMSecurity.DisFlag.AUTODISEASE)))
 				{
 					Ability A=null;
 					if(subjectToWearAndTear()
@@ -148,129 +249,57 @@ public class StdWeapon extends StdItem implements Weapon
 							A=CMClass.getAbility("Disease_Lockjaw");
 						else
 							A=CMClass.getAbility("Disease_Tetanus");
+						if((A!=null)&&(tmob.fetchEffect(A.ID())==null)&&(!CMSecurity.isAbilityDisabled(A.ID())))
+							A.invoke(msg.source(),tmob,true,phyStats().level());
 					}
-					else
-						A=CMClass.getAbility("Disease_Infection");
-
-					if((A!=null)&&(msg.target().fetchEffect(A.ID())==null))
-						A.invoke(msg.source(),msg.target(),true,envStats().level());
 				}
 			}
 
 			if((subjectToWearAndTear())
 			&&(CMLib.dice().rollPercentage()==1)
 			&&(msg.source().rangeToTarget()==0)
-			&&(CMLib.dice().rollPercentage()>((envStats().level()/2)+(10*envStats().ability())+(CMLib.flags().isABonusItems(this)?20:0)))
-			&&((material()&RawMaterial.MATERIAL_MASK)!=RawMaterial.MATERIAL_ENERGY))
+			&&(CMLib.dice().rollPercentage()>((phyStats().level()/2)+(10*phyStats().ability())+(CMLib.flags().isABonusItems(this)?20:0)))
+			&&((material()&RawMaterial.MATERIAL_MASK)!=RawMaterial.MATERIAL_ENERGY)
+			&&((material()&RawMaterial.MATERIAL_MASK)!=RawMaterial.MATERIAL_GAS))
 			{
-				setUsesRemaining(usesRemaining()-1);
-				recoverEnvStats();
-				if((usesRemaining()<10)
-				&&(owner()!=null)
-				&&(owner() instanceof MOB)
-				&&(usesRemaining()>0))
-					((MOB)owner()).tell(name()+" is nearly destroyed! ("+usesRemaining()+"%");
-				else
-				if((usesRemaining()<=0)
-				&&(owner()!=null)
-				&&(owner() instanceof MOB))
-				{
-					MOB owner=(MOB)owner();
-					setUsesRemaining(100);
-					msg.addTrailerMsg(CMClass.getMsg(((MOB)owner()),null,null,CMMsg.MSG_OK_VISUAL,"^I"+name()+" is destroyed!!^?",CMMsg.NO_EFFECT,null,CMMsg.MSG_OK_VISUAL,"^I"+name()+" being wielded by <S-NAME> is destroyed!^?"));
-					unWear();
-					destroy();
-					owner.recoverEnvStats();
-					owner.recoverCharStats();
-					owner.recoverMaxState();
-                    if(owner.location()!=null)
-    					owner.location().recoverRoomStats();
-				}
+				CMLib.combat().postItemDamage(ownerM, this, null, 1, CMMsg.TYP_JUSTICE, null);
 			}
 		}
 	}
-	public boolean okMessage(Environmental myHost, CMMsg msg)
+
+	@Override
+	public boolean okMessage(final Environmental myHost, final CMMsg msg)
 	{
 		if(!super.okMessage(myHost,msg))
 			return false;
 
 		if((msg.targetMinor()==CMMsg.TYP_WEAPONATTACK)
-		   &&(msg.tool()==this)
-		   &&(requiresAmmunition())
-		   &&(ammunitionCapacity()>0))
+		&&(msg.tool()==this)
+		&&(requiresAmmunition())
+		&&(ammunitionCapacity()>0))
 		{
 			if(ammunitionRemaining()>ammunitionCapacity())
 				setAmmoRemaining(ammunitionCapacity());
 			if(ammunitionRemaining()<=0)
 			{
-				boolean reLoaded=false;
-
-				if((msg.source().isMine(this))
-				   &&(msg.source().location()!=null)
-				   &&(CMLib.flags().aliveAwakeMobile(msg.source(),true)))
+				if(lastReloadTime != msg.source().lastTickedDateTime())
 				{
-					boolean recover=false;
-
-					for(int a=0;a<numEffects();a++)
+					if(msg.source().isMonster() && (owner() instanceof Room))
+						((Room)owner()).showHappens(CMMsg.MSG_OK_VISUAL, L("@x1 is out of @x2.",name(),ammunitionType()));
+					else
+						msg.source().tell(L("@x1 is out of @x2.",name(),ammunitionType()));
+					if((msg.source().isMine(this))
+					&&(msg.source().location()!=null)
+					&&(CMLib.flags().isAliveAwakeMobile(msg.source(),true)))
 					{
-						Ability A=fetchEffect(a);
-						if((A!=null)&&(!A.savable())&&(A.invoker()==null))
-						{
-							recover=true;
-							delEffect(A);
-						}
-					}
-
-					MOB mob=msg.source();
-					for(int i=0;i<mob.inventorySize();i++)
-					{
-						Item I=mob.fetchInventory(i);
-						if((I instanceof Ammunition)
-						&&(I.usesRemaining()>0)
-						&&(I.usesRemaining()<Integer.MAX_VALUE)
-						&&(I.container()==null)
-						&&(((Ammunition)I).ammunitionType().equalsIgnoreCase(ammunitionType())))
-						{
-							if(mob.location().show(mob,this,I,CMMsg.MSG_RELOAD,"<S-NAME> load(s) <T-NAME> from <O-NAME>."))
-							{
-								int howMuchToTake=ammunitionCapacity();
-								if(I.usesRemaining()<howMuchToTake)
-									howMuchToTake=I.usesRemaining();
-								setAmmoRemaining(howMuchToTake);
-								I.setUsesRemaining(I.usesRemaining()-howMuchToTake);
-								for(int a=0;a<I.numEffects();a++)
-								{
-									Ability A=I.fetchEffect(a);
-									if((A!=null)&&(A.savable())&&(fetchEffect(A.ID())==null))
-									{
-										A=(Ability)A.copyOf();
-										A.setInvoker(null);
-										A.setSavable(false);
-										addEffect(A);
-										recover=true;
-									}
-								}
-
-								if(I.usesRemaining()<=0) I.destroy();
-								reLoaded=true;
-								break;
-							}
-						}
-					}
-					if(recover)
-					{
-						mob.recoverEnvStats();
-						mob.recoverCharStats();
-						mob.recoverMaxState();
+						lastReloadTime=msg.source().lastTickedDateTime();
+						if((!msg.source().isMonster())||inventoryAmmoCheck(msg.source()))
+							msg.source().enqueCommand(CMParms.parse("LOAD ALL \"$"+name()+"$\""), 0, 0);
+						else
+							msg.source().enqueCommand(CMParms.parse("REMOVE \"$"+name()+"$\""), 0, 0);
 					}
 				}
-				if(!reLoaded)
-				{
-					setAmmoRemaining(0);
-					msg.source().tell("You have no more "+ammunitionType()+".");
-					CMLib.commands().postRemove(msg.source(),this,false);
-					return false;
-				}
+				return false;
 			}
 			else
 				setUsesRemaining(usesRemaining()-1);
@@ -278,6 +307,21 @@ public class StdWeapon extends StdItem implements Weapon
 		return true;
 	}
 
+	protected boolean inventoryAmmoCheck(MOB M)
+	{
+		if(M==null)
+			return false;
+		for(int i=0;i<M.numItems();i++)
+		{
+			final Item I=M.getItem(i);
+			if((I instanceof Ammunition)
+			&&(((Ammunition)I).ammunitionType().equalsIgnoreCase(ammunitionType())))
+				return true;
+		}
+		return false;
+	}
+
+	@Override
 	public void setUsesRemaining(int newUses)
 	{
 		if(newUses==Integer.MAX_VALUE)
@@ -291,7 +335,7 @@ public class StdWeapon extends StdItem implements Weapon
 			return "";
 		else
 		if(usesRemaining()>=95)
-			return name()+" looks slightly used ("+usesRemaining()+"%)";
+			return L("@x1 looks slightly used (@x2%)",name(),""+usesRemaining());
 		else
 		if(usesRemaining()>=85)
 		{
@@ -302,9 +346,9 @@ public class StdWeapon extends StdItem implements Weapon
 			case Weapon.CLASS_EDGED:
 			case Weapon.CLASS_POLEARM:
 			case Weapon.CLASS_SWORD:
-				return name()+" is somewhat dull ("+usesRemaining()+"%)";
+				return L("@x1 is somewhat dull (@x2%)",name(),""+usesRemaining());
 			default:
-				 return name()+" is somewhat worn ("+usesRemaining()+"%)";
+				 return L("@x1 is somewhat worn (@x2%)",name(),""+usesRemaining());
 			}
 		}
 		else
@@ -317,9 +361,9 @@ public class StdWeapon extends StdItem implements Weapon
 			case Weapon.CLASS_EDGED:
 			case Weapon.CLASS_POLEARM:
 			case Weapon.CLASS_SWORD:
-				return name()+" is dull ("+usesRemaining()+"%)";
+				return L("@x1 is dull (@x2%)",name(),""+usesRemaining());
 			default:
-				 return name()+" is worn ("+usesRemaining()+"%)";
+				 return L("@x1 is worn (@x2%)",name(),""+usesRemaining());
 			}
 		}
 		else
@@ -332,77 +376,155 @@ public class StdWeapon extends StdItem implements Weapon
 			case Weapon.CLASS_EDGED:
 			case Weapon.CLASS_POLEARM:
 			case Weapon.CLASS_SWORD:
-				return name()+" has some notches and chinks ("+usesRemaining()+"%)";
+				return L("@x1 has some notches and chinks (@x2%)",name(),""+usesRemaining());
 			default:
-				return name()+" is damaged ("+usesRemaining()+"%)";
+				return L("@x1 is damaged (@x2%)",name(),""+usesRemaining());
 			}
 		}
 		else
 		if(usesRemaining()>25)
-			return name()+" is heavily damaged ("+usesRemaining()+"%)";
+			return L("@x1 is heavily damaged (@x2%)",name(),""+usesRemaining());
 		else
-			return name()+" is so damaged, it is practically harmless ("+usesRemaining()+"%)";
+			return L("@x1 is so damaged, it is practically harmless (@x2%)",name(),""+usesRemaining());
 	}
+
+	@Override
 	public String missString()
 	{
-		return CMLib.combat().standardMissString(weaponType,weaponClassification,name(),useExtendedMissString);
+		return CMLib.combat().standardMissString(weaponDamageType,weaponClassification,name(),useExtendedMissString);
 	}
+
+	@Override
 	public String hitString(int damageAmount)
 	{
-		return CMLib.combat().standardHitString(weaponClassification,damageAmount,name());
+		return CMLib.combat().standardHitString(weaponDamageType, weaponClassification,damageAmount,name());
 	}
+
+	@Override
 	public int minRange()
 	{
-		if(CMath.bset(envStats().sensesMask(),EnvStats.SENSE_ITEMNOMINRANGE))
+		if(CMath.bset(phyStats().sensesMask(),PhyStats.SENSE_ITEMNOMINRANGE))
 			return 0;
 		return minRange;
 	}
+
+	@Override
 	public int maxRange()
 	{
-		if(CMath.bset(envStats().sensesMask(),EnvStats.SENSE_ITEMNOMAXRANGE))
+		if(CMath.bset(phyStats().sensesMask(),PhyStats.SENSE_ITEMNOMAXRANGE))
 			return 100;
 		return maxRange;
 	}
-	public void setRanges(int min, int max){minRange=min;maxRange=max;}
+
+	@Override
+	public void setRanges(int min, int max)
+	{
+		minRange = min;
+		maxRange = max;
+	}
+
+	@Override
 	public boolean requiresAmmunition()
 	{
 		if((readableText()==null)||(this instanceof Wand))
 			return false;
 		return readableText().length()>0;
 	}
+
+	@Override
+	public boolean isFreeStanding()
+	{
+		return false;
+	}
+
+	@Override
 	public void setAmmunitionType(String ammo)
 	{
 		if(!(this instanceof Wand))
 			setReadableText(ammo);
 	}
+
+	@Override
 	public String ammunitionType()
 	{
 		return readableText();
 	}
+
+	@Override
 	public int ammunitionRemaining()
 	{
 		return usesRemaining();
 	}
+
+	@Override
 	public void setAmmoRemaining(int amount)
 	{
+		final int oldAmount=ammunitionRemaining();
 		if(amount==Integer.MAX_VALUE)
 			amount=20;
 		setUsesRemaining(amount);
+		final ItemPossessor myOwner=owner;
+		if((oldAmount>0)
+		&&(amount==0)
+		&&(myOwner instanceof MOB)
+		&&(ammunitionCapacity()>0))
+		{
+			boolean recover=false;
+			for(final Enumeration<Ability> a=effects();a.hasMoreElements();)
+			{
+				final Ability A=a.nextElement();
+				if((A!=null)&&(!A.isSavable())&&(A.invoker()==null))
+				{
+					recover=true;
+					delEffect(A);
+				}
+			}
+			if(recover)
+				recoverOwner();
+		}
 	}
-	public int ammunitionCapacity(){return ammoCapacity;}
-	public void setAmmoCapacity(int amount){ammoCapacity=amount;}
+
+	@Override
+	public int ammunitionCapacity()
+	{
+		return ammoCapacity;
+	}
+
+	@Override
+	public void setAmmoCapacity(int amount)
+	{
+		ammoCapacity = amount;
+	}
+
+	@Override
 	public int value()
 	{
 		if((subjectToWearAndTear())&&(usesRemaining()<1000))
 			return (int)Math.round(CMath.mul(super.value(),CMath.div(usesRemaining(),100)));
 		return super.value();
 	}
+
+	@Override
 	public boolean subjectToWearAndTear()
 	{
 		return((!requiresAmmunition())
 			&&(!(this instanceof Wand))
 			&&(usesRemaining()<=1000)
 			&&(usesRemaining()>=0));
+	}
+
+	public void recoverOwner()
+	{
+		final ItemPossessor myOwner=owner;
+		if(myOwner instanceof MOB)
+		{
+			((MOB)myOwner).recoverCharStats();
+			((MOB)myOwner).recoverMaxState();
+			((MOB)myOwner).recoverPhyStats();
+		}
+		else
+		if(myOwner!=null)
+			myOwner.recoverPhyStats();
 	}
 
 }

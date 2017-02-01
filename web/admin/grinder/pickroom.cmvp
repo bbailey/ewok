@@ -16,12 +16,12 @@
 		var rvalue=document.NEWAREA.ROOM.options[rindex].value;
 		if(avalue=='')
 		{
-			alert('Please select an area');
+			if(window.alert) alert('Please select an area');
 			return;
 		}
 		if(rvalue=='')
 		{
-			alert('Please select a room');
+			if(window.alert) alert('Please select a room');
 			return;
 		}
 		opener.pickedRoom(avalue,rvalue,document.NEWAREA.REST.value);
@@ -32,7 +32,7 @@
 </HEAD>
 <BODY BGCOLOR=BLACK>
 <CENTER>
-<FORM NAME=NEWAREA METHOD=POST ACTION="/grinder/pickroom.cmvp" TARGET=_top>
+<FORM  ACCEPT-CHARSET="UTF-8" NAME=NEWAREA METHOD=POST ACTION="/grinder/pickroom.cmvp" TARGET=_top>
 <INPUT TYPE=HIDDEN NAME=REST VALUE="@RequestParameter?REST@">
 <TABLE WIDTH=85% BORDER=1>
 <TR><TD WIDTH=100% COLSPAN=2 ALIGN=CENTER BGCOLOR=WHITE><FONT COLOR=BLACK>Select a Room</FONT></TD></TR>
@@ -45,7 +45,7 @@
 		@AreaNext?RESET@
 		@loop@
 			@AreaNext@
-			<OPTION VALUE="@AreaName@" @if?CheckReqParm?OLDAREA=@@AreaName@@ @SELECTED@endif@>@AreaName@
+			<OPTION VALUE="@AreaID@" @if?CheckReqParm?OLDAREA=@@AreaID@@ @SELECTED@endif@>@AreaName@
 		@back@
 		</SELECT>
 		@AddRequestParameter?AREA=@@RequestParameter?OLDAREA@@ @

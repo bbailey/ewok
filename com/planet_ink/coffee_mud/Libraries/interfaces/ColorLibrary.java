@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Libraries.interfaces;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -13,14 +14,14 @@ import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2005-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -28,174 +29,378 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
+/**
+ * The color library does just what it says, provides access to methods
+ * to translate colors from words, to ansi codes, to html tags, and
+ * combine them all in ways appropriate for their use.
+ * 
+ * @author Bo Zimmerman
+ *
+ */
 public interface ColorLibrary extends CMLibrary
 {
-    public static final String COLOR_WHITE="\033[1;37m";
-    public static final String COLOR_LIGHTGREEN="\033[1;32m";
-    public static final String COLOR_LIGHTBLUE="\033[1;34m";
-    public static final String COLOR_LIGHTRED="\033[1;31m";
-    public static final String COLOR_YELLOW="\033[1;33m";
-    public static final String COLOR_LIGHTCYAN="\033[1;36m";
-    public static final String COLOR_LIGHTPURPLE="\033[1;35m";
-    public static final String COLOR_GREY="\033[0;37m";
-    public static final String COLOR_GREEN="\033[0;32m";
-    public static final String COLOR_BLUE="\033[0;34m";
-    public static final String COLOR_RED="\033[0;31m";
-    public static final String COLOR_BROWN="\033[0;33m";
-    public static final String COLOR_CYAN="\033[0;36m";
-    public static final String COLOR_PURPLE="\033[0;35m";
-    public static final String COLOR_DARKGREY="\033[1;30m";
-    public static final String COLOR_BLACK="\033[0;30m";
-    public static final String COLOR_NONE="\033[0;0m";
-    public static final String COLOR_BOLD="\033[1m";
-    public static final String COLOR_UNDERLINE="\033[4m";
-    public static final String COLOR_BLINK="\033[5m";
-    public static final String COLOR_ITALICS="\033[6m";
-    public static final String COLOR_BGWHITE="\033[47m";
-    public static final String COLOR_BGGREEN="\033[42m";
-    public static final String COLOR_BGBLUE="\033[44m";
-    public static final String COLOR_BGRED="\033[41m";
-    public static final String COLOR_BGYELLOW="\033[43m";
-    public static final String COLOR_BGCYAN="\033[46m";
-    public static final String COLOR_BGPURPLE="\033[45m";
-    public static final String COLOR_BGBLACK="\033[40m";
-    public static final String COLOR_BGDEFAULT="\033[49m";
-    
-    public static final String HTTAG_WHITE="<FONT COLOR=WHITE";
-    public static final String HTTAG_LIGHTGREEN="<FONT COLOR=LIGHTGREEN";
-    public static final String HTTAG_LIGHTBLUE="<FONT COLOR=BLUE";
-    public static final String HTTAG_LIGHTRED="<FONT COLOR=RED";
-    public static final String HTTAG_YELLOW="<FONT COLOR=YELLOW";
-    public static final String HTTAG_LIGHTCYAN="<FONT COLOR=CYAN";
-    public static final String HTTAG_LIGHTPURPLE="<FONT COLOR=VIOLET";
-    public static final String HTTAG_GREY="<FONT COLOR=LIGHTGREY";
-    public static final String HTTAG_GREEN="<FONT COLOR=GREEN";
-    public static final String HTTAG_BLUE="<FONT COLOR=#000099";
-    public static final String HTTAG_RED="<FONT COLOR=#993300";
-    public static final String HTTAG_BROWN="<FONT COLOR=#999966";
-    public static final String HTTAG_CYAN="<FONT COLOR=DARKCYAN";
-    public static final String HTTAG_PURPLE="<FONT COLOR=PURPLE";
-    public static final String HTTAG_DARKGREY="<FONT COLOR=GRAY";
-    public static final String HTTAG_BLACK="<FONT COLOR=BLACK";
-    public static final String HTTAG_NONE="</I></U></BLINK></B></FONT";
-    public static final String HTTAG_BOLD="<B";
-    public static final String HTTAG_UNDERLINE="<U";
-    public static final String HTTAG_BLINK="<BLINK";
-    public static final String HTTAG_ITALICS="<I";
-    public static final String HTTAG_BGWHITE=" style=\"background-color: white\"";
-    public static final String HTTAG_BGGREEN=" style=\"background-color: green\"";
-    public static final String HTTAG_BGBLUE=" style=\"background-color: #000099\"";
-    public static final String HTTAG_BGRED=" style=\"background-color: #993300\"";
-    public static final String HTTAG_BGYELLOW=" style=\"background-color: #999966\"";
-    public static final String HTTAG_BGCYAN=" style=\"background-color: darkcyan\"";
-    public static final String HTTAG_BGPURPLE=" style=\"background-color: purple\"";
-    public static final String HTTAG_BGBLACK=" style=\"background-color: black\"";
-    public static final String HTTAG_BGDEFAULT=" style=\"background-color: white\"";
-    
-    public static final String[] COLOR_CODELETTERSINCARDINALORDER={
-        "k","r","g","y","b","p","c","w",null,null
-    };
-    public static final String[] COLOR_ALLCOLORS={
-        COLOR_WHITE,COLOR_LIGHTGREEN,COLOR_LIGHTBLUE,COLOR_LIGHTRED,
-        COLOR_YELLOW,COLOR_LIGHTCYAN,COLOR_LIGHTPURPLE,COLOR_GREY,
-        COLOR_GREEN,COLOR_BLUE,COLOR_RED,COLOR_BROWN,
-        COLOR_CYAN,COLOR_PURPLE,COLOR_DARKGREY,COLOR_BLACK,COLOR_NONE,
-        COLOR_BOLD,COLOR_UNDERLINE,COLOR_BLINK,COLOR_ITALICS,
-        COLOR_BGWHITE,COLOR_BGGREEN,COLOR_BGBLUE,COLOR_BGRED,
-        COLOR_BGYELLOW,COLOR_BGCYAN,COLOR_BGPURPLE,COLOR_BGBLACK,
-        COLOR_BGDEFAULT,
-        
-    };
-    public static final String[] COLOR_ALLHTTAGS={
-        HTTAG_WHITE,HTTAG_LIGHTGREEN,HTTAG_LIGHTBLUE,HTTAG_LIGHTRED,
-        HTTAG_YELLOW,HTTAG_LIGHTCYAN,HTTAG_LIGHTPURPLE,HTTAG_GREY,
-        HTTAG_GREEN,HTTAG_BLUE,HTTAG_RED,HTTAG_BROWN,
-        HTTAG_CYAN,HTTAG_PURPLE,HTTAG_DARKGREY,HTTAG_BLACK,HTTAG_NONE,
-        HTTAG_BOLD,HTTAG_UNDERLINE,HTTAG_BLINK,HTTAG_ITALICS,
-        HTTAG_BGWHITE,HTTAG_BGGREEN,HTTAG_BGBLUE,HTTAG_BGRED,
-        HTTAG_BGYELLOW,HTTAG_BGCYAN,HTTAG_BGPURPLE,HTTAG_BGBLACK,
-        HTTAG_BGDEFAULT
-    };
-    public static final String[] COLOR_ALLCOLORNAMES={
-        "WHITE","LIGHTGREEN","LIGHTBLUE","LIGHTRED",
-        "YELLOW","LIGHTCYAN","LIGHTPURPLE","GREY",
-        "GREEN","BLUE","RED","BROWN",
-        "CYAN","PURPLE","DARKGREY","BLACK","NONE",
-        "BOLD","UNDERLINE","BLINK","ITALICS",
-        "BGWHITE","BGGREEN","BGBLUE","BGRED",
-        "BGYELLOW","BGCYAN","BGPURPLE","BGBLACK",
-        "BGDEFAULT"
-    };
-    
-    public static final String[] COLOR_ALLNORMALCOLORCODELETTERS={
-        "w","g","b","r",
-        "y","c","p","W",
-        "G","B","R","Y",
-        "C","P","k"
-    };
-    public static final String[] COLOR_ALLEXTENDEDCOLORCODELETTERS={
-        "w","g","b","r",
-        "y","c","p","W",
-        "G","B","R","Y",
-        "C","P","k","K"
-    };
-    //remaining=aijlnoszAJV
-    public static final char COLORCODE_YOU_FIGHT='f';
-    public static final char COLORCODE_FIGHT_YOU='e';
-    public static final char COLORCODE_FIGHT='F';
-    public static final char COLORCODE_SPELL='S';
-    public static final char COLORCODE_EMOTE='E';
-    public static final char COLORCODE_WEATHER='J';
-    public static final char COLORCODE_TALK='T';
-    public static final char COLORCODE_TELL='t';
-    public static final char COLORCODE_CHANNEL='Q';
-    public static final char COLORCODE_CHANNELFORE='q';
-    public static final char COLORCODE_IMPORTANT1='x';
-    public static final char COLORCODE_IMPORTANT2='X';
-    public static final char COLORCODE_IMPORTANT3='Z';
-    public static final char COLORCODE_ROOMTITLE='O';
-    public static final char COLORCODE_ROOMDESC='L';
-    public static final char COLORCODE_DIRECTION='D';
-    public static final char COLORCODE_DOORDESC='d';
-    public static final char COLORCODE_ITEM='I';
-    public static final char COLORCODE_MOB='M';
-    public static final char COLORCODE_HITPOINTS='h';
-    public static final char COLORCODE_MANA='m';
-    public static final char COLORCODE_MOVES='v';
-    public static final char COLORCODE_NORMAL='N';
-    public static final char COLORCODE_HIGHLIGHT='H';
-    public static final char COLORCODE_UNEXPDIRECTION='U';
-    public static final char COLORCODE_UNEXPDOORDESC='u';
-    public static final char[] COLORCODE_ALLCODES={
-        COLORCODE_YOU_FIGHT,COLORCODE_FIGHT_YOU,COLORCODE_FIGHT,COLORCODE_SPELL,
-        COLORCODE_EMOTE,COLORCODE_TALK,COLORCODE_TELL,COLORCODE_CHANNEL,
-        COLORCODE_CHANNELFORE,COLORCODE_IMPORTANT1,COLORCODE_IMPORTANT2,
-        COLORCODE_IMPORTANT3,COLORCODE_ROOMTITLE,COLORCODE_ROOMDESC,
-        COLORCODE_DIRECTION,COLORCODE_DOORDESC,COLORCODE_ITEM,COLORCODE_MOB,
-        COLORCODE_HITPOINTS,COLORCODE_MANA,COLORCODE_MOVES,COLORCODE_NORMAL,
-        COLORCODE_HIGHLIGHT,COLORCODE_UNEXPDIRECTION,COLORCODE_UNEXPDOORDESC,
-        COLORCODE_WEATHER
-    };
-    public static final String[] COLORCODE_ALLCODENAMES={
-        "YOU-FIGHT","FIGHT-YOU","FIGHT","SPELL","EMOTE","TALK",
-        "TELL","CHANNEL","CHANNELFORE","IMPORTANT1",
-        "IMPORTANT2","IMPORTANT3","ROOMTITLE","ROOMDESC",
-        "DIRECTION","DOORDESC","ITEM","MOB",
-        "HITPOINTS","MANA","MOVES","NORMAL",
-        "HIGHLIGHT","UNEXPDIRECTION","UNEXPDOORDESC","WEATHER"
-    };
+	/**
+	 * These are the straight color codes and character codes
+	 * such as blink adn so forth.  Includes back and foreground,
+	 * and lots of codes for each one, including ansi codes,
+	 * html tags, ^ codes, and so forth.
+	 * 
+	 * @author Bo Zimmerman
+	 */
+	public enum Color
+	{
+		WHITE("\033[1;37m","<FONT COLOR=WHITE",'w'),
+		LIGHTGREEN("\033[1;32m","<FONT COLOR=LIGHTGREEN",'g'),
+		LIGHTBLUE("\033[1;34m","<FONT COLOR=BLUE",'b'),
+		LIGHTRED("\033[1;31m","<FONT COLOR=RED",'r'),
+		YELLOW("\033[1;33m","<FONT COLOR=YELLOW",'y'),
+		LIGHTCYAN("\033[1;36m","<FONT COLOR=CYAN",'c'),
+		LIGHTPURPLE("\033[1;35m","<FONT COLOR=VIOLET",'p'),
+		GREY("\033[0;37m","<FONT COLOR=LIGHTGREY",'W'),
+		GREEN("\033[0;32m","<FONT COLOR=GREEN",'G'),
+		BLUE("\033[0;34m","<FONT COLOR=#000099",'B'),
+		RED("\033[0;31m","<FONT COLOR=#993300",'R'),
+		BROWN("\033[0;33m","<FONT COLOR=#999966",'Y'),
+		CYAN("\033[0;36m","<FONT COLOR=DARKCYAN",'C'),
+		PURPLE("\033[0;35m","<FONT COLOR=PURPLE",'P'),
+		DARKGREY("\033[1;30m","<FONT COLOR=GRAY",'k'),
+		BLACK("\033[0;30m","<FONT COLOR=BLACK",'K'),
+		NONE("\033[0;0m","</I></U></BLINK></B></FONT"),
+		BOLD("\033[1m","<B"),
+		UNDERLINE("\033[4m","<U"),
+		BLINK("\033[5m","<BLINK"),
+		ITALICS("\033[6m","<I"),
+		BGWHITE("\033[47m"," style=\"background-color: white\""),
+		BGGREEN("\033[42m"," style=\"background-color: green\""),
+		BGBLUE("\033[44m"," style=\"background-color: #000099\""),
+		BGRED("\033[41m"," style=\"background-color: #993300\""),
+		BGYELLOW("\033[43m"," style=\"background-color: #999966\""),
+		BGCYAN("\033[46m"," style=\"background-color: darkcyan\""),
+		BGPURPLE("\033[45m"," style=\"background-color: purple\""),
+		BGBLACK("\033[40m"," style=\"background-color: black\""),
+		BGDEFAULT("\033[49m"," style=\"background-color: white\""),
+		;
+		
+		private final String	ansiCode;
+		private final String	htmlTag;
+		private final char		codeLetter;
+		private final boolean	isBasicColor;
+		private final boolean	isExtendedColor;
+		
+		private Color(String ansiCode, String htmlTag, char codeLetter)
+		{
+			this.ansiCode = ansiCode;
+			this.codeLetter = codeLetter;
+			this.htmlTag = htmlTag;
+			isBasicColor = ((this.codeLetter != 'K') && (this.codeLetter != '\0'));
+			isExtendedColor = (this.codeLetter != '\0');
+		}
+		
+		private Color(String ansiCode, String htmlTag)
+		{
+			this(ansiCode, htmlTag, '\0');
+		}
+		
+		/**
+		 * True if its a basic 16 color, but also non-black.
+		 * @return its a basic 16 color, but also non-black.
+		 */
+		public final boolean isBasicColor()
+		{
+			return isBasicColor;
+		}
+		
+		
+		/**
+		 * True if its a basic 16 color, including black.
+		 * @return its a basic 16 color, including black.
+		 */
+		public final boolean isExtendedColor()
+		{
+			return isExtendedColor;
+		}
 
-    public static final String COLOR_FR0G3B5="\033[38;5;"+(16+(0*36)+(3*6)+5)+"m";
-    public static final String COLOR_BR0G3B5="\033[48;5;"+(16+(0*36)+(3*6)+5)+"m";
-    
-    public void clearLookups();
-    public int translateSingleCMCodeToANSIOffSet(String code);
-    public String translateCMCodeToANSI(String code);
-    public String translateANSItoCMCode(String code);
-    public String mixHTMLCodes(String code1, String code2);
-    public String mixColorCodes(String code1, String code2);
-    public CMMsg fixSourceFightColor(CMMsg msg);
-    public String[] standardHTMLlookups();
-    public String[] standardColorLookups();
-    
+		/**
+		 * Returns the HTML tag for this color code
+		 * @return the HTML tag for this color code
+		 */
+		public final String getHtmlTag()
+		{
+			return htmlTag;
+		}
+
+		/**
+		 * Returns the ANSI escape codes for this color.
+		 * @return the ANSI escape codes for this color.
+		 */
+		public final String getANSICode()
+		{
+			return ansiCode;
+		}
+
+		/**
+		 * Returns the ^ char code, or 0 if its not a basic color
+		 * @return the ^ char code, or 0 if its not a basic color
+		 */
+		public final char getCodeChar()
+		{
+			return codeLetter;
+		}
+		
+		/**
+		 * Returns the name, but with - instead of _
+		 * @return the name, but with - instead of _
+		 */
+		public final String getCodeString()
+		{
+			return name();
+		}
+		
+	}
+
+	/**
+	 * The Basic 8 Colors, in their numeric ansi code order.
+	 */
+	public static final Color[] COLORS_INCARDINALORDER=
+	{
+		Color.DARKGREY,
+		Color.LIGHTRED,
+		Color.LIGHTGREEN,
+		Color.YELLOW,
+		Color.LIGHTBLUE,
+		Color.LIGHTPURPLE,
+		Color.LIGHTCYAN,
+		Color.WHITE,
+		null,
+		null
+	};
+	
+	/**
+	 * A mapping of the escape codes for the basic 16 ansi 
+	 * colors to the basic 16 background ansi color codes
+	 */
+	public static final Map<String,String> MAP_ANSICOLOR_TO_ANSIBGCOLOR=new SHashtable<String,String>(new Object[][]{
+		{   Color.WHITE.getANSICode(), Color.BGWHITE.getANSICode()},
+		{   Color.LIGHTGREEN.getANSICode(), Color.BGGREEN.getANSICode()},
+		{   Color.LIGHTBLUE.getANSICode(), Color.BGBLUE.getANSICode()},
+		{   Color.LIGHTRED.getANSICode(), Color.BGRED.getANSICode()},
+		{   Color.YELLOW.getANSICode(), Color.BGYELLOW.getANSICode()},
+		{   Color.LIGHTCYAN.getANSICode(), Color.BGCYAN.getANSICode()},
+		{   Color.LIGHTPURPLE.getANSICode(), Color.BGPURPLE.getANSICode()},
+		{   Color.GREY.getANSICode(), Color.BGWHITE.getANSICode()},
+		{   Color.GREEN.getANSICode(), Color.BGGREEN.getANSICode()},
+		{   Color.BLUE.getANSICode(), Color.BGBLUE.getANSICode()},
+		{   Color.RED.getANSICode(), Color.BGRED.getANSICode()},
+		{   Color.BROWN.getANSICode(), Color.BGYELLOW.getANSICode()},
+		{   Color.CYAN.getANSICode(), Color.BGCYAN.getANSICode()},
+		{   Color.PURPLE.getANSICode(), Color.BGPURPLE.getANSICode()},
+		{   Color.DARKGREY.getANSICode(), Color.BGDEFAULT.getANSICode()},
+		{   Color.BLACK.getANSICode(), Color.BGBLACK.getANSICode()}
+	});
+
+	//remaining=aijlnoszAJV
+	/**
+	 * The special color codes are named color codes which are
+	 * usually renameable by the user to other basic colors.
+	 * 
+	 * @author Bo Zimmerman
+	 *
+	 */
+	public enum SpecialColor
+	{
+		YOU_FIGHT('f'),
+		FIGHT_YOU('e'),
+		FIGHT('F'),
+		SPELL('S'),
+		EMOTE('E'),
+		TALK('T'),
+		TELL('t'),
+		CHANNEL('Q'),
+		CHANNELFORE('q'),
+		IMPORTANT1('x'),
+		IMPORTANT2('X'),
+		IMPORTANT3('Z'),
+		ROOMTITLE('O'),
+		ROOMDESC('L'),
+		DIRECTION('D'),
+		DOORDESC('d'),
+		ITEM('I'),
+		MOB('M'),
+		HITPOINTS('h'),
+		MANA('m'),
+		MOVES('v'),
+		NORMAL('N'),
+		HIGHLIGHT('H'),
+		UNEXPDIRECTION('U'),
+		UNEXPDOORDESC('u'),
+		WEATHER('J')
+		;
+		
+		private final char		cchar;
+		private final String	underStr;
+		private final String	escapeCode;
+		
+		private SpecialColor(char escapeChar)
+		{
+			this.cchar = escapeChar;
+			this.underStr = name().replace('_', '-');
+			this.escapeCode = "^"+cchar;
+		}
+		
+		/**
+		 * Returns the ^ color code
+		 * @return the ^ color code
+		 */
+		public final char getCodeChar()
+		{
+			return cchar;
+		}
+		
+		/**
+		 * Returns the FULL ^ color code
+		 * @return the FULL ^ color code
+		 */
+		public final String getEscapeCode()
+		{
+			return escapeCode;
+		}
+		
+		/**
+		 * Returns the name with _ replaced by -
+		 * @return the name with _ replaced by -
+		 */
+		public final String getCodeString()
+		{
+			return underStr;
+		}
+	}
+
+	/**
+	 * Color code prefix to designate background color (^ for foreground)
+	 */
+	public static final char COLORCODE_BACKGROUND='~';
+	
+	/**
+	 * Color code prefix to designate foreground ansi color
+	 */
+	public static final char COLORCODE_FANSI256='#';
+	
+	/**
+	 * Color code prefix to designate background ansi color
+	 */
+	public static final char COLORCODE_BANSI256='|';
+
+
+	/**
+	 * A color state is a class saved for users so the system knows
+	 * what the current color situation is, which allows it to go
+	 * back when it changes.
+	 * @author Bo Zimmerman
+	 *
+	 */
+	public interface ColorState
+	{
+		/**
+		 * Returns the foreground basic 16 color code
+		 * @return the foreground basic 16 color code
+		 */
+		public char foregroundCode();
+		
+		/**
+		 * Returns the background basic 16 color code
+		 * @return the background basic 16 color code
+		 */
+		public char backgroundCode();
+	}
+
+	/**
+	 * Clears the color code lookup tables so that the next
+	 * translations will come from the properties.
+	 */
+	public void clearLookups();
+
+	/**
+	 * Translates a basic 16 or special color code, anything
+	 * that starts with ^ to the ansi escape sequence.
+	 * @see ColorLibrary#translateANSItoCMCode(String)
+	 * @param code the ^ code
+	 * @return the ansi escape sequence
+	 */
+	public String translateCMCodeToANSI(String code);
+
+	/**
+	 * Translates an ansi escape sequence to a 
+	 * basic 16 or special color code, anything
+	 * that starts with ^ to the .
+	 * @see ColorLibrary#translateCMCodeToANSI(String)
+	 * @param code ansi escape sequence
+	 * @return the ^ code
+	 */
+	public String translateANSItoCMCode(String code);
+
+	/**
+	 * Given a foreground and background set of html tags,
+	 * this method generates a single useable html tag
+	 * from the two.
+	 * @see ColorLibrary#mixColorCodes(String, String)
+	 * @param code1 the first html tag
+	 * @param code2 the other html tag, or null
+	 * @return the combined html tag
+	 */
+	public String mixHTMLCodes(String code1, String code2);
+
+	/**
+	 * Given a foreground and background set of ansi escape codes,
+	 * this method generates a single useable ansi escape code
+	 * from the two.
+	 * @see ColorLibrary#mixHTMLCodes(String, String)
+	 * @param code1 the first ansi escape code
+	 * @param code2 the other ansi escape code, or null
+	 * @return the combined ansi escape code
+	 */
+	public String mixColorCodes(String code1, String code2);
+
+	/**
+	 * Does nothing more impressive than adding the color codes
+	 * for combat to the source and target messages if possible.
+	 * @param msg the message to colorize
+	 * @return the same CMMsg sent, returned.
+	 */
+	public CMMsg fixSourceFightColor(CMMsg msg);
+
+	/**
+	 * Returns the standard html tag lookup table, which
+	 * maps an array indexed by the ^ color codes to an html
+	 * tag.
+	 * @see ColorLibrary#standardColorLookups()
+	 * @return the html tag lookup table
+	 */
+	public String[] standardHTMLlookups();
+	
+	/**
+	 * Returns the standard ansi escape color lookup table, which
+	 * maps an array indexed by the ^ color codes to an ansi escape 
+	 * color
+	 * @see ColorLibrary#standardHTMLlookups()
+	 * @return the ansi escape color lookup table
+	 */
+	public String[] standardColorLookups();
+	
+	/**
+	 * Generates a new ColorState object from the given 
+	 * foreground and background basic 16 ^ color codes.
+	 * @see ColorLibrary.ColorState
+	 * @param fg the foreground color code char
+	 * @param bg the background color code char
+	 * @return the new ColorState object
+	 */
+	public ColorState valueOf(final char fg, final char bg);
+	
+	/**
+	 * A ColorState object that represents the basic normal
+	 * color, typically grey with no background.
+	 * @see ColorLibrary.ColorState
+	 * @return the normal color ColorState
+	 */
+	public ColorState getNormalColor();
 }

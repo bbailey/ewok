@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Druid;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,22 +10,22 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
-
 import java.util.*;
 
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2002-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -33,46 +34,52 @@ import java.util.*;
    limitations under the License.
 */
 
-@SuppressWarnings("unchecked")
+
 public class Chant_Moonbeam extends Chant
 {
-	public String ID() { return "Chant_Moonbeam"; }
-	public String name(){ return "Moonbeam";}
-	public String displayText(){return "(Moonbeam)";}
-    public int classificationCode(){return Ability.ACODE_CHANT|Ability.DOMAIN_MOONSUMMONING;}
-    public int abstractQuality(){ return Ability.QUALITY_OK_SELF;}
+	@Override public String ID() { return "Chant_Moonbeam"; }
+	private final static String localizedName = CMLib.lang().L("Moonbeam");
+	@Override public String name() { return localizedName; }
+	private final static String localizedStaticDisplay = CMLib.lang().L("(Moonbeam)");
+	@Override public String displayText() { return localizedStaticDisplay; }
+	@Override public int classificationCode(){return Ability.ACODE_CHANT|Ability.DOMAIN_MOONSUMMONING;}
+	@Override public int abstractQuality(){ return Ability.QUALITY_OK_SELF;}
 
-	public void affectEnvStats(Environmental affected, EnvStats affectableStats)
+	@Override
+	public void affectPhyStats(Physical affected, PhyStats affectableStats)
 	{
 		if(!(affected instanceof Room))
-			affectableStats.setDisposition(affectableStats.disposition()|EnvStats.IS_LIGHTSOURCE);
+			affectableStats.setDisposition(affectableStats.disposition()|PhyStats.IS_LIGHTSOURCE);
 		if(CMLib.flags().isInDark(affected))
-			affectableStats.setDisposition(affectableStats.disposition()-EnvStats.IS_DARK);
+			affectableStats.setDisposition(affectableStats.disposition()-PhyStats.IS_DARK);
 	}
+	@Override
 	public void unInvoke()
 	{
 		// undo the affects of this spell
-		if((affected==null)||(!(affected instanceof MOB)))
+		if(!(affected instanceof MOB))
 			return;
-		MOB mob=(MOB)affected;
-		Room room=((MOB)affected).location();
+		final MOB mob=(MOB)affected;
+		final Room room=((MOB)affected).location();
 		if(canBeUninvoked())
-			room.show(mob,null,CMMsg.MSG_OK_VISUAL,"The moonbeam shining down from above <S-NAME> dims.");
+			room.show(mob,null,CMMsg.MSG_OK_VISUAL,L("The moonbeam shining down from above <S-NAME> dims."));
 		super.unInvoke();
 		room.recoverRoomStats();
 	}
 
-    public int castingQuality(MOB mob, Environmental target)
-    {
-        if(mob!=null)
-        {
-            if(!CMLib.flags().canBeSeenBy(mob.location(), mob))
-                return super.castingQuality(mob, target,Ability.QUALITY_BENEFICIAL_SELF);
-        }
-        return super.castingQuality(mob,target);
-    }
-    
-	public boolean invoke(MOB mob, Vector commands, Environmental givenTarget, boolean auto, int asLevel)
+	@Override
+	public int castingQuality(MOB mob, Physical target)
+	{
+		if(mob!=null)
+		{
+			if(!CMLib.flags().canBeSeenBy(mob.location(), mob))
+				return super.castingQuality(mob, target,Ability.QUALITY_BENEFICIAL_SELF);
+		}
+		return super.castingQuality(mob,target);
+	}
+
+	@Override
+	public boolean invoke(MOB mob, List<String> commands, Physical givenTarget, boolean auto, int asLevel)
 	{
 		MOB target=mob;
 		if((auto)&&(givenTarget!=null)&&(givenTarget instanceof MOB))
@@ -80,7 +87,7 @@ public class Chant_Moonbeam extends Chant
 
 		if(target.fetchEffect(this.ID())!=null)
 		{
-			target.tell("The moonbeam is already with you.");
+			target.tell(L("The moonbeam is already with you."));
 			return false;
 		}
 
@@ -88,17 +95,19 @@ public class Chant_Moonbeam extends Chant
 			return false;
 
 
-		boolean success=proficiencyCheck(mob,0,auto);
+		final boolean success=proficiencyCheck(mob,0,auto);
+		if(!success)
+		{
+			return beneficialWordsFizzle(mob,mob.location(),L("<S-NAME> chant(s) for a moonbeam, but fail(s)."));
+		}
 
-		CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),auto?"A moonbeam begin(s) to follow <T-NAME> around!":"^S<S-NAME> chant(s), causing a moonbeam to follow <S-HIM-HER> around!^?");
+		final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),auto?L("A moonbeam begin(s) to follow <T-NAME> around!"):L("^S<S-NAME> chant(s), causing a moonbeam to follow <S-HIM-HER> around!^?"));
 		if(mob.location().okMessage(mob,msg))
 		{
 			mob.location().send(mob,msg);
 			beneficialAffect(mob,target,asLevel,0);
 			target.location().recoverRoomStats(); // attempt to handle followers
 		}
-		else
-			beneficialWordsFizzle(mob,mob.location(),"<S-NAME> chant(s) for a moonbeam, but fail(s).");
 
 		return success;
 	}

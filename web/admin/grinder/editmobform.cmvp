@@ -17,6 +17,20 @@
 		{
 			document.AREAEDIT.action='/grinder/addmobitem.cmvp';
 			document.AREAEDIT.target='_top';
+			document.AREAEDIT.SHOPITEM.value='';
+			document.AREAEDIT.submit();
+		}
+		function AddNewShopItem()
+		{
+			document.AREAEDIT.action='/grinder/addmobitem.cmvp';
+			document.AREAEDIT.target='_top';
+			document.AREAEDIT.SHOPITEM.value=document.AREAEDIT.MOB.value;
+			document.AREAEDIT.submit();
+		}
+		function AddNewShopMOB()
+		{
+			document.AREAEDIT.action='/grinder/addmobmob.cmvp';
+			document.AREAEDIT.target='_top';
 			document.AREAEDIT.submit();
 		}
 		function AddItem(ME)
@@ -34,7 +48,25 @@
 			document.AREAEDIT.ITEM.value=ME;
 			document.AREAEDIT.action='/grinder/editmobitem.cmvp';
 			document.AREAEDIT.target='_top';
+			document.AREAEDIT.SHOPITEM.value='';
 			document.AREAEDIT.submit();
+		}
+		function EditShopItem(ME)
+		{
+			document.AREAEDIT.ITEM.value=ME;
+			document.AREAEDIT.action='/grinder/editmobitem.cmvp';
+			document.AREAEDIT.target='_top';
+			document.AREAEDIT.SHOPITEM.value=document.AREAEDIT.MOB.value;
+			document.AREAEDIT.submit();
+		}
+		function EditShopMob(ME)
+		{
+			document.AREAEDIT.ITEM.value=ME;
+			document.AREAEDIT.action='/grinder/editmobmob.cmvp';
+			document.AREAEDIT.target='_top';
+			document.AREAEDIT.SHOPMOB.value=document.AREAEDIT.MOB.value;
+			document.AREAEDIT.submit();
+			document.AREAEDIT.SHOPMOB.value='';
 		}
 		function EditBehavior(ME)
 		{
@@ -110,7 +142,7 @@
 <P><FONT COLOR=RED><H1>@RequestParameter?ERRMSG@</H1></FONT>
 <BR>
 @if?CheckReqParm?ROOM=ANY@
-	<FORM NAME=AREAEDIT TARGET=_top METHOD=POST ACTION="/grinder/editnewmobdone.cmvp">
+	<FORM  ACCEPT-CHARSET="UTF-8" NAME=AREAEDIT TARGET=_top METHOD=POST ACTION="/grinder/editnewmobdone.cmvp">
 	<INPUT TYPE=HIDDEN NAME=ROOM VALUE="ANY">
 	<SCRIPT LANGUAGE=JavaScript>
 	<!--
@@ -118,10 +150,10 @@
 	//-->
 	</SCRIPT>
 @else@
-	<FORM NAME=AREAEDIT TARGET=_top METHOD=POST ACTION="/grinder/editmobdone.cmvp">
+	<FORM  ACCEPT-CHARSET="UTF-8" NAME=AREAEDIT TARGET=_top METHOD=POST ACTION="/grinder/editmobdone.cmvp">
 	<INPUT TYPE=HIDDEN NAME=ROOM VALUE="@RoomID@">
 	<INPUT TYPE=HIDDEN NAME=LINK VALUE="@RequestParameter?LINK@">
-	<INPUT TYPE=HIDDEN NAME=AREA VALUE="@AreaName@">
+	<INPUT TYPE=HIDDEN NAME=AREA VALUE="@AreaID@">
 	<INPUT TYPE=HIDDEN NAME=MAPLEVEL VALUE="@RequestParameter?MAPLEVEL@">
 	<INPUT TYPE=HIDDEN NAME=MAPSTYLE VALUE="@RequestParameter?MAPSTYLE@">
 @endif@
@@ -129,6 +161,8 @@
 <INPUT TYPE=HIDDEN NAME=CHANGEDCLASS VALUE="">
 <INPUT TYPE=HIDDEN NAME=CHANGEDLEVEL VALUE="">
 <INPUT TYPE=HIDDEN NAME=MOB VALUE="@RequestParameter?MOB@">
+<INPUT TYPE=HIDDEN NAME=SHOPMOB VALUE="@RequestParameter?SHOPMOB@">
+<INPUT TYPE=HIDDEN NAME=SHOPITEM VALUE="">
 <INPUT TYPE=HIDDEN NAME=ITEM VALUE="">
 <INPUT TYPE=HIDDEN NAME=ACTION VALUE="MODIFYMOB">
 @if?RequestParameter?SINGLEMOB@
@@ -161,13 +195,21 @@
         @endif@
     @endif@
 </TR>
+@if?CheckReqParm?<MOB=CATALOG-&@
+<TR>
+    <TD WIDTH=150><FONT COLOR="#66FFFF"><B>Catalog Category:</B></FONT></TD>
+    <TD WIDTH=450 COLSPAN=2><INPUT TYPE=TEXT NAME=CATACAT SIZE=60 VALUE="@MobData?CATACAT@"></TD>
+</TR>
+@endif@
 <TR>
 	<TD WIDTH=150><FONT COLOR="#66FFFF"><B>Display:</B></FONT></TD>
     <TD WIDTH=450 COLSPAN=2><INPUT TYPE=TEXT NAME=DISPLAYTEXT SIZE=60 MAXLENGTH=255 VALUE="@MobData?DISPLAYTEXT@"></TD>
 </TR>
 <TR>
 	<TD WIDTH=150><FONT COLOR="#66FFFF"><B>Description:</B></FONT></TD>
-    <TD WIDTH=450 COLSPAN=2><INPUT TYPE=TEXT NAME=DESCRIPTION SIZE=60 MAXLENGTH=1024 VALUE="@MobData?DESCRIPTION@"></TD>
+    <TD WIDTH=450 COLSPAN=2>
+		<TEXTAREA NAME=DESCRIPTION ROWS=2 COLS=60>@MobData?DESCRIPTION@</TEXTAREA>
+    </TD>
 </TR>
 <TR>
 	<TD WIDTH=150><FONT COLOR="#66FFFF"><B>GIF filename:</B></FONT></TD>
@@ -225,8 +267,7 @@
 </TR>
 <TR>
 	<TD WIDTH=150><FONT COLOR="#66FFFF"><B>Clan (ID):</B></FONT></TD>
-    <TD WIDTH=450 COLSPAN=2><INPUT TYPE=TEXT NAME=CLANID SIZE=5 MAXLENGTH=100 VALUE="@MobData?CLANID@">
-    </TD>
+    <TD WIDTH=450 COLSPAN=2>@MobData?CLANS@</TD>
 </TR>
 <TR>
 	<TD WIDTH=150><FONT COLOR="#66FFFF"><B>Hit Points Mod.:</B></FONT></TD>

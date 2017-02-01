@@ -3,7 +3,7 @@ package com.planet_ink.coffee_mud.core.intermud.imc2;
 
 /**
  * IMC2 version 0.10 - an inter-mud communications protocol
- * Copyright (C) 1996 & 1997 Oliver Jowett <oliver@randomly.org>
+ * Copyright (C) 1996 - 1997 Oliver Jowett: oliver@randomly.org
  *
  * IMC2 Gold versions 1.00 though 2.00 are developed by MudWorld.
  * Copyright (C) 1999 - 2002 Haslage Net Electronics (Anthony R. Haslage)
@@ -32,14 +32,14 @@ package com.planet_ink.coffee_mud.core.intermud.imc2;
  *
  */
 public final class imc_statistics {
-    
-    long start; /* when statistics started               */
 
-    long rx_pkts; /* Received packets                      */
-    long tx_pkts; /* Transmitted packets                   */
-    long rx_bytes; /* Received bytes                        */
-    long tx_bytes; /* Transmitted bytes                     */
+	long start; /* when statistics started  			 */
 
-    int max_pkt; /* Max. size packet processed            */
-    int sequence_drops; /* Dropped packets due to age            */  
+	long rx_pkts; /* Received packets   				   */
+	long tx_pkts; /* Transmitted packets				   */
+	long rx_bytes; /* Received bytes						*/
+	long tx_bytes; /* Transmitted bytes 					*/
+
+	int max_pkt; /* Max. size packet processed  		  */
+	int sequence_drops; /* Dropped packets due to age   		 */
 }

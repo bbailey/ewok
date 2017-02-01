@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.CharClasses;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,6 +10,7 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -18,13 +20,13 @@ import java.util.*;
 
 
 /*
-   Copyright 2000-2010 Bo Zimmerman
+   Copyright 2003-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,38 +34,108 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
+
 public class Beastmaster extends StdCharClass
 {
-	public String ID(){return "Beastmaster";}
-	public String name(){return "Beastmaster";}
-	public String baseClass(){return "Druid";}
-	public int getBonusPracLevel(){return 2;}
-	public int getBonusAttackLevel(){return 0;}
-	public int getAttackAttribute(){return CharStats.STAT_CONSTITUTION;}
-	public int getLevelsPerBonusDamage(){ return 15;}
-	public int getHPDivisor(){return 2;}
-	public int getHPDice(){return 2;}
-	public int getHPDie(){return 7;}
-	public int getManaDivisor(){return 4;}
-	public int getManaDice(){return 1;}
-	public int getManaDie(){return 4;}
-	protected String armorFailMessage(){return "<S-NAME> watch(es) <S-HIS-HER> armor absorb <S-HIS-HER> magical energy!";}
-	public int allowedArmorLevel(){return CharClass.ARMOR_NONMETAL;}
-	public int allowedWeaponLevel(){return CharClass.WEAPONS_NATURAL;}
-	private HashSet requiredWeaponMaterials=buildRequiredWeaponMaterials();
-	protected HashSet requiredWeaponMaterials(){return requiredWeaponMaterials;}
-	public int requiredArmorSourceMinor(){return CMMsg.TYP_CAST_SPELL;}
+	@Override
+	public String ID()
+	{
+		return "Beastmaster";
+	}
+
+	private final static String	localizedStaticName	= CMLib.lang().L("Beastmaster");
+
+	@Override
+	public String name()
+	{
+		return localizedStaticName;
+	}
+
+	@Override
+	public String baseClass()
+	{
+		return "Druid";
+	}
+
+	@Override
+	public int getBonusPracLevel()
+	{
+		return 2;
+	}
+
+	@Override
+	public int getBonusAttackLevel()
+	{
+		return 0;
+	}
+
+	@Override
+	public int getAttackAttribute()
+	{
+		return CharStats.STAT_CONSTITUTION;
+	}
+
+	@Override
+	public int getLevelsPerBonusDamage()
+	{
+		return 15;
+	}
+
+	@Override
+	public String getHitPointsFormula()
+	{
+		return "((@x6<@x7)/2)+(2*(1?7))";
+	}
+
+	@Override
+	public String getManaFormula()
+	{
+		return "((@x4<@x5)/4)+(1*(1?4))";
+	}
+
+	@Override
+	protected String armorFailMessage()
+	{
+		return L("<S-NAME> watch(es) <S-HIS-HER> armor absorb <S-HIS-HER> magical energy!");
+	}
+
+	@Override
+	public int allowedArmorLevel()
+	{
+		return CharClass.ARMOR_NONMETAL;
+	}
+
+	@Override
+	public int allowedWeaponLevel()
+	{
+		return CharClass.WEAPONS_NATURAL;
+	}
+
+	private final HashSet<Integer>	requiredWeaponMaterials	= buildRequiredWeaponMaterials();
+
+	@Override
+	protected Set<Integer> requiredWeaponMaterials()
+	{
+		return requiredWeaponMaterials;
+	}
+
+	@Override
+	public int requiredArmorSourceMinor()
+	{
+		return CMMsg.TYP_CAST_SPELL;
+	}
 
 	public Beastmaster()
 	{
 		super();
 		maxStatAdj[CharStats.STAT_CONSTITUTION]=4;
 		maxStatAdj[CharStats.STAT_DEXTERITY]=4;
-    }
-    public void initializeClass()
-    {
-        super.initializeClass();
+	}
+
+	@Override
+	public void initializeClass()
+	{
+		super.initializeClass();
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Skill_Write",0,true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Skill_Recall",50,true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Skill_Revoke",false);
@@ -71,11 +143,13 @@ public class Beastmaster extends StdCharClass
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Skill_Swim",100,false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Skill_Climb",100,true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Specialization_Natural",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Druidic",50,true);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Druid_DruidicPass",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Chant_BestowName",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Druid_ShapeShift",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Chant_HardenSkin",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"AnimalBonding",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Chant_SensePregnancy",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Skill_WildernessLore",false);
 
@@ -85,6 +159,7 @@ public class Beastmaster extends StdCharClass
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),3,"Chant_Farsight",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),3,"Chant_SenseAge",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),3,"Chant_SpeakWithAnimals",true);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),4,"Skill_Dodge",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),4,"Chant_CalmAnimal",true);
@@ -100,7 +175,7 @@ public class Beastmaster extends StdCharClass
 		CMLib.ableMapper().addCharAbilityMapping(ID(),7,"Druid_Bite",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),7,"Skill_IdentifyPoison",false,CMParms.parseSemicolons("Apothecary",true));
 		CMLib.ableMapper().addCharAbilityMapping(ID(),7,"Chant_AnimalFriendship",true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),7,"Chant_NaturalCommunion",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),7,"Chant_NaturalBalance",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),8,"Skill_Trip",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),8,"Chant_FurCoat",false);
@@ -115,6 +190,7 @@ public class Beastmaster extends StdCharClass
 		CMLib.ableMapper().addCharAbilityMapping(ID(),11,"Druid_ShapeShift3",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),11,"Chant_CheetahBurst",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),11,"Chant_Fertility",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),11,"Chant_CallMate",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),12,"Skill_Attack2",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),12,"Fighter_Pin",false);
@@ -136,12 +212,13 @@ public class Beastmaster extends StdCharClass
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),17,"Chant_Plague",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),17,"Chant_SpeedBirth",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),17,"Chant_GiveLife",false,CMParms.parseSemicolons("Chant_BestowName",true));
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),18,"Chant_Hibernation",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),18,"Chant_AntTrain",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),19,"Chant_Bloodhound",true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),20,"Chant_SpeedAging",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),19,"Chant_SpeedAging",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),20,"Chant_SoaringEagle",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),20,"Scrapping",false);
@@ -166,44 +243,40 @@ public class Beastmaster extends StdCharClass
 		CMLib.ableMapper().addCharAbilityMapping(ID(),30,"Druid_PackCall",true);
 	}
 
-	public int availabilityCode(){return Area.THEME_FANTASY;}
-
-
-	public String getStatQualDesc(){return "Constitution 9+, Dexterity 9+";}
-	public boolean qualifiesForThisClass(MOB mob, boolean quiet)
+	@Override
+	public int availabilityCode()
 	{
-		if(mob != null)
-		{
-			if(mob.baseCharStats().getStat(CharStats.STAT_CONSTITUTION)<=8)
-			{
-				if(!quiet)
-					mob.tell("You need at least a 9 Constitution to become a Beastmaster.");
-				return false;
-			}
-			if(mob.baseCharStats().getStat(CharStats.STAT_DEXTERITY)<=8)
-			{
-				if(!quiet)
-					mob.tell("You need at least a 9 Dexterity to become a Beastmaster.");
-				return false;
-			}
-			if(!(mob.charStats().getMyRace().racialCategory().equals("Human"))
-			&& !(mob.charStats().getMyRace().racialCategory().equals("Humanoid"))
-			&& !(mob.charStats().getMyRace().racialCategory().equals("Elf"))
-			&& !(mob.charStats().getMyRace().racialCategory().equals("Dwarf"))
-			&& !(mob.charStats().getMyRace().racialCategory().equals("Giant-kin")))
-			{
-				if(!quiet)
-					mob.tell("You must be Human, Elf, Dwarf, Giant-kin, or Half Elf to be a Beastmaster");
-				return false;
-			}
-		}
-		return super.qualifiesForThisClass(mob,quiet);
+		return Area.THEME_FANTASY;
 	}
 
-	public boolean okMessage(Environmental myHost, CMMsg msg)
+	private final String[] raceRequiredList=new String[]{
+		"Human","Humanoid","Elf","Dwarf","Giant-kin","Centaur"
+	};
+
+	@Override
+	public String[] getRequiredRaceList()
 	{
-		if(!(myHost instanceof MOB)) return super.okMessage(myHost,msg);
-		MOB myChar=(MOB)myHost;
+		return raceRequiredList;
+	}
+
+	@SuppressWarnings("unchecked")
+	private final Pair<String,Integer>[] minimumStatRequirements=new Pair[]{
+		new Pair<String,Integer>("Dexterity",Integer.valueOf(9)),
+		new Pair<String,Integer>("Constitution",Integer.valueOf(9))
+	};
+
+	@Override
+	public Pair<String, Integer>[] getMinimumStatRequirements()
+	{
+		return minimumStatRequirements;
+	}
+
+	@Override
+	public boolean okMessage(final Environmental myHost, final CMMsg msg)
+	{
+		if(!(myHost instanceof MOB))
+			return super.okMessage(myHost,msg);
+		final MOB myChar=(MOB)myHost;
 		if(!super.okMessage(myChar, msg))
 			return false;
 
@@ -218,20 +291,38 @@ public class Beastmaster extends StdCharClass
 		{
 			if(((Ability)msg.tool()).appropriateToMyFactions(myChar))
 				return true;
-			myChar.tell("Extreme emotions disrupt your chant.");
+			myChar.tell(L("Extreme emotions disrupt your chant."));
 			return false;
 		}
 		return true;
 	}
-    public void executeMsg(Environmental host, CMMsg msg){ super.executeMsg(host,msg); Druid.doAnimalFollowerLevelingCheck(this,host,msg);  Druid.doAnimalFreeingCheck(this,host,msg);}
- 
-	public String getOtherLimitsDesc(){return "Must remain Neutral to avoid skill and chant failure chances.";}
-	public String getOtherBonusDesc(){return "When leading animals into battle, will not divide experience among animal followers.  Can create a druidic connection with an area.  Benefits from animal/plant/stone followers leveling.  Benefits from freeing animals from cities.";}
 
-    public boolean isValidClassDivider(MOB killer, MOB killed, MOB mob, HashSet followers)
+	@Override
+	public void executeMsg(Environmental host, CMMsg msg)
+	{
+		super.executeMsg(host,msg);
+		Druid.doAnimalFollowerLevelingCheck(this,host,msg);
+		Druid.doAnimalFreeingCheck(this,host,msg);
+	}
+
+	@Override
+	public String getOtherLimitsDesc()
+	{
+		return L("Must remain Neutral to avoid skill and chant failure chances.");
+	}
+
+	@Override
+	public String getOtherBonusDesc()
+	{
+		return L("When leading animals into battle, will not divide experience among animal followers.  Can create a druidic connection with an area.  "
+				+ "Benefits from animal/plant/stone followers leveling.  Benefits from freeing animals from cities.");
+	}
+
+	@Override
+	public boolean isValidClassDivider(MOB killer, MOB killed, MOB mob, Set<MOB> followers)
 	{
 		if((mob!=null)
-        &&(mob!=killed)
+		&&(mob!=killed)
 		&&(!mob.amDead())
 		&&((!mob.isMonster())||(!CMLib.flags().isAnimalIntelligence(mob)))
 		&&((mob.getVictim()==killed)
@@ -241,30 +332,33 @@ public class Beastmaster extends StdCharClass
 		return false;
 	}
 
-	public Vector outfit(MOB myChar)
+	@Override
+	public List<Item> outfit(MOB myChar)
 	{
 		if(outfitChoices==null)
 		{
-			outfitChoices=new Vector();
-			Weapon w=CMClass.getWeapon("Quarterstaff");
-			outfitChoices.addElement((Item)w);
+			final Weapon w=CMClass.getWeapon("Quarterstaff");
+			if(w == null)
+				return new Vector<Item>();
+			outfitChoices=new Vector<Item>();
+			outfitChoices.add(w);
 		}
 		return outfitChoices;
 	}
 
-	
+	@Override
 	public void grantAbilities(MOB mob, boolean isBorrowedClass)
 	{
 		super.grantAbilities(mob,isBorrowedClass);
 		if(mob.playerStats()==null)
 		{
-			DVector V=CMLib.ableMapper().getUpToLevelListings(ID(),
+			final List<AbilityMapper.AbilityMapping> V=CMLib.ableMapper().getUpToLevelListings(ID(),
 												mob.charStats().getClassLevel(ID()),
 												false,
 												false);
-			for(Enumeration a=V.getDimensionVector(1).elements();a.hasMoreElements();)
+			for(final AbilityMapper.AbilityMapping able : V)
 			{
-				Ability A=CMClass.getAbility((String)a.nextElement());
+				final Ability A=CMClass.getAbility(able.abilityID());
 				if((A!=null)
 				&&((A.classificationCode()&Ability.ALL_ACODES)==Ability.ACODE_CHANT)
 				&&(!CMLib.ableMapper().getDefaultGain(ID(),true,A.ID())))
@@ -273,12 +367,15 @@ public class Beastmaster extends StdCharClass
 		}
 	}
 
+	@Override
 	public int classDurationModifier(MOB myChar,
 									 Ability skill,
 									 int duration)
 	{
-		if(myChar==null) return duration;
-		if(((skill.classificationCode()&Ability.ALL_DOMAINS)==Ability.DOMAIN_CRAFTINGSKILL)
+		if(myChar==null)
+			return duration;
+		if((((skill.classificationCode()&Ability.ALL_DOMAINS)==Ability.DOMAIN_CRAFTINGSKILL)
+			||((skill.classificationCode()&Ability.ALL_DOMAINS)==Ability.DOMAIN_BUILDINGSKILL))
 		&&(!skill.ID().equals("Herbalism"))
 		&&(!skill.ID().equals("Masonry")))
 			return duration*2;

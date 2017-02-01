@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Diseases;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,20 +10,21 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2003-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -33,38 +35,45 @@ import java.util.*;
 
 public class Disease_Asthma extends Disease
 {
-	public String ID() { return "Disease_Asthma"; }
-	public String name(){ return "Asthma";}
-	public String displayText(){ return "(Asthma)";}
-	protected int canAffectCode(){return CAN_MOBS;}
-	protected int canTargetCode(){return CAN_MOBS;}
-	public int abstractQuality(){return Ability.QUALITY_MALICIOUS;}
-	public boolean putInCommandlist(){return false;}
-	public int difficultyLevel(){return 2;}
+	@Override public String ID() { return "Disease_Asthma"; }
+	private final static String localizedName = CMLib.lang().L("Asthma");
+	@Override public String name() { return localizedName; }
+	private final static String localizedStaticDisplay = CMLib.lang().L("(Asthma)");
+	@Override public String displayText() { return localizedStaticDisplay; }
+	@Override protected int canAffectCode(){return CAN_MOBS;}
+	@Override protected int canTargetCode(){return CAN_MOBS;}
+	@Override public int abstractQuality(){return Ability.QUALITY_MALICIOUS;}
+	@Override public boolean putInCommandlist(){return false;}
+	@Override public int difficultyLevel(){return 2;}
 
-	protected int DISEASE_TICKS(){return 99999;}
-	protected int DISEASE_DELAY(){return 5;}
-	protected String DISEASE_DONE(){return "Your asthma clears up.";}
-	protected String DISEASE_START(){return "^G<S-NAME> start(s) wheezing.^?";}
-	protected String DISEASE_AFFECT(){return "<S-NAME> wheeze(s) loudly.";}
-	public int abilityCode(){return 0;}
+	@Override protected int DISEASE_TICKS(){return 99999;}
+	@Override protected int DISEASE_DELAY(){return 5;}
+	@Override protected String DISEASE_DONE(){return L("Your asthma clears up.");}
+	@Override protected String DISEASE_START(){return L("^G<S-NAME> start(s) wheezing.^?");}
+	@Override protected String DISEASE_AFFECT(){return L("<S-NAME> wheeze(s) loudly.");}
+	@Override public int abilityCode(){return 0;}
 
+	@Override
 	public boolean tick(Tickable ticking, int tickID)
 	{
-		if(!super.tick(ticking,tickID))	return false;
-		if(affected==null) return false;
-		if(!(affected instanceof MOB)) return true;
+		if(!super.tick(ticking,tickID))
+			return false;
+		if(affected==null)
+			return false;
+		if(!(affected instanceof MOB))
+			return true;
 
-		MOB mob=(MOB)affected;
+		final MOB mob=(MOB)affected;
 		if((!mob.amDead())&&((--diseaseTick)<=0))
 		{
 			diseaseTick=DISEASE_DELAY();
 			if(CMLib.dice().rollPercentage()==1)
 			{
-				int damage=mob.curState().getHitPoints()/2;
+				final int damage=mob.curState().getHitPoints()/2;
 				MOB diseaser=invoker;
-				if(diseaser==null) diseaser=mob;
-				CMLib.combat().postDamage(diseaser,mob,this,damage,CMMsg.MASK_ALWAYS|CMMsg.TYP_DISEASE,-1,"<S-NAME> <S-HAS-HAVE> an asthma attack! It <DAMAGE> <S-NAME>!");
+				if(diseaser==null)
+					diseaser=mob;
+				CMLib.combat().postDamage(diseaser,mob,this,damage,CMMsg.MASK_ALWAYS|CMMsg.TYP_DISEASE,-1,L("<S-NAME> <S-HAS-HAVE> an asthma attack! It <DAMAGE> <S-NAME>!"));
 			}
 			else
 				mob.location().show(mob,null,CMMsg.MSG_NOISE,DISEASE_AFFECT());
@@ -73,9 +82,11 @@ public class Disease_Asthma extends Disease
 		return true;
 	}
 
+	@Override
 	public void affectCharState(MOB affected, CharState affectableState)
 	{
-		if(affected==null) return;
+		if(affected==null)
+			return;
 		affectableState.setMovement(affectableState.getMovement()/4);
 	}
 }

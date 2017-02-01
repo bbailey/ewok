@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Spells;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,21 +10,21 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
-
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2003-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -31,42 +32,46 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
+
 public class Spell_Timeport extends Spell
 {
-	public String ID() { return "Spell_Timeport"; }
-	public String name(){return "Timeport";}
-	public String displayText(){return "(Time Travelling)";}
-	protected int canAffectCode(){return CAN_MOBS;}
-	protected int canTargetCode(){return CAN_MOBS;}
-	public int classificationCode(){return Ability.ACODE_SPELL|Ability.DOMAIN_ALTERATION;}
-    public int abstractQuality(){ return Ability.QUALITY_INDIFFERENT;}
+	@Override public String ID() { return "Spell_Timeport"; }
+	private final static String localizedName = CMLib.lang().L("Timeport");
+	@Override public String name() { return localizedName; }
+	private final static String localizedStaticDisplay = CMLib.lang().L("(Time Travelling)");
+	@Override public String displayText() { return localizedStaticDisplay; }
+	@Override protected int canAffectCode(){return CAN_MOBS;}
+	@Override protected int canTargetCode(){return CAN_MOBS;}
+	@Override public int classificationCode(){return Ability.ACODE_SPELL|Ability.DOMAIN_ALTERATION;}
+	@Override public int abstractQuality(){ return Ability.QUALITY_INDIFFERENT;}
 
-    protected final static int mask=
-			EnvStats.CAN_NOT_TASTE|EnvStats.CAN_NOT_SMELL|EnvStats.CAN_NOT_SEE
-		    |EnvStats.CAN_NOT_HEAR;
-    protected final static int mask2=Integer.MAX_VALUE
-			-EnvStats.CAN_SEE_BONUS
-		    -EnvStats.CAN_SEE_DARK
-		    -EnvStats.CAN_SEE_EVIL
-		    -EnvStats.CAN_SEE_GOOD
-		    -EnvStats.CAN_SEE_HIDDEN
-		    -EnvStats.CAN_SEE_INFRARED
-		    -EnvStats.CAN_SEE_INVISIBLE
-		    -EnvStats.CAN_SEE_METAL
-		    -EnvStats.CAN_SEE_SNEAKERS
-		    -EnvStats.CAN_SEE_VICTIM;
+	protected final static int mask=
+			PhyStats.CAN_NOT_TASTE|PhyStats.CAN_NOT_SMELL|PhyStats.CAN_NOT_SEE
+			|PhyStats.CAN_NOT_HEAR;
+	protected final static int mask2=Integer.MAX_VALUE
+			-PhyStats.CAN_SEE_BONUS
+			-PhyStats.CAN_SEE_DARK
+			-PhyStats.CAN_SEE_EVIL
+			-PhyStats.CAN_SEE_GOOD
+			-PhyStats.CAN_SEE_HIDDEN
+			-PhyStats.CAN_SEE_INFRARED
+			-PhyStats.CAN_SEE_INVISIBLE
+			-PhyStats.CAN_SEE_METAL
+			-PhyStats.CAN_SEE_SNEAKERS
+			-PhyStats.CAN_SEE_VICTIM;
 
-	public void affectEnvStats(Environmental affected, EnvStats affectableStats)
+	@Override
+	public void affectPhyStats(Physical affected, PhyStats affectableStats)
 	{
-		super.affectEnvStats(affected,affectableStats);
+		super.affectPhyStats(affected,affectableStats);
 		affectableStats.setSensesMask(mask&mask2);
-		affectableStats.setDisposition(EnvStats.IS_NOT_SEEN);
-        affectableStats.setDisposition(EnvStats.IS_CLOAKED);
-		affectableStats.setDisposition(EnvStats.IS_INVISIBLE);
-		affectableStats.setDisposition(EnvStats.IS_HIDDEN);
+		affectableStats.setDisposition(PhyStats.IS_NOT_SEEN);
+		affectableStats.setDisposition(PhyStats.IS_CLOAKED);
+		affectableStats.setDisposition(PhyStats.IS_INVISIBLE);
+		affectableStats.setDisposition(PhyStats.IS_HIDDEN);
 	}
 
+	@Override
 	public void unInvoke()
 	{
 		// undo the affects of this spell
@@ -80,71 +85,76 @@ public class Spell_Timeport extends Spell
 		}
 		super.unInvoke();
 		if(room!=null)
-			room.show(mob, null, CMMsg.MSG_OK_VISUAL, "<S-NAME> reappear(s)!");
+			room.show(mob, null, CMMsg.MSG_OK_VISUAL, L("<S-NAME> reappear(s)!"));
 	}
-	public boolean okMessage(Environmental myHost, CMMsg msg)
+
+	@Override
+	public boolean okMessage(final Environmental myHost, final CMMsg msg)
 	{
-		if((affected!=null)&&(affected instanceof MOB))
+		if(affected instanceof MOB)
 		{
-		    if(!canBeUninvoked())
-		    {
-				msg.source().tell("The timeport spell on you fizzles away.");
-		        affected.delEffect(this);
-		    }
-		    else
+			if(!canBeUninvoked())
+			{
+				msg.source().tell(L("The timeport spell on you fizzles away."));
+				affected.delEffect(this);
+			}
+			else
+			if((((msg.sourceMinor()==CMMsg.TYP_QUIT)&&(msg.source()==affected))
+				||(msg.sourceMinor()==CMMsg.TYP_SHUTDOWN)
+				||((msg.targetMinor()==CMMsg.TYP_EXPIRE))
+				||(msg.sourceMinor()==CMMsg.TYP_ROOMRESET)))
+			{
+				unInvoke();
+			}
+			else
 			if(msg.amISource((MOB)affected))
-				if((!CMath.bset(msg.sourceCode(),CMMsg.MASK_ALWAYS))
-				&&(!CMath.bset(msg.targetCode(),CMMsg.MASK_ALWAYS)))
+				if((!CMath.bset(msg.sourceMajor(),CMMsg.MASK_ALWAYS))
+				&&(!CMath.bset(msg.targetMajor(),CMMsg.MASK_ALWAYS)))
 				{
-					msg.source().tell("Nothing just happened.  You are time travelling, and can't do that.");
+					msg.source().tell(L("Nothing just happened.  You are time travelling, and can't do that."));
 					return false;
 				}
 		}
 		return super.okMessage(myHost,msg);
 	}
 
-	public boolean invoke(MOB mob, Vector commands, Environmental givenTarget, boolean auto, int asLevel)
+	@Override
+	public boolean invoke(MOB mob, List<String> commands, Physical givenTarget, boolean auto, int asLevel)
 	{
-		MOB target=getTarget(mob,commands,givenTarget);
-		if(target==null) return false;
+		final MOB target=getTarget(mob,commands,givenTarget);
+		if(target==null)
+			return false;
 
-		// the invoke method for spells receives as
-		// parameters the invoker, and the REMAINING
-		// command line parameters, divided into words,
-		// and added as String objects to a vector.
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
 			return false;
 
-		boolean success=proficiencyCheck(mob,0,auto);
+		final boolean success=proficiencyCheck(mob,0,auto);
 
 		if(success)
 		{
-			// it worked, so build a copy of this ability,
-			// and add it to the affects list of the
-			// affected MOB.  Then tell everyone else
-			// what happened.
 
-			CMMsg msg = CMClass.getMsg(mob, target, this,verbalCastCode(mob,target,auto),(auto?"":"^S<S-NAME> speak(s) and gesture(s)")+"!^?");
+			final CMMsg msg = CMClass.getMsg(mob, target, this,somanticCastCode(mob,target,auto),L(auto?"":"^S<S-NAME> speak(s) and gesture(s)")+"!^?");
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);
-				Room room=mob.location();
-				target.makePeace();
+				final Room room=mob.location();
+				target.makePeace(true);
 				for(int i=0;i<room.numInhabitants();i++)
 				{
-					MOB M=room.fetchInhabitant(i);
+					final MOB M=room.fetchInhabitant(i);
 					if((M!=null)&&(M.getVictim()==target))
-						M.makePeace();
+						M.makePeace(true);
 				}
-				mob.location().show(target,null,CMMsg.MSG_OK_VISUAL,"<S-NAME> vanish(es)!");
+				mob.location().show(target,null,CMMsg.MSG_OK_VISUAL,L("<S-NAME> vanish(es)!"));
 				CMLib.threads().suspendTicking(target,-1);
 				beneficialAffect(mob,target,asLevel,3);
-				Ability A=target.fetchEffect(ID());
-				if(A!=null)	CMLib.threads().startTickDown(A,Tickable.TICKID_MOB,1);
+				final Ability A=target.fetchEffect(ID());
+				if(A!=null)
+					CMLib.threads().startTickDown(A,Tickable.TICKID_MOB,1);
 			}
 		}
 		else
-			return beneficialWordsFizzle(mob,null,"<S-NAME> incant(s) for awhile, but the spell fizzles.");
+			return beneficialVisualFizzle(mob,null,L("<S-NAME> incant(s) for awhile, but the spell fizzles."));
 
 		// return whether it worked
 		return success;

@@ -1,6 +1,9 @@
 package com.planet_ink.coffee_mud.WebMacros;
+
+import com.planet_ink.coffee_web.interfaces.*;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -15,16 +18,14 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
 
-
-
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2002-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,36 +33,38 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
+@SuppressWarnings("rawtypes")
 public class RaceNext extends StdWebMacro
 {
-	public String name(){return this.getClass().getName().substring(this.getClass().getName().lastIndexOf('.')+1);}
+	@Override public String name() { return "RaceNext"; }
 
-	public String runMacro(ExternalHTTPRequests httpReq, String parm)
+	@Override
+	public String runMacro(HTTPRequest httpReq, String parm, HTTPResponse httpResp)
 	{
-		Hashtable parms=parseParms(parm);
-		String last=httpReq.getRequestParameter("RACE");
+		final java.util.Map<String,String> parms=parseParms(parm);
+		final String last=httpReq.getUrlParameter("RACE");
 		if(parms.containsKey("RESET"))
-		{	
-			if(last!=null) httpReq.removeRequestParameter("RACE");
+		{
+			if(last!=null)
+				httpReq.removeUrlParameter("RACE");
 			return "";
 		}
 		String lastID="";
-		for(Enumeration r=CMClass.races();r.hasMoreElements();)
+		for(final Enumeration r=CMClass.races();r.hasMoreElements();)
 		{
-			Race R=(Race)r.nextElement();
+			final Race R=(Race)r.nextElement();
 			if((CMProps.isTheme(R.availabilityCode())&&(!CMath.bset(R.availabilityCode(),Area.THEME_SKILLONLYMASK)))
 			||(parms.containsKey("ALL")))
 			{
 				if((last==null)||((last.length()>0)&&(last.equals(lastID))&&(!R.ID().equals(lastID))))
 				{
-					httpReq.addRequestParameters("RACE",R.ID());
+					httpReq.addFakeUrlParameter("RACE",R.ID());
 					return "";
 				}
 				lastID=R.ID();
 			}
 		}
-		httpReq.addRequestParameters("RACE","");
+		httpReq.addFakeUrlParameter("RACE","");
 		if(parms.containsKey("EMPTYOK"))
 			return "<!--EMPTY-->";
 		return " @break@";

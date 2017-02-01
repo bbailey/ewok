@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.MOBS;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,6 +10,7 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -16,14 +18,14 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 
-/* 
-   Copyright 2000-2010 Mike Rundell
+/*
+   Copyright 2000-2016 Mike Rundell
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -33,13 +35,20 @@ import java.util.*;
 */
 public class Dragon extends StdMOB
 {
-	public String ID(){return "Dragon";}
+	@Override
+	public String ID()
+	{
+		return "Dragon";
+	}
+
 	protected int breatheDown=4;
 	protected int swallowDown=5;
 	protected int digestDown=4;
 
 	protected int birthColor=0;
 	protected int birthAge=0;
+
+	protected Ability dragonbreath = null;
 
 
 	// ===== Defined Values for Dragon Ages
@@ -69,8 +78,8 @@ public class Dragon extends StdMOB
 
 
 	// ===== Defined Value for holding the Dragon Type
-	protected int DragonColor(){ return baseEnvStats().ability();}
-	protected int DragonAge(){ return baseEnvStats().level()/10;}
+	protected int DragonColor(){ return basePhyStats().ability();}
+	protected int DragonAge(){ return basePhyStats().level()/10;}
 	protected Room Stomach = null;
 
 	// ===== random constructor
@@ -90,8 +99,8 @@ public class Dragon extends StdMOB
 	public Dragon(int colorValue, int ageValue)
 	{
 		super();
-		baseEnvStats().setAbility(colorValue);
-		baseEnvStats().setLevel(5+(ageValue*10));
+		basePhyStats().setAbility(colorValue);
+		basePhyStats().setLevel(5+(ageValue*10));
 		birthColor=0;
 		birthAge=0;
 		setupDragonIfNecessary();
@@ -101,18 +110,18 @@ public class Dragon extends StdMOB
 	{
 		// ===== set the parameter stuff		DragonAge() = ageValue;
 
-		if(!CMProps.getBoolVar(CMProps.SYSTEMB_MUDSTARTED))
+		if(!CMProps.getBoolVar(CMProps.Bool.MUDSTARTED))
 			return;
-        if((DragonAge()==birthAge)&&(DragonColor()==birthColor))
-        	return;
-        int colorValue=DragonColor(); 
-        int ageValue=DragonAge();
+		if((DragonAge()==birthAge)&&(DragonColor()==birthColor))
+			return;
+		final int colorValue=DragonColor();
+		final int ageValue=DragonAge();
 
-        birthAge=ageValue;
-        birthColor=colorValue;
-        
+		birthAge=ageValue;
+		birthColor=colorValue;
+
 		// ===== is it a male or female
-		short gend = (short)Math.round(Math.random());
+		final short gend = (short)Math.round(Math.random());
 		if (gend == 0)
 		{
 			baseCharStats().setStat(CharStats.STAT_GENDER,'F');
@@ -127,14 +136,22 @@ public class Dragon extends StdMOB
 		setDisplayText(getAgeDescription(DragonAge()).toString() + " " + getColorDescription(DragonColor()) + " Dragon watches you intently.");
 
 		// ===== arm him
-		Weapon ClawOne=CMClass.getWeapon("DragonClaw");
-		Weapon ClawTwo=CMClass.getWeapon("DragonClaw");
+		final Weapon ClawOne=CMClass.getWeapon("DragonClaw");
+		final Weapon ClawTwo=CMClass.getWeapon("DragonClaw");
 		if(ClawOne!=null)
 		{
+			ClawOne.basePhyStats().setLevel(basePhyStats().level());
+			ClawOne.basePhyStats().setDamage(basePhyStats().level());
+			ClawOne.recoverPhyStats();
+			ClawTwo.basePhyStats().setLevel(basePhyStats().level());
+			ClawOne.basePhyStats().setDamage(basePhyStats().level());
+			ClawTwo.recoverPhyStats();
+
 			ClawOne.wearAt(Wearable.WORN_WIELD);
 			ClawTwo.wearAt(Wearable.WORN_WIELD);
-			addInventory(ClawOne);
-			addInventory(ClawTwo);
+
+			addItem(ClawOne);
+			addItem(ClawTwo);
 		}
 
 		// ===== hitpoints are muxed by 10 To beef them up
@@ -143,30 +160,30 @@ public class Dragon extends StdMOB
 		// ===== set the mod based on the color
 		switch (DragonColor())
 		{
-			case WHITE:		PointMod = 1;	CMLib.factions().setAlignment(this,Faction.ALIGN_EVIL);	break;
-			case BLACK:		PointMod = 2;	CMLib.factions().setAlignment(this,Faction.ALIGN_EVIL);	break;
-			case BLUE:		PointMod = 3;	CMLib.factions().setAlignment(this,Faction.ALIGN_EVIL);	break;
-			case GREEN:		PointMod = 4;	CMLib.factions().setAlignment(this,Faction.ALIGN_EVIL);	break;
-			case RED:		PointMod = 5;	CMLib.factions().setAlignment(this,Faction.ALIGN_EVIL);	break;
-			case BRASS:		PointMod = 1;	CMLib.factions().setAlignment(this,Faction.ALIGN_GOOD);	break;
-			case COPPER:	PointMod = 2;	CMLib.factions().setAlignment(this,Faction.ALIGN_GOOD);	break;
-			case BRONZE:	PointMod = 3;	CMLib.factions().setAlignment(this,Faction.ALIGN_GOOD);	break;
-			case SILVER:	PointMod = 4;	CMLib.factions().setAlignment(this,Faction.ALIGN_GOOD);	break;
-			case GOLD:		PointMod = 5;	CMLib.factions().setAlignment(this,Faction.ALIGN_GOOD);	break;
-			default:		PointMod = 3;	CMLib.factions().setAlignment(this,Faction.ALIGN_NEUTRAL);	break;
+			case WHITE:		PointMod = 1;	CMLib.factions().setAlignment(this,Faction.Align.EVIL);	break;
+			case BLACK:		PointMod = 2;	CMLib.factions().setAlignment(this,Faction.Align.EVIL);	break;
+			case BLUE:		PointMod = 3;	CMLib.factions().setAlignment(this,Faction.Align.EVIL);	break;
+			case GREEN:		PointMod = 4;	CMLib.factions().setAlignment(this,Faction.Align.EVIL);	break;
+			case RED:		PointMod = 5;	CMLib.factions().setAlignment(this,Faction.Align.EVIL);	break;
+			case BRASS:		PointMod = 1;	CMLib.factions().setAlignment(this,Faction.Align.GOOD);	break;
+			case COPPER:	PointMod = 2;	CMLib.factions().setAlignment(this,Faction.Align.GOOD);	break;
+			case BRONZE:	PointMod = 3;	CMLib.factions().setAlignment(this,Faction.Align.GOOD);	break;
+			case SILVER:	PointMod = 4;	CMLib.factions().setAlignment(this,Faction.Align.GOOD);	break;
+			case GOLD:		PointMod = 5;	CMLib.factions().setAlignment(this,Faction.Align.GOOD);	break;
+			default:		PointMod = 3;	CMLib.factions().setAlignment(this,Faction.Align.NEUTRAL);	break;
 		}
 
-        CMLib.leveler().fillOutMOB(this,baseEnvStats().level());
+		CMLib.leveler().fillOutMOB(this,basePhyStats().level());
 		baseState.setHitPoints(baseState.getHitPoints() * PointMod);
 		setMoney(getMoney()*PointMod);
-		baseEnvStats().setWeight(1500 * DragonAge());
+		basePhyStats().setWeight(1500 * DragonAge());
 
 		// ===== Dragons never flee.
 		setWimpHitPoint(0);
 
 
 		// ===== Dragons get tougher with age
-		for(int i : CharStats.CODES.BASE())
+		for(final int i : CharStats.CODES.BASECODES())
 			baseCharStats().setStat(i,13 + (DragonAge()*2));
 		baseCharStats().setMyRace(CMClass.getRace("Dragon"));
 		baseCharStats().getMyRace().startRacing(this,false);
@@ -176,14 +193,14 @@ public class Dragon extends StdMOB
 		// ===== Recover from birth.
 		recoverMaxState();
 		resetToMaxState();
-		recoverEnvStats();
+		recoverPhyStats();
 		recoverCharStats();
 	}
 
-    protected static int determineAge()
+	protected static int determineAge()
 	{
 		// ===== Get a percent chance
-		int iRoll = CMLib.dice().rollPercentage()+1;
+		final int iRoll = CMLib.dice().rollPercentage()+1;
 
 		// ===== Determine the age based upon this
 		if (iRoll==1) return HATCHLING;
@@ -243,11 +260,12 @@ public class Dragon extends StdMOB
 		return returnVal;
 	}
 
+	@Override
 	public boolean tick(Tickable ticking, int tickID)
 	{
-        if(tickID!=Tickable.TICKID_MOB)
-        	return super.tick(ticking, tickID);
-        setupDragonIfNecessary();
+		if(tickID!=Tickable.TICKID_MOB)
+			return super.tick(ticking, tickID);
+		setupDragonIfNecessary();
 		if(!amDead())
 		{
 			if((Stomach==null)
@@ -257,17 +275,17 @@ public class Dragon extends StdMOB
 				Stomach = CMClass.getLocale("StdRoom");
 				if(Stomach!=null)
 				{
-                    Stomach.setName("Dragon Stomach");
-					Stomach.setDisplayText("Dragon Stomach");
+					Stomach.setName(L("Dragon Stomach"));
+					Stomach.setDisplayText(L("Dragon Stomach"));
 					Stomach.setArea(location().getArea());
-					Stomach.setDescription("You are in the stomach of a dragon.  It is wet with digestive acids, and the walls are grinding you to a pulp.  You have been Swallowed whole and are being digested.");
+					Stomach.setDescription(L("You are in the stomach of a dragon.  It is wet with digestive acids, and the walls are grinding you to a pulp.  You have been Swallowed whole and are being digested."));
 				}
 			}
-            if((--digestDown)<=0)
-            {
-                digestDown=2;
-                digestTastyMorsels();
-            }
+			if((--digestDown)<=0)
+			{
+				digestDown=2;
+				digestTastyMorsels();
+			}
 			if (isInCombat())
 			{
 				if((--breatheDown)<=0)
@@ -277,7 +295,7 @@ public class Dragon extends StdMOB
 				}
 				if((--swallowDown)<=0)
 				{
-                    swallowDown=4;
+					swallowDown=4;
 					trySwallowWhole();
 				}
 			}
@@ -295,19 +313,19 @@ public class Dragon extends StdMOB
 		String msgText = "";
 
 		// ===== if we are following don't Breath, we might
-		//       hurt the one we follow...
+		//  	 hurt the one we follow...
 		if (amFollowing()!=null)
 		{
 			// ===== if we breath we might hurt him
 			return true;
 		}
 
-		if(!CMLib.flags().canBreathe(this))
+		if(!CMLib.flags().canBreatheHere(this,location()))
 		{
 			// ===== if you can't breathe, you can't breathe fire
 			return false;
 		}
-		
+
 		// ===== Tell What the Beast is doing
 		switch (DragonColor())
 		{
@@ -374,7 +392,7 @@ public class Dragon extends StdMOB
 			return false;
 		}
 
-		Room room=location();
+		final Room room=location();
 		if(room!=null)
 		for (int x=0;x<room.numInhabitants();x++)
 		{
@@ -383,7 +401,7 @@ public class Dragon extends StdMOB
 			// ===== do not attack yourself
 			if ((target!=null)&&(!target.ID().equals(ID())))
 			{
-				CMMsg Message = CMClass.getMsg(this,
+				final CMMsg Message = CMClass.getMsg(this,
 											  target,
 											  null,
 											  CMMsg.MSK_MALICIOUS_MOVE|AffectCode,
@@ -396,7 +414,9 @@ public class Dragon extends StdMOB
 					int damage=((short)Math.round(CMath.div(CMath.mul(Math.random(),7*DragonAge()),2.0)));
 					if(Message.value()<=0)
 						damage=((short)Math.round(Math.random()*7)*DragonAge());
-					CMLib.combat().postDamage(this,target,null,damage,CMMsg.MASK_ALWAYS|AffectCode,WeaponType,"The blast <DAMAGE> <T-NAME>.");
+					if(dragonbreath==null)
+						dragonbreath=CMClass.getAbility("Dragonbreath");
+					CMLib.combat().postDamage(this,target,dragonbreath,damage,CMMsg.MASK_ALWAYS|AffectCode,WeaponType,L("The blast <DAMAGE> <T-NAME>."));
 				}
 			}
 		}
@@ -405,36 +425,41 @@ public class Dragon extends StdMOB
 
 	protected boolean trySwallowWhole()
 	{
-		if(Stomach==null) return true;
-		if (CMLib.flags().aliveAwakeMobileUnbound(this,true)
+		if(Stomach==null)
+			return true;
+		if (CMLib.flags().isAliveAwakeMobileUnbound(this,true)
 			&&(rangeToTarget()==0)
 			&&(CMLib.flags().canHear(this)||CMLib.flags().canSee(this)||CMLib.flags().canSmell(this)))
 		{
-			MOB TastyMorsel = getVictim();
-			if(TastyMorsel==null) return true;
-			if (TastyMorsel.envStats().weight()<1500)
+			final MOB TastyMorsel = getVictim();
+			if(TastyMorsel==null)
+				return true;
+			if (TastyMorsel.phyStats().weight()<1500)
 			{
 				// ===== if it is less than three so roll for it
-				int roll = (int)Math.round(Math.random()*99);
+				final int roll = (int)Math.round(Math.random()*99);
 
 				// ===== check the result
 				if (roll<2)
 				{
 					// ===== The player has been eaten.
 					// ===== move the tasty morsel to the stomach
-					CMMsg EatMsg=CMClass.getMsg(this,
+					final CMMsg EatMsg=CMClass.getMsg(this,
 											   TastyMorsel,
 											   null,
 											   CMMsg.MSG_EAT,
 											   CMMsg.MASK_ALWAYS|CMMsg.TYP_JUSTICE,
 											   CMMsg.MSG_NOISYMOVEMENT,
-											   "<S-NAME> swallow(es) <T-NAMESELF> WHOLE!");
+											   L("<S-NAME> swallow(es) <T-NAMESELF> WHOLE!"));
 					if(location().okMessage(TastyMorsel,EatMsg))
 					{
 						location().send(TastyMorsel,EatMsg);
-						Stomach.bringMobHere(TastyMorsel,false);
-						CMMsg enterMsg=CMClass.getMsg(TastyMorsel,Stomach,null,CMMsg.MSG_ENTER,Stomach.description(),CMMsg.MSG_ENTER,null,CMMsg.MSG_ENTER,"<S-NAME> slide(s) down the gullet into the stomach!");
-						Stomach.send(TastyMorsel,enterMsg);
+						if(EatMsg.value()==0)
+						{
+							Stomach.bringMobHere(TastyMorsel,false);
+							final CMMsg enterMsg=CMClass.getMsg(TastyMorsel,Stomach,null,CMMsg.MSG_ENTER,Stomach.description(),CMMsg.MSG_ENTER,null,CMMsg.MSG_ENTER,L("<S-NAME> slide(s) down the gullet into the stomach!"));
+							Stomach.send(TastyMorsel,enterMsg);
+						}
 					}
 				}
 			}
@@ -442,15 +467,21 @@ public class Dragon extends StdMOB
 		return true;
 	}
 
-	public void recoverEnvStats()
+	@Override
+	public void recoverPhyStats()
 	{
-		super.recoverEnvStats();
+		super.recoverPhyStats();
 		setupDragonIfNecessary();
 	}
+
+	@Override
 	public void recoverCharStats()
 	{
 		super.recoverCharStats();
-		charStats().setStat(CharStats.STAT_SAVE_MAGIC,charStats().getStat(CharStats.STAT_SAVE_MAGIC)+DragonAge()*5);
+		int dragonAge=DragonAge();
+		if((dragonAge<0)||(dragonAge>20))
+			dragonAge=20;
+		charStats().setStat(CharStats.STAT_SAVE_MAGIC,charStats().getStat(CharStats.STAT_SAVE_MAGIC)+dragonAge*5);
 		switch(DragonColor())
 		{
 		case GOLD:
@@ -481,59 +512,65 @@ public class Dragon extends StdMOB
 
 	protected boolean digestTastyMorsels()
 	{
-		if(Stomach==null) return true;
+		if(Stomach==null)
+			return true;
 		// ===== loop through all inhabitants of the stomach
-		int morselCount = Stomach.numInhabitants();
+		final int morselCount = Stomach.numInhabitants();
 		for (int x=0;x<morselCount;x++)
 		{
 			// ===== get a tasty morsel
-			MOB TastyMorsel = Stomach.fetchInhabitant(x);
+			final MOB TastyMorsel = Stomach.fetchInhabitant(x);
 			if (TastyMorsel != null)
 			{
-				CMMsg DigestMsg=CMClass.getMsg(this,
+				final CMMsg DigestMsg=CMClass.getMsg(this,
 										   TastyMorsel,
 										   null,
 										   CMMsg.MSG_OK_ACTION,
-										   "<S-NAME> digest(s) <T-NAMESELF>!!");
+										   L("<S-NAME> digest(s) <T-NAMESELF>!!"));
 				Stomach.send(this,DigestMsg);
 				int damage=((int)Math.round(CMath.div(TastyMorsel.curState().getHitPoints(),2)));
-				if(damage<(TastyMorsel.envStats().level()+6)) damage=TastyMorsel.curState().getHitPoints()+1;
-				CMLib.combat().postDamage(this,TastyMorsel,null,damage,CMMsg.MASK_ALWAYS|CMMsg.TYP_ACID,Weapon.TYPE_BURNING,"The stomach acid <DAMAGE> <T-NAME>!");
+				if(damage<(TastyMorsel.phyStats().level()+6))
+					damage=TastyMorsel.curState().getHitPoints()+1;
+				if(DigestMsg.value()!=0)
+					damage=damage/2;
+				CMLib.combat().postDamage(this,TastyMorsel,null,damage,CMMsg.MASK_ALWAYS|CMMsg.TYP_ACID,Weapon.TYPE_BURNING,L("The stomach acid <DAMAGE> <T-NAME>!"));
 			}
 		}
 		return true;
 	}
 
+	@Override
 	public DeadBody killMeDead(boolean createBody)
 	{
 		// ===== move all inhabitants to the dragons location
 		// ===== loop through all inhabitants of the stomach
-    	Room room = location();
-    	if(room == null) room = CMLib.map().getRandomRoom();
-	    if((Stomach!=null)&&(room != null))
-	    {
-			int morselCount = Stomach.numInhabitants();
+		Room room = location();
+		if(room == null)
+			room = CMLib.map().getRandomRoom();
+		if((Stomach!=null)&&(room != null))
+		{
+			final int morselCount = Stomach.numInhabitants();
 			for (int x=morselCount-1;x>=0;x--)
 			{
 				// ===== get the tasty morsels
-				MOB TastyMorsel = Stomach.fetchInhabitant(x);
+				final MOB TastyMorsel = Stomach.fetchInhabitant(x);
 				if(TastyMorsel!=null)
 					room.bringMobHere(TastyMorsel,false);
 			}
-	
+
 			// =====move the inventory of the stomach to the room
-			int itemCount = Stomach.numItems();
+			final int itemCount = Stomach.numItems();
 			for (int y=itemCount-1;y>=0;y--)
 			{
-				Item PartiallyDigestedItem = Stomach.fetchItem(y);
+				final Item PartiallyDigestedItem = Stomach.getItem(y);
 				if(PartiallyDigestedItem!=null)
 				{
-					room.addItemRefuse(PartiallyDigestedItem,CMProps.getIntVar(CMProps.SYSTEMI_EXPIRE_PLAYER_DROP));
+					room.addItem(PartiallyDigestedItem,ItemPossessor.Expire.Player_Drop);
 					Stomach.delItem(PartiallyDigestedItem);
 				}
 			}
 			room.recoverRoomStats();
-	    }
+		}
 		// ===== Bury Him
 		return super.killMeDead(createBody);
 	}

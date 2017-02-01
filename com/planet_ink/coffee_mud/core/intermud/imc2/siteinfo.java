@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.core.intermud.imc2;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,6 +10,7 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -16,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 /**
  * IMC2 version 0.10 - an inter-mud communications protocol
- * Copyright (C) 1996 & 1997 Oliver Jowett <oliver@randomly.org>
+ * Copyright (C) 1996 - 1997 Oliver Jowett: oliver@randomly.org
  *
  * IMC2 Gold versions 1.00 though 2.00 are developed by MudWorld.
  * Copyright (C) 1999 - 2002 Haslage Net Electronics (Anthony R. Haslage)
@@ -46,14 +48,14 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
  */
 public class siteinfo {
 
-    public String name = ""; /* FULL name of mud */
-    public String host = ""; /* host AND port */
-    public String email = ""; /* contact address (email) */
-    public String www = ""; /* homepage */
-    public String details = ""; /* BRIEF description of mud */
-    public String flags = ""; /* special flags - currently only "hide" is supported */
-    public String base = ""; /* Name of the mud's codebase */
-    public int port; /* The port the mud itself is on */
-    public int maxguests; /* max number of guest connections - shogar */
+	public String name = ""; /* FULL name of mud */
+	public String host = ""; /* host AND port */
+	public String email = ""; /* contact address (email) */
+	public String www = ""; /* homepage */
+	public String details = ""; /* BRIEF description of mud */
+	public String flags = ""; /* special flags - currently only "hide" is supported */
+	public String base = ""; /* Name of the mud's codebase */
+	public int port; /* The port the mud itself is on */
+	public int maxguests; /* max number of guest connections - shogar */
 
 }

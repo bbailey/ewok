@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Items.Basic;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -17,14 +18,14 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2001-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -34,40 +35,63 @@ import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 */
 public class GenFood extends StdFood
 {
-	public String ID(){	return "GenFood";}
+	@Override
+	public String ID()
+	{
+		return "GenFood";
+	}
+
 	protected String	readableText="";
 	public GenFood()
 	{
 		super();
 
 		setName("a generic blob of food");
-		baseEnvStats.setWeight(2);
+		basePhyStats.setWeight(2);
 		setDisplayText("a generic blob of food sits here.");
 		setDescription("");
 		baseGoldValue=5;
 		amountOfNourishment=500;
 		material=RawMaterial.RESOURCE_MEAT;
-		recoverEnvStats();
+		recoverPhyStats();
 		decayTime=0;
 	}
 
 
-	public boolean isGeneric(){return true;}
+	@Override
+	public boolean isGeneric()
+	{
+		return true;
+	}
 
+	@Override
 	public String text()
 	{
 		return CMLib.coffeeMaker().getPropertiesStr(this,false);
 	}
-	public String readableText(){return readableText;}
-	public void setReadableText(String text){readableText=text;}
 
+	@Override
+	public String readableText()
+	{
+		return readableText;
+	}
+
+	@Override
+	public void setReadableText(String text)
+	{
+		readableText=text;
+	}
+
+	@Override
 	public void setMiscText(String newText)
 	{
 		miscText="";
 		CMLib.coffeeMaker().setPropertiesStr(this,newText,false);
-		recoverEnvStats();
+		recoverPhyStats();
 	}
+
 	private final static String[] MYCODES={"NOURISHMENT","BITE"};
+	@Override
 	public String getStat(String code)
 	{
 		if(CMLib.coffeeMaker().getGenItemCodeNum(code)>=0)
@@ -75,11 +99,13 @@ public class GenFood extends StdFood
 		switch(getCodeNum(code))
 		{
 		case 0: return ""+nourishment();
-        case 1: return ""+bite();
-        default:
-            return CMProps.getStatCodeExtensionValue(getStatCodes(), xtraValues, code);
-        }
+		case 1: return ""+bite();
+		default:
+			return CMProps.getStatCodeExtensionValue(getStatCodes(), xtraValues, code);
+		}
 	}
+
+	@Override
 	public void setStat(String code, String val)
 	{
 		if(CMLib.coffeeMaker().getGenItemCodeNum(code)>=0)
@@ -88,23 +114,32 @@ public class GenFood extends StdFood
 		switch(getCodeNum(code))
 		{
 		case 0: setNourishment(CMath.s_parseIntExpression(val)); break;
-        case 1: setBite(CMath.s_parseIntExpression(val)); break;
-        default:
-            CMProps.setStatCodeExtensionValue(getStatCodes(), xtraValues, code, val);
-            break;
+		case 1: setBite(CMath.s_parseIntExpression(val)); break;
+		default:
+			CMProps.setStatCodeExtensionValue(getStatCodes(), xtraValues, code, val);
+			break;
 		}
 	}
-	protected int getCodeNum(String code){
+
+	@Override
+	protected int getCodeNum(String code)
+	{
 		for(int i=0;i<MYCODES.length;i++)
-			if(code.equalsIgnoreCase(MYCODES[i])) return i;
+		{
+			if(code.equalsIgnoreCase(MYCODES[i]))
+				return i;
+		}
 		return -1;
 	}
+
 	private static String[] codes=null;
+	@Override
 	public String[] getStatCodes()
 	{
-		if(codes!=null) return codes;
-        String[] MYCODES=CMProps.getStatCodesList(GenFood.MYCODES,this);
-		String[] superCodes=GenericBuilder.GENITEMCODES;
+		if(codes!=null)
+			return codes;
+		final String[] MYCODES=CMProps.getStatCodesList(GenFood.MYCODES,this);
+		final String[] superCodes=CMParms.toStringArray(GenericBuilder.GenItemCode.values());
 		codes=new String[superCodes.length+MYCODES.length];
 		int i=0;
 		for(;i<superCodes.length;i++)
@@ -113,13 +148,18 @@ public class GenFood extends StdFood
 			codes[i]=MYCODES[x];
 		return codes;
 	}
+
+	@Override
 	public boolean sameAs(Environmental E)
 	{
-		if(!(E instanceof GenFood)) return false;
-		String[] codes=getStatCodes();
+		if(!(E instanceof GenFood))
+			return false;
+		final String[] codes=getStatCodes();
 		for(int i=0;i<codes.length;i++)
+		{
 			if(!E.getStat(codes[i]).equals(getStat(codes[i])))
 				return false;
+		}
 		return true;
 	}
 }

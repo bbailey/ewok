@@ -1,6 +1,11 @@
 package com.planet_ink.coffee_mud.WebMacros;
+
+import com.planet_ink.coffee_web.interfaces.*;
+import com.planet_ink.coffee_web.util.CWThread;
+import com.planet_ink.coffee_web.util.CWConfig;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -15,14 +20,14 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2002-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,11 +37,19 @@ import java.util.*;
 */
 public class WebServerName extends StdWebMacro
 {
-	public String name()	{return "WebServerName";}
+	@Override public String name()	{return "WebServerName";}
 
-	public String runMacro(ExternalHTTPRequests httpReq, String parm)
+	@Override
+	public String runMacro(HTTPRequest httpReq, String parm, HTTPResponse httpResp)
 	{
-		return httpReq.getWebServerPartialName();
+		if(Thread.currentThread() instanceof CWThread)
+		{
+			final String fullThreadName=((CWThread)Thread.currentThread()).getName();
+			final int x=fullThreadName.lastIndexOf('#');
+			if(x>0)
+				return fullThreadName.substring(0, x);
+		}
+		return "WebServer";
 	}
 
 }

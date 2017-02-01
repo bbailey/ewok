@@ -11,6 +11,12 @@
 	<script language=JavaScript>
 	<!--
 		var abort=false;
+        function Register()
+        {
+            document.FORUM.LASTPAGE.value='forum.cmvp?@RequestParametersEncoded@';
+            document.FORUM.action='register.cmvp';
+            document.FORUM.submit();
+        }
 		function DoMessage(which)
 		{
 			if(abort) return; abort=true;
@@ -38,7 +44,11 @@
 		function Cancel(which)
 		{
 			if(abort) return; abort=true;
-			document.FORUM.action="forums.cmvp";
+			@if?!CheckReqParm?CLAN=@
+			document.FORUM.action="index.cmvp";
+    		@else@
+            document.FORUM.action="forums.cmvp";
+            @endif@
 			document.FORUM.JOURNALMESSAGE.value='';
 			document.FORUM.JOURNALPAGE.value='';
 			document.FORUM.submit();
@@ -52,6 +62,15 @@
 			document.FORUM.DBSEARCH.value=which;
 			document.FORUM.submit();
 		}
+		function searchKeyPress(e,value)
+		{
+			if (typeof e == 'undefined' && window.event) { e = window.event; }
+			if (e.keyCode == 13)
+			{
+				DoSearch(value);
+			}
+		}
+
 		function NextPage(which)
 		{
 			if(abort) return; abort=true;
@@ -76,35 +95,80 @@
 			document.FORUM.submit();
 		
 		}
+		
+		function sayUnsubscribe()
+		{
+			if(confirm('Would you like to unsubscribe from this forum?\n\nYou may also send an email to @ForumInfo?SMTPADDRESS@ with a subject of "unsubscribe" if you prefer.'))
+			{
+				document.FORUM.action="forum.cmvp";
+				document.FORUM.FUNCTION.value="UNSUBSCRIBE";
+				document.FORUM.submit();
+			}
+		}
+		
+		function saySubscribe()
+		{
+			if(confirm('Would you like to subscribe to automatic emails from this forum?\n\nYou may also send an email to @ForumInfo?SMTPADDRESS@ with a subject of "subscribe" if you prefer.'))
+			{
+				document.FORUM.action="forum.cmvp";
+				document.FORUM.FUNCTION.value="SUBSCRIBE";
+				document.FORUM.submit();
+			}
+		}
 	//-->
 	</SCRIPT>
 </head>
 
 <body>
-<FORM NAME=FORUM TARGET=_top METHOD=POST ACTION="forum.cmvp">
+<FORM  ACCEPT-CHARSET="UTF-8" NAME=FORUM TARGET=_top METHOD=POST ACTION="forum.cmvp">
 <INPUT TYPE=HIDDEN NAME=AUTH VALUE="@Authenticate?AUTH@">
 <INPUT TYPE=HIDDEN NAME=JOURNAL VALUE="@RequestParameter?JOURNAL@">
 <INPUT TYPE=HIDDEN NAME=JOURNALMESSAGE VALUE="">
 <INPUT TYPE=HIDDEN NAME=FUNCTION VALUE="">
-<INPUT TYPE=HIDDEN NAME=DBSEARCH VALUE="">
-<INPUT TYPE=HIDDEN NAME=OLDDBSEARCH VALUE="@RequestParameter?DBSEARCH@">
+<INPUT TYPE=HIDDEN NAME=DBSEARCH VALUE="@RequestParameter?DBSEARCH@">
 <INPUT TYPE=HIDDEN NAME=JOURNALPAGE VALUE="@RequestParameter?JOURNALPAGE@">
 <INPUT TYPE=HIDDEN NAME=MESSAGEPAGE VALUE="">
 <TABLE WIDTH=100% BORDER=0 CELLSPACING=0 CELLPADDING=0>
 	<TR>
 	<TD WIDTH=10px>&nbsp;</TD>
-	<TD><a href="@if?!Authenticate?SETPLAYER@index.cmvp@else@access.cmvp@endif@?AUTH=@Authenticate?AUTH@">
-		<IMG BORDER=0 SRC=images/cm50.gif>
+	<TD>@if?CheckReqParm?CLAN=@
+	    <a href="@if?!Authenticate?SETPLAYER@index.cmvp@else@access.cmvp@endif@?AUTH=@Authenticate?AUTH@">
+	    @else@
+        <a href="index.cmvp?AUTH=@Authenticate?AUTH@">
+	    @endif@
+		<IMG BORDER=0 src=images/cm50.gif>
 		</a>
 	</TD>
 	<TD ALIGN=RIGHT VALIGN=TOP>
 		<FONT COLOR=BLACK SIZE=-1>
+    @if?!CheckReqParm?CLAN=@
+        @if?!Authenticate?SETPLAYER@<!-- -->@endif@
+    @else@
 	@if?!Authenticate?SETPLAYER@ 
 		Login<INPUT TYPE=TEXT SIZE=10 VALUE="" NAME=LOGIN>&nbsp;
 		Password<INPUT TYPE=PASSWORD NAME=PASSWORD SIZE=10 VALUE="">
 		<INPUT TYPE=SUBMIT VALUE=Login>
+        @if?IsAccountSystem@
+            <INPUT TYPE=HIDDEN NAME=LASTPAGE VALUE="">
+            <INPUT TYPE=BUTTON VALUE=Register ONCLICK="Register()">
+        @endif@
 	@else@
 		Logged in as <B>@PlayerData?NAME@</B>
+		@if?ForumInfo?ISSMTPFORWARD@
+			@if?CheckReqParm?FUNCTION=SUBSCRIBE@
+				<BR><FONT SIZE=-2 COLOR=RED><B>@JournalFunction?SUBSCRIBE@</B></FONT>
+			@endif@
+			@if?CheckReqParm?FUNCTION=UNSUBSCRIBE@
+				<BR><FONT SIZE=-2 COLOR=RED><B>@JournalFunction?UNSUBSCRIBE@</B></FONT>
+			@endif@
+			<BR>
+			@if?ForumInfo?ISSMTPSUBSCRIBER@
+				<a href="javascript:sayUnsubscribe();">(subscribed)</a>
+				@else@
+				<a href="javascript:saySubscribe();">(not subscribed)</a>
+			@endif@
+		@endif@
+	@endif@
 	@endif@
 	</TD>
 	</TR>
@@ -120,7 +184,7 @@
 <CENTER><FONT COLOR=RED><B>@JournalFunction?NEWPOST@</B></FONT></CENTER>
 @endif@
 <TABLE WIDTH=100% BORDER=1 CELLSPACING=0 CELLPADDING=0 BGCOLOR=LIGHTGREY>
-<TR BGCOLOR=BLACK><TD COLSPAN=6>&nbsp;<FONT COLOR=WHITE SIZE=-1><B>Forum : @JournalName@</B></FONT>&nbsp;</TD></TR>
+<TR BGCOLOR=BLACK><TD COLSPAN=6>&nbsp;<FONT COLOR=WHITE SIZE=-1><B>Forum : @JournalName?NOCOLOR@</B></FONT>&nbsp;</TD></TR>
 <TR><TD><FONT COLOR=BLACK SIZE=-1>@ForumInfo?LONGDESC@</TD></TR>
 </TABLE>
 <TABLE WIDTH=100% BORDER=0 CELLSPACING=1 CELLPADDING=1>
@@ -140,7 +204,7 @@
 			<TD WIDTH=100px BGCOLOR=BLACK VALIGN=CENTER HEIGHT=15 ONCLICK="javascript:NewMessage('')">
 			<a href="javascript:NewMessage('')" style="text-decoration:none">
 				<FONT COLOR=WHITE SIZE=-1>
-				&nbsp;<IMG BORDER=0 WIDTH=14 HEIGHT=14 SRC=images/docbulb.gif>&nbsp;&nbsp;<B>New Thread</B>
+				&nbsp;<IMG BORDER=0 WIDTH=14 HEIGHT=14 src=images/docbulb.gif>&nbsp;&nbsp;<B>New Thread</B>
 				</FONT>
 			</a>
 			</TD>
@@ -151,7 +215,7 @@
 			<TD WIDTH=100px BGCOLOR=BLACK VALIGN=CENTER HEIGHT=15 ONCLICK="javascript:DoAdmin('')">
 			<a href="javascript:DoAdmin('')" style="text-decoration:none">
 				<FONT COLOR=WHITE SIZE=-1>
-				&nbsp;<IMG BORDER=0 WIDTH=14 HEIGHT=14 SRC=images/dochammer.gif>&nbsp;&nbsp;<B>Admin</B>
+				&nbsp;<IMG BORDER=0 WIDTH=14 HEIGHT=14 src=images/dochammer.gif>&nbsp;&nbsp;<B>Admin</B>
 				</FONT>
 			</a>
 			</TD>
@@ -159,7 +223,7 @@
 			<TD WIDTH=100px BGCOLOR=BLACK VALIGN=CENTER HEIGHT=15 ONCLICK="javascript:Cancel('')">
 			<a href="javascript:Cancel('')" style="text-decoration:none">
 				<FONT COLOR=WHITE SIZE=-1>
-				&nbsp;<IMG BORDER=0 WIDTH=14 HEIGHT=14 SRC=images/docbback.gif>&nbsp;&nbsp;<B>Forums</B>
+				&nbsp;<IMG BORDER=0 WIDTH=14 HEIGHT=14 src=images/docbback.gif>&nbsp;&nbsp;<B>@if?!CheckReqParm?CLAN=@Home@else@Forums@endif@</B>
 				</FONT>
 			</a>
 			</TD>
@@ -170,9 +234,9 @@
 <TR BGCOLOR=BLACK>
 	<TD COLSPAN=6>
 	@if?CheckReqParm?!DBSEARCH=@
-		&nbsp;<FONT COLOR=WHITE SIZE=-1><B>Search Results in Forum : @JournalName@</B></FONT>&nbsp;
+		&nbsp;<FONT COLOR=WHITE SIZE=-1><B>Search Results in Forum : @JournalName?NOCOLOR@</B></FONT>&nbsp;
 	@else@
-		&nbsp;<FONT COLOR=WHITE SIZE=-1><B>Threads in Forum : @JournalName@</B></FONT>&nbsp;
+		&nbsp;<FONT COLOR=WHITE SIZE=-1><B>Threads in Forum : @JournalName?NOCOLOR@</B></FONT>&nbsp;
 	@endif@
 	</TD>
 </TR>
@@ -188,10 +252,10 @@
 	@JournalMessageNext@
 	<TR> 
 		<TD VALIGN=CENTER ALIGN=CENTER BGCOLOR=LIGHTGREY>
-			<IMG WIDTH=30 HEIGHT=30 SRC=@JournalInfo?MSGTYPEICON@>
+			<IMG WIDTH=30 HEIGHT=30 SRC=/images/@JournalInfo?MSGTYPEICON@>
 		</TD>
 		<TD VALIGN=CENTER ALIGN=CENTER BGCOLOR=LIGHTBLUE>
-		    @AddRequestParameter?MSGICON=@@JournalInfo?MSGICON@@ @
+			@AddRequestParameter?MSGICON=@@JournalInfo?MSGICON@@ @
 			@if?CheckReqParm?!MSGICON=@
 				<IMG WIDTH=30 HEIGHT=30 SRC=@JournalInfo?MSGICON@>
 			@endif@
@@ -210,7 +274,7 @@
 				<FONT COLOR=BLACK SIZE=-1>by @JournalInfo?FROM@</FONT>
 				</TD>
 			</TR>
-		    </TABLE>
+			</TABLE>
 		</TD>
 		<TD VALIGN=CENTER ALIGN=CENTER BGCOLOR=LIGHTGREY><FONT COLOR=BLACK SIZE=-1>@JournalInfo?REPLIES@</FONT></TD>
 		<TD VALIGN=CENTER ALIGN=CENTER BGCOLOR=LIGHTBLUE><FONT COLOR=BLACK SIZE=-1>@JournalInfo?VIEWS@</FONT></TD>
@@ -231,7 +295,7 @@
 				<TD WIDTH=70px BGCOLOR=BLACK VALIGN=CENTER HEIGHT=15 ONCLICK="javascript:PrevPage('')">
 				<a href="javascript:PrevPage('')" style="text-decoration:none">
 					<FONT COLOR=WHITE SIZE=-1>
-					<IMG BORDER=0 WIDTH=14 HEIGHT=14 SRC=images/docback.gif><B>Previous</B>
+					<IMG BORDER=0 WIDTH=14 HEIGHT=14 src=images/docback.gif><B>Previous</B>
 					</FONT>
 				</a>
 				</TD>
@@ -242,7 +306,7 @@
 				<TD WIDTH=50px BGCOLOR=BLACK VALIGN=CENTER HEIGHT=15 ONCLICK="javascript:NextPage('@RequestParameter?LASTENTRYTIME@')">
 				<a href="javascript:NextPage('')" style="text-decoration:none">
 					<FONT COLOR=WHITE SIZE=-1>
-					<B>Next</B>&nbsp;&nbsp;<IMG BORDER=0 WIDTH=14 HEIGHT=14 SRC=images/docforward.gif>
+					<B>Next</B>&nbsp;&nbsp;<IMG BORDER=0 WIDTH=14 HEIGHT=14 src=images/docforward.gif>
 					</FONT>
 				</a>
 				</TD>
@@ -260,16 +324,16 @@
 		<TD WIDTH=120px BGCOLOR=BLACK VALIGN=CENTER HEIGHT=15 ONCLICK="javascript:DoSearch(document.FORUM.SEARCHBOX.value)">
 		<a href="javascript:DoSearch(document.FORUM.SEARCHBOX.value)" style="text-decoration:none">
 			<FONT COLOR=WHITE SIZE=-1>
-			&nbsp;<IMG BORDER=0 WIDTH=14 HEIGHT=14 SRC=images/docquestion.gif>&nbsp;&nbsp;<B>Search Forum</B>
+			&nbsp;<IMG BORDER=0 WIDTH=14 HEIGHT=14 src=images/docquestion.gif>&nbsp;&nbsp;<B>Search Forum</B>
 			</FONT>
 		</a>
 		</TD>
-		<TD>&nbsp;&nbsp;&nbsp;<INPUT TYPE=TEXT SIZE=50 VALUE="" NAME=SEARCHBOX></FONT></TD>
+		<TD>&nbsp;&nbsp;&nbsp;<INPUT TYPE=TEXT SIZE=50 VALUE="" NAME=SEARCHBOX ONKEYDOWN="searchKeyPress(event,this.value)"></FONT></TD>
 	@else@
 		<TD WIDTH=120px BGCOLOR=BLACK VALIGN=CENTER HEIGHT=15 ONCLICK="javascript:DoSearch('')">
 		<a href="javascript:DoSearch('')" style="text-decoration:none">
 			<FONT COLOR=WHITE SIZE=-1>
-			&nbsp;<IMG BORDER=0 WIDTH=14 HEIGHT=14 SRC=images/docback.gif>&nbsp;&nbsp;<B>View All Msgs</B>
+			&nbsp;<IMG BORDER=0 WIDTH=14 HEIGHT=14 src=images/docback.gif>&nbsp;&nbsp;<B>View All Msgs</B>
 			</FONT>
 		</a>
 		</TD>

@@ -2,6 +2,7 @@ package com.planet_ink.coffee_mud.Abilities.Songs;
 import com.planet_ink.coffee_mud.Abilities.StdAbility;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -17,14 +18,14 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2001-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,40 +33,51 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
+
 public class Song extends StdAbility
 {
-	public String ID() { return "Song"; }
-	public String name(){ return "a Song";}
-	public String displayText(){ return "("+songOf()+")";}
-	protected int canAffectCode(){return CAN_MOBS;}
-	protected int canTargetCode(){return CAN_MOBS;}
-	private static final String[] triggerStrings = {"SING","SI"};
-	public String[] triggerStrings(){return triggerStrings;}
-	public int classificationCode(){return Ability.ACODE_SONG|Ability.DOMAIN_SINGING;}
-    public int maxRange(){return adjustedMaxInvokerRange(2);}
+	@Override public String ID() { return "Song"; }
+	private final static String localizedName = CMLib.lang().L("a Song");
+	@Override public String name() { return localizedName; }
+	@Override public String displayText() { return "("+songOf()+")"; }
+	@Override protected int canAffectCode(){return CAN_MOBS;}
+	@Override protected int canTargetCode(){return CAN_MOBS;}
+	private static final String[] triggerStrings =I(new String[] {"SING","SI"});
+	@Override public String[] triggerStrings(){return triggerStrings;}
+	@Override public int classificationCode(){return Ability.ACODE_SONG|Ability.DOMAIN_SINGING;}
+	@Override public int maxRange(){return adjustedMaxInvokerRange(2);}
 
-    protected boolean HAS_QUANTITATIVE_ASPECT(){return true;}
+	protected boolean HAS_QUANTITATIVE_ASPECT(){return true;}
 	protected boolean skipStandardSongInvoke(){return false;}
 	protected boolean mindAttack(){return abstractQuality()==Ability.QUALITY_MALICIOUS;}
 	protected boolean skipStandardSongTick(){return false;}
 	protected boolean maliciousButNotAggressiveFlag(){return false;}
 	protected boolean skipSimpleStandardSongTickToo(){return false;}
-	protected String songOf(){return "Song of "+name();}
-    protected int steadyDown=-1;
-    protected Vector commonRoomSet=null;
-    protected Room originRoom=null;
+	protected String songOf(){return L("Song of ")+name();}
+	protected long timeOut = 0;
+	protected Vector<Room> commonRoomSet=null;
+	protected Room originRoom=null;
 
-    
+
+	@Override
 	public int adjustedLevel(MOB mob, int asLevel)
 	{
-        int level=super.adjustedLevel(mob,asLevel);
-		int charisma=(invoker().charStats().getStat(CharStats.STAT_CHARISMA)-10);
+		final int level=super.adjustedLevel(mob,asLevel);
+		final int charisma=(invoker().charStats().getStat(CharStats.STAT_CHARISMA)-10);
 		if(charisma>10)
 			return level+(charisma/3);
 		return level;
 	}
 
+	@Override
+	public void affectPhyStats(Physical affectedEnv, PhyStats affectableStats)
+	{
+		if(this.invoker()==affectedEnv)
+			affectableStats.addAmbiance("(?)singing of "+songOf().toLowerCase());
+		super.affectPhyStats(affectedEnv, affectableStats);
+	}
+
+	@Override
 	public void executeMsg(Environmental host, CMMsg msg)
 	{
 		super.executeMsg(host,msg);
@@ -73,36 +85,83 @@ public class Song extends StdAbility
 		&&(msg.amISource(invoker))
 		&&(!unInvoked))
 		{
-			if((msg.sourceMinor()==CMMsg.TYP_SPEAK)
+			if(((msg.sourceMinor()==CMMsg.TYP_SPEAK)
+					||((msg.sourceMinor()==CMMsg.TYP_CAST_SPELL)&&(CMath.bset(msg.sourceCode(), CMMsg.MASK_SOUND))))
 			&&(!(msg.tool() instanceof Song))
-			&&(!CMath.bset(msg.sourceMajor(),CMMsg.MASK_CHANNEL)))
+			&&(!msg.sourceMajor(CMMsg.MASK_CHANNEL)))
 			{
 				if(msg.source().location()!=null)
-					msg.source().location().show(msg.source(),null,CMMsg.MSG_NOISE,"<S-NAME> stop(s) singing.");
+					msg.source().location().show(msg.source(),null,CMMsg.MSG_NOISE,L("<S-NAME> stop(s) singing."));
 				unInvoke();
 			}
 			else
 			if((msg.target() instanceof Armor)
-			&&(msg.targetMinor()==CMMsg.TYP_WEAR))
+			&&(msg.targetMinor()==CMMsg.TYP_WEAR)
+			&&(CMath.bset(((Armor)msg.target()).rawProperLocationBitmap(),Wearable.WORN_MOUTH)))
 			{
 				if(msg.source().location()!=null)
-					msg.source().location().show(msg.source(),null,CMMsg.MSG_NOISE,"<S-NAME> stop(s) singing.");
+					msg.source().location().show(msg.source(),null,CMMsg.MSG_NOISE,L("<S-NAME> stop(s) singing."));
 				unInvoke();
 			}
 		}
 	}
 
-    public int castingQuality(MOB mob, Environmental target)
-    {
-        if(mob!=null)
-        {
-            for(int e=0;e<mob.numAllEffects();e++)
-                if(mob.fetchEffect(e) instanceof Song)
-                    return Ability.QUALITY_INDIFFERENT;
-        }
-        return super.castingQuality(mob,target);
-    }
+	@Override
+	public int castingQuality(MOB mob, Physical target)
+	{
+		if(mob!=null)
+		{
+			for(final Enumeration<Ability> a=mob.effects();a.hasMoreElements();)
+			{
+				final Ability A=a.nextElement();
+				if(A instanceof Song)
+					return Ability.QUALITY_INDIFFERENT;
+			}
+		}
+		return super.castingQuality(mob,target);
+	}
 
+	@SuppressWarnings("unchecked")
+	protected List<String> getLyrics()
+	{
+		Map<String,List<String>> lyricMap=(Map<String,List<String>>)Resources.getResource("SYSTEM_SONG_LYRICS");
+		if(lyricMap==null)
+		{
+			lyricMap=new TreeMap<String,List<String>>();
+			List<String> lines=Resources.getFileLineVector(new CMFile(Resources.buildResourcePath("skills/songlyrics.txt"),null).text());
+			if(lines.size()>0)
+			{
+				List<String> current=null;
+				for(String line : lines)
+				{
+					line=line.trim();
+					if(line.startsWith("[")&&(line.endsWith("]")))
+					{
+						String ID=line.substring(1,line.length()-1);
+						Ability A=CMClass.getAbility(ID);
+						if(A==null)
+							A=CMClass.getAbility("Song_"+ID);
+						if(A!=null)
+						{
+							current=new ArrayList<String>();
+							lyricMap.put(A.ID(),current);
+						}
+						else
+						{
+							Log.errOut("Song","Unknown song class: "+ID);
+							current=null;
+						}
+					}
+					else
+					if((current!=null)&&(line.length()>0))
+						current.add(line);
+				}
+			}
+		}
+		return lyricMap.get(ID());
+	}
+	
+	@Override
 	public boolean tick(Tickable ticking, int tickID)
 	{
 		if((!super.tick(ticking,tickID))||(!(affected instanceof MOB)))
@@ -110,11 +169,11 @@ public class Song extends StdAbility
 
 		if(skipSimpleStandardSongTickToo())
 			return true;
-		
-		MOB mob=(MOB)affected;
+
+		final MOB mob=(MOB)affected;
 		if((affected==invoker())&&(invoker()!=null)&&(invoker().location()!=originRoom))
 		{
-			Vector V=getInvokerScopeRoomSet(null);
+			final Vector<Room> V=getInvokerScopeRoomSet(null);
 			commonRoomSet.clear();
 			commonRoomSet.addAll(V);
 			originRoom=invoker().location();
@@ -125,97 +184,130 @@ public class Song extends StdAbility
 		&&(!mob.amDead())
 		&&(mob.isMonster())
 		&&(!mob.isInCombat())
-        &&(mob.amFollowing()==null)
-        &&((!(mob instanceof Rideable))||(((Rideable)mob).numRiders()==0))
-        &&(!CMLib.flags().isATrackingMonster(mob))
-		&&(CMLib.flags().aliveAwakeMobile(mob,true)))
+		&&(mob.amFollowing()==null)
+		&&((!(mob instanceof Rideable))||(((Rideable)mob).numRiders()==0))
+		&&(!CMLib.flags().isATrackingMonster(mob))
+		&&(CMLib.flags().isAliveAwakeMobile(mob,true)))
 		{
 			if((mob.location()!=originRoom)
 			&&(CMLib.flags().isMobile(mob)))
 			{
-				int dir=this.getCorrectDirToOriginRoom(mob.location(),commonRoomSet.indexOf(mob.location()));
+				final int dir=this.getCorrectDirToOriginRoom(mob.location(),commonRoomSet.indexOf(mob.location()));
 				if(dir>=0)
-					CMLib.tracking().move(mob,dir,false,false);
+					CMLib.tracking().walk(mob,dir,false,false);
 			}
 			else
 			if((mob.location().isInhabitant(invoker()))
 			&&(CMLib.flags().canBeSeenBy(invoker(),mob)))
 				CMLib.combat().postAttack(mob,invoker(),mob.fetchWieldedItem());
 		}
-		
+
 		if((invoker==null)
 		||(invoker.fetchEffect(ID())==null)
 		||(commonRoomSet==null)
 		||(!commonRoomSet.contains(mob.location())))
-			return possiblyUnsing(mob,null,false);
+			return unsingMe(mob,null);
 		
+		if(invoker==affected)
+		{
+			final List<String> lyrics=this.getLyrics();
+			final MOB invoker=this.invoker;
+			if((lyrics!=null) && (invoker==affected))
+			{
+				final String line = lyrics.get((int)((System.currentTimeMillis()/CMProps.getTickMillis()) % (lyrics.size())));
+				final Room R=invoker.location();
+				if(R!=null)
+				{
+					R.show(invoker, null, this, CMMsg.MSG_SPEAK, L("<S-NAME> sing(s) '@x1'",line));
+				}
+			}
+		}
+
 		if(skipStandardSongTick())
 			return true;
 
 		if((invoker==null)
-		||(!CMLib.flags().aliveAwakeMobile(invoker,true))
-		||(!CMLib.flags().canBeHeardBy(invoker,mob)))
-			return possiblyUnsing(mob,null,false);
+		||(!CMLib.flags().isAliveAwakeMobile(invoker,true))
+		||(!CMLib.flags().canBeHeardSpeakingBy(invoker,mob)))
+			return unsingMe(mob,null);
 		return true;
 	}
-	
-	protected void unsing(MOB mob, MOB invoker, boolean notMe)
+
+	protected void unsingAll(MOB mob, MOB invoker)
 	{
-		if(mob==null) return;
-		for(int a=mob.numEffects()-1;a>=0;a--)
-		{
-			Ability A=mob.fetchEffect(a);
-			if((A!=null)
-			&&(A instanceof Song)
-			&&((!notMe)||(!A.ID().equals(ID())))
-			&&((invoker==null)||(A.invoker()==null)||(A.invoker()==invoker)))
-            {
-                if((!(A instanceof Song))||(((Song)A).steadyDown<=0))
-    				A.unInvoke();
-            }
-		}
+		if(mob!=null)
+			for(int a=mob.numEffects()-1;a>=0;a--)
+			{
+				final Ability A=mob.fetchEffect(a);
+				if((A instanceof Song)
+				&&((invoker==null)||(A.invoker()==null)||(A.invoker()==invoker)))
+					((Song)A).unsingMe(mob,invoker);
+			}
 	}
 
-    protected Vector getInvokerScopeRoomSet(MOB backupMob)
-    {
-    	if((invoker()==null)
-    	||(invoker().location()==null))
-        {
-    		if((backupMob!=null)&&(backupMob.location()!=null))
-	    		 return CMParms.makeVector(backupMob.location());
-			return new Vector();
-        }
-    	int depth=super.getXMAXRANGELevel(invoker());
-    	if(depth==0) return CMParms.makeVector(invoker().location());
-    	Vector rooms=new Vector();
-        // needs to be area-only, because of the aggro-tracking rule
-		TrackingLibrary.TrackingFlags flags;
-		flags = new TrackingLibrary.TrackingFlags()
-				.add(TrackingLibrary.TrackingFlag.OPENONLY)
-				.add(TrackingLibrary.TrackingFlag.AREAONLY)
-				.add(TrackingLibrary.TrackingFlag.NOAIR);
-    	CMLib.tracking().getRadiantRooms(invoker().location(), rooms,flags, null, depth, null);
-    	if(!rooms.contains(invoker().location()))
-    		rooms.addElement(invoker().location());
-    	return rooms;
-    }
-    
-	protected boolean possiblyUnsing(MOB mob, MOB invoker, boolean notMe)
+	protected void unsingAllByThis(MOB mob, MOB invoker)
 	{
-        if(steadyDown<0) steadyDown=((invoker()!=null)&&(invoker()!=mob))?super.getXTIMELevel(invoker()):0;
-        if(steadyDown==0)
-        {
-            unsing(mob,invoker,notMe);
-            return false;
-        }
-        mob.tell("The "+songOf()+" lingers in your head ("+steadyDown+").");
-        steadyDown--;
-        return true;
+		if(mob!=null)
+			for(int a=mob.numEffects()-1;a>=0;a--)
+			{
+				final Ability A=mob.fetchEffect(a);
+				if((A instanceof Song)
+				&&(!A.ID().equals(ID()))
+				&&((invoker==null)||(A.invoker()==null)||(A.invoker()==invoker)))
+					((Song)A).unsingMe(mob,invoker);
+			}
+	}
+
+	protected boolean unsingMe(MOB mob, MOB invoker)
+	{
+		if(mob==null)
+			return false;
+		final Ability A=mob.fetchEffect(ID());
+		if((A instanceof Song)
+		&&((invoker==null)||(A.invoker()==null)||(A.invoker()==invoker)))
+		{
+			final Song S=(Song)A;
+			if(S.timeOut==0)
+				S.timeOut = System.currentTimeMillis()
+						  + (CMProps.getTickMillis() * (((invoker()!=null)&&(invoker()!=mob))?super.getXTIMELevel(invoker()):0));
+			if(System.currentTimeMillis() >= S.timeOut)
+			{
+				A.unInvoke();
+				return false;
+			}
+		}
+		return true;
+	}
+
+	protected Vector<Room> getInvokerScopeRoomSet(MOB backupMob)
+	{
+		if((invoker()==null)
+		||(invoker().location()==null))
+		{
+			if((backupMob!=null)&&(backupMob.location()!=null))
+				 return new XVector<Room>(backupMob.location());
+			return new Vector<Room>();
+		}
+		final int depth=getXMAXRANGELevel(invoker());
+		if(depth==0)
+			return new XVector<Room>(invoker().location());
+		final Vector<Room> rooms=new Vector<Room>();
+		// needs to be area-only, because of the aggro-tracking rule
+		TrackingLibrary.TrackingFlags flags;
+		flags = CMLib.tracking().newFlags()
+				.plus(TrackingLibrary.TrackingFlag.OPENONLY)
+				.plus(TrackingLibrary.TrackingFlag.AREAONLY)
+				.plus(TrackingLibrary.TrackingFlag.NOAIR);
+		CMLib.tracking().getRadiantRooms(invoker().location(), rooms,flags, null, depth, null);
+		if(!rooms.contains(invoker().location()))
+			rooms.addElement(invoker().location());
+		return rooms;
 	}
 
 	protected int getCorrectDirToOriginRoom(Room R, int v)
 	{
-		if(v<0) return -1;
+		if(v<0)
+			return -1;
 		int dir=-1;
 		Room R2=null;
 		Exit E2=null;
@@ -226,7 +318,7 @@ public class Song extends StdAbility
 			E2=R.getExitInDir(d);
 			if((R2!=null)&&(E2!=null)&&(E2.isOpen()))
 			{
-				int dx=commonRoomSet.indexOf(R2);
+				final int dx=commonRoomSet.indexOf(R2);
 				if((dx>=0)&&(dx<lowest))
 				{
 					lowest=dx;
@@ -236,7 +328,7 @@ public class Song extends StdAbility
 		}
 		return dir;
 	}
-	
+
 	protected String getCorrectMsgString(Room R, String str, int v)
 	{
 		String msgStr=null;
@@ -244,16 +336,16 @@ public class Song extends StdAbility
 			msgStr=str;
 		else
 		{
-			int dir=this.getCorrectDirToOriginRoom(R,v);
+			final int dir=this.getCorrectDirToOriginRoom(R,v);
 			if(dir>=0)
-				msgStr="^SYou hear the "+songOf()+" being sung "+Directions.getInDirectionName(dir)+"!^?";
+				msgStr=L("^SYou hear the @x1 being sung @x2!^?",songOf(),CMLib.directions().getInDirectionName(dir));
 			else
-				msgStr="^SYou hear the "+songOf()+" being sung nearby!^?";
+				msgStr=L("^SYou hear the @x1 being sung nearby!^?",songOf());
 		}
 		return msgStr;
 	}
-	
-	public HashSet sendMsgAndGetTargets(MOB mob, Room R, CMMsg msg, Environmental givenTarget, boolean auto)
+
+	public Set<MOB> sendMsgAndGetTargets(MOB mob, Room R, CMMsg msg, Environmental givenTarget, boolean auto)
 	{
 		if(originRoom==R)
 			R.send(mob,msg);
@@ -261,26 +353,28 @@ public class Song extends StdAbility
 			R.sendOthers(mob,msg);
 		if(R!=originRoom)
 			mob.setLocation(R);
-		HashSet h=properTargets(mob,givenTarget,auto);
+		final Set<MOB> h=properTargets(mob,givenTarget,auto);
 		if(R!=originRoom)
 		{
 			R.delInhabitant(mob);
 			mob.setLocation(originRoom);
 		}
-		if(h==null) return null;
+		if(h==null)
+			return null;
 		if(R==originRoom)
 		{
-			if(!h.contains(mob)) 
+			if(!h.contains(mob))
 				h.add(mob);
 		}
 		else
 			h.remove(mob);
 		return h;
 	}
-	
-	public boolean invoke(MOB mob, Vector commands, Environmental givenTarget, boolean auto, int asLevel)
+
+	@Override
+	public boolean invoke(MOB mob, List<String> commands, Physical givenTarget, boolean auto, int asLevel)
 	{
-        steadyDown=-1;
+		timeOut=0;
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
 			return false;
 
@@ -292,7 +386,7 @@ public class Song extends StdAbility
 		&&(mob.location()!=null)
 		&&(CMLib.dice().rollPercentage()<50))
 		{
-			mob.location().show(mob,null,CMMsg.MSG_OK_VISUAL,"<S-NAME> hit(s) a foul note on "+name()+" due to <S-HIS-HER> armor!");
+			mob.location().show(mob,null,CMMsg.MSG_OK_VISUAL,L("<S-NAME> hit(s) a foul note on @x1 due to <S-HIS-HER> armor!",name()));
 			return false;
 		}
 
@@ -301,45 +395,47 @@ public class Song extends StdAbility
 
 		if((!auto)&&(!CMLib.flags().canSpeak(mob)))
 		{
-			mob.tell("You can't sing!");
+			mob.tell(L("You can't sing!"));
 			return false;
 		}
 
-		boolean success=proficiencyCheck(mob,0,auto);
-		unsing(mob,mob,true);
+		final boolean success=proficiencyCheck(mob,0,auto);
+		unsingAllByThis(mob,mob);
 		if(success)
 		{
 			invoker=mob;
 			originRoom=mob.location();
 			commonRoomSet=getInvokerScopeRoomSet(null);
-			String str=auto?"^SThe "+songOf()+" begins to play!^?":"^S<S-NAME> begin(s) to sing the "+songOf()+".^?";
+			String str=auto?L("^SThe @x1 begins to play!^?",songOf()):L("^S<S-NAME> begin(s) to sing the @x1.^?",songOf());
 			if((!auto)&&(mob.fetchEffect(this.ID())!=null))
-				str="^S<S-NAME> start(s) the "+songOf()+" over again.^?";
+				str=L("^S<S-NAME> start(s) the @x1 over again.^?",songOf());
 			for(int v=0;v<commonRoomSet.size();v++)
 			{
-				Room R=(Room)commonRoomSet.elementAt(v);
-				String msgStr=getCorrectMsgString(R,str,v);
-				CMMsg msg=CMClass.getMsg(mob,null,this,verbalCastCode(mob,null,auto),msgStr);
+				final Room R=commonRoomSet.elementAt(v);
+				final String msgStr=getCorrectMsgString(R,str,v);
+				final CMMsg msg=CMClass.getMsg(mob,null,this,verbalCastCode(mob,null,auto),msgStr);
 				if(R.okMessage(mob,msg))
 				{
-					HashSet h=this.sendMsgAndGetTargets(mob, R, msg, givenTarget, auto);
-					if(h==null) continue;
-					Song newOne=(Song)this.copyOf();
-					for(Iterator f=h.iterator();f.hasNext();)
+					final Set<MOB> h=this.sendMsgAndGetTargets(mob, R, msg, givenTarget, auto);
+					if(h==null)
+						continue;
+					final Song newOne=(Song)this.copyOf();
+					for (final Object element : h)
 					{
-						MOB follower=(MOB)f.next();
-						Room R2=follower.location();
-	
+						final MOB follower=(MOB)element;
+						final Room R2=follower.location();
+
 						// malicious songs must not affect the invoker!
 						int affectType=CMMsg.MSG_CAST_VERBAL_SPELL;
-						if(auto) affectType=affectType|CMMsg.MASK_ALWAYS;
+						if(auto)
+							affectType=affectType|CMMsg.MASK_ALWAYS;
 						if((castingQuality(mob,follower)==Ability.QUALITY_MALICIOUS)&&(follower!=mob))
 							affectType=affectType|CMMsg.MASK_MALICIOUS;
-	
-						if((CMLib.flags().canBeHeardBy(invoker,follower)&&(follower.fetchEffect(this.ID())==null)))
+
+						if((CMLib.flags().canBeHeardSpeakingBy(invoker,follower)&&(follower.fetchEffect(this.ID())==null)))
 						{
 							CMMsg msg2=CMClass.getMsg(mob,follower,this,affectType,null);
-							CMMsg msg3=msg2;
+							final CMMsg msg3=msg2;
 							if((mindAttack())&&(follower!=mob))
 								msg2=CMClass.getMsg(mob,follower,this,CMMsg.MSK_CAST_MALICIOUS_VERBAL|CMMsg.TYP_MIND|(auto?CMMsg.MASK_ALWAYS:0),null);
 							if((R.okMessage(mob,msg2))&&(R.okMessage(mob,msg3)))
@@ -365,7 +461,7 @@ public class Song extends StdAbility
 			}
 		}
 		else
-			mob.location().show(mob,null,CMMsg.MSG_NOISE,"<S-NAME> hit(s) a foul note.");
+			mob.location().show(mob,null,CMMsg.MSG_NOISE,L("<S-NAME> hit(s) a foul note."));
 
 		return success;
 	}

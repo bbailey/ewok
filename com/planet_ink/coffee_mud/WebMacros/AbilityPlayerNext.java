@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.WebMacros;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -12,18 +13,18 @@ import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
+import com.planet_ink.coffee_web.interfaces.*;
+
 import java.util.*;
 
-
-
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2003-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -31,32 +32,34 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
+
 public class AbilityPlayerNext extends StdWebMacro
 {
-	public String name(){return this.getClass().getName().substring(this.getClass().getName().lastIndexOf('.')+1);}
+	@Override public String name() { return "AbilityPlayerNext"; }
 
-	public String runMacro(ExternalHTTPRequests httpReq, String parm)
+	@Override
+	public String runMacro(HTTPRequest httpReq, String parm, HTTPResponse httpResp)
 	{
-		if(!CMProps.getBoolVar(CMProps.SYSTEMB_MUDSTARTED))
-			return CMProps.getVar(CMProps.SYSTEM_MUDSTATUS);
+		if(!CMProps.getBoolVar(CMProps.Bool.MUDSTARTED))
+			return CMProps.getVar(CMProps.Str.MUDSTATUS);
 
-		Hashtable parms=parseParms(parm);
-		String last=httpReq.getRequestParameter("ABILITY");
+		final java.util.Map<String,String> parms=parseParms(parm);
+		final String last=httpReq.getUrlParameter("ABILITY");
 		if(parms.containsKey("RESET"))
-		{	
-			if(last!=null) httpReq.removeRequestParameter("ABILITY");
+		{
+			if(last!=null)
+				httpReq.removeUrlParameter("ABILITY");
 			return "";
 		}
-		String ableType=httpReq.getRequestParameter("ABILITYTYPE");
+		final String ableType=httpReq.getUrlParameter("ABILITYTYPE");
 		if((ableType!=null)&&(ableType.length()>0))
 			parms.put(ableType,ableType);
-		String domainType=httpReq.getRequestParameter("DOMAIN");
+		final String domainType=httpReq.getUrlParameter("DOMAIN");
 		if((domainType!=null)&&(domainType.length()>0))
 			parms.put("DOMAIN",domainType);
-		
+
 		String lastID="";
-		String playerName=httpReq.getRequestParameter("PLAYER");
+		final String playerName=httpReq.getUrlParameter("PLAYER");
 		MOB M=null;
 		if((playerName!=null)&&(playerName.length()>0))
 			M=CMLib.players().getLoadPlayer(playerName);
@@ -67,46 +70,46 @@ public class AbilityPlayerNext extends StdWebMacro
 			return " @break@";
 		}
 
-        Vector abilities=new Vector();
-        HashSet foundIDs=new HashSet();
-        for(int a=0;a<M.numAbilities();a++)
-        {
-            Ability A=M.fetchAbility(a);
-            if(!foundIDs.contains(A.ID()))
-            {
-                foundIDs.add(A.ID());
-                abilities.addElement(A);
-            }
-        }
-        foundIDs.clear();
-        foundIDs=null;
+		final Vector<Ability> abilities=new Vector<Ability>();
+		HashSet<String> foundIDs=new HashSet<String>();
+		for(final Enumeration<Ability> a=M.allAbilities();a.hasMoreElements();)
+		{
+			final Ability A=a.nextElement();
+			if((A!=null)&&(!foundIDs.contains(A.ID())))
+			{
+				foundIDs.add(A.ID());
+				abilities.addElement(A);
+			}
+		}
+		foundIDs.clear();
+		foundIDs=null;
 		for(int a=0;a<abilities.size();a++)
 		{
-			Ability A=(Ability)abilities.elementAt(a);
+			final Ability A=abilities.elementAt(a);
 			boolean okToShow=true;
-			int classType=A.classificationCode()&Ability.ALL_ACODES;
-			String className=httpReq.getRequestParameter("CLASS");
-			
+			final int classType=A.classificationCode()&Ability.ALL_ACODES;
+			final String className=httpReq.getUrlParameter("CLASS");
+
 			if((className!=null)&&(className.length()>0))
 			{
-				int level=CMLib.ableMapper().getQualifyingLevel(className,true,A.ID());
+				final int level=CMLib.ableMapper().getQualifyingLevel(className,true,A.ID());
 				if(level<0)
 					okToShow=false;
 				else
 				{
-					String levelName=httpReq.getRequestParameter("LEVEL");
+					final String levelName=httpReq.getUrlParameter("LEVEL");
 					if((levelName!=null)&&(levelName.length()>0)&&(CMath.s_int(levelName)!=level))
 						okToShow=false;
 				}
 			}
 			else
 			{
-				int level=CMLib.ableMapper().getQualifyingLevel("Archon",true,A.ID());
+				final int level=CMLib.ableMapper().getQualifyingLevel("Archon",true,A.ID());
 				if(level<0)
 					okToShow=false;
 				else
 				{
-					String levelName=httpReq.getRequestParameter("LEVEL");
+					final String levelName=httpReq.getUrlParameter("LEVEL");
 					if((levelName!=null)&&(levelName.length()>0)&&(CMath.s_int(levelName)!=level))
 						okToShow=false;
 				}
@@ -115,33 +118,33 @@ public class AbilityPlayerNext extends StdWebMacro
 			{
 				if(parms.containsKey("DOMAIN")&&(classType==Ability.ACODE_SPELL))
 				{
-					String domain=(String)parms.get("DOMAIN");
+					final String domain=parms.get("DOMAIN");
 					if(!domain.equalsIgnoreCase(Ability.DOMAIN_DESCS[(A.classificationCode()&Ability.ALL_DOMAINS)>>5]))
 					   okToShow=false;
 				}
 				else
 				{
 					boolean containsOne=false;
-					for(int i=0;i<Ability.ACODE_DESCS.length;i++)
-						if(parms.containsKey(Ability.ACODE_DESCS[i]))
+					for (final String element : Ability.ACODE_DESCS)
+						if(parms.containsKey(element))
 						{ containsOne=true; break;}
 					if(containsOne&&(!parms.containsKey(Ability.ACODE_DESCS[classType])))
 						okToShow=false;
 				}
 			}
-			if(parms.containsKey("NOT")) 
-                okToShow=!okToShow;
+			if(parms.containsKey("NOT"))
+				okToShow=!okToShow;
 			if(okToShow)
 			{
 				if((last==null)||((last.length()>0)&&(last.equals(lastID))&&(!A.ID().equals(lastID))))
 				{
-					httpReq.addRequestParameters("ABILITY",A.ID());
+					httpReq.addFakeUrlParameter("ABILITY",A.ID());
 					return "";
 				}
 				lastID=A.ID();
 			}
 		}
-		httpReq.addRequestParameters("ABILITY","");
+		httpReq.addFakeUrlParameter("ABILITY","");
 		if(parms.containsKey("EMPTYOK"))
 			return "<!--EMPTY-->";
 		return " @break@";

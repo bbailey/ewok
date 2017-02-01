@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Common;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,21 +10,21 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
-
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2002-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,40 +33,40 @@ import java.util.*;
    limitations under the License.
 */
 
-@SuppressWarnings("unchecked")
 public class Hunting extends CommonSkill
 {
-	public String ID() { return "Hunting"; }
-	public String name(){ return "Hunting";}
-	private static final String[] triggerStrings = {"HUNT","HUNTING"};
-	public String[] triggerStrings(){return triggerStrings;}
-	public int classificationCode(){return Ability.ACODE_COMMON_SKILL|Ability.DOMAIN_GATHERINGSKILL;}
+	@Override public String ID() { return "Hunting"; }
+	private final static String localizedName = CMLib.lang().L("Hunting");
+	@Override public String name() { return localizedName; }
+	private static final String[] triggerStrings =I(new String[] {"HUNT","HUNTING"});
+	@Override public String[] triggerStrings(){return triggerStrings;}
+	@Override public int classificationCode(){return Ability.ACODE_COMMON_SKILL|Ability.DOMAIN_GATHERINGSKILL;}
 
 	protected MOB found=null;
 	protected String foundShortName="";
 	public Hunting()
 	{
 		super();
-		displayText="You are hunting...";
-		verb="hunting";
+		displayText=L("You are hunting...");
+		verb=L("hunting");
 	}
 
 	public Room nearByRoom()
 	{
-		Vector possibilities=new Vector();
+		final Vector<Integer> possibilities=new Vector<Integer>();
 		for(int d=Directions.NUM_DIRECTIONS()-1;d>=0;d--)
 		{
 			if(d!=Directions.UP)
 			{
-				Room room=activityRoom.getRoomInDir(d);
-				Exit exit=activityRoom.getExitInDir(d);
+				final Room room=activityRoom.getRoomInDir(d);
+				final Exit exit=activityRoom.getExitInDir(d);
 				if((room!=null)&&(exit!=null)&&(exit.isOpen()))
 					possibilities.addElement(Integer.valueOf(d));
 			}
 		}
 		if(possibilities.size()>0)
 		{
-			int dir=((Integer)possibilities.elementAt(CMLib.dice().roll(1,possibilities.size(),-1))).intValue();
+			final int dir=possibilities.elementAt(CMLib.dice().roll(1,possibilities.size(),-1)).intValue();
 			return activityRoom.getRoomInDir(dir);
 		}
 		return null;
@@ -73,31 +74,33 @@ public class Hunting extends CommonSkill
 
 	public void moveFound()
 	{
-		if(found.location()==null) return;
+		if(found.location()==null)
+			return;
 
-		Vector possibilities=new Vector();
+		final Vector<Integer> possibilities=new Vector<Integer>();
 		for(int d=Directions.NUM_DIRECTIONS()-1;d>=0;d--)
 		{
 			if(d!=Directions.UP)
 			{
-				Room room=found.location().getRoomInDir(d);
-				Exit exit=found.location().getExitInDir(d);
+				final Room room=found.location().getRoomInDir(d);
+				final Exit exit=found.location().getExitInDir(d);
 				if((room!=null)&&(exit!=null)&&(exit.isOpen()))
 					possibilities.addElement(Integer.valueOf(d));
 			}
 		}
 		if(possibilities.size()>0)
 		{
-			int dir=((Integer)possibilities.elementAt(CMLib.dice().roll(1,possibilities.size(),-1))).intValue();
-			CMLib.tracking().move(found,dir,true,false);
+			final int dir=possibilities.elementAt(CMLib.dice().roll(1,possibilities.size(),-1)).intValue();
+			CMLib.tracking().walk(found,dir,true,false);
 		}
 	}
 
+	@Override
 	public boolean tick(Tickable ticking, int tickID)
 	{
 		if((affected!=null)&&(affected instanceof MOB)&&(tickID==Tickable.TICKID_MOB))
 		{
-			MOB mob=(MOB)affected;
+			final MOB mob=(MOB)affected;
 			activityRoom=mob.location();
 			if((found!=null)&&(found.amDead()))
 			{
@@ -108,13 +111,13 @@ public class Hunting extends CommonSkill
 			else
 			if((found!=null)
 			&&(found.location()!=null)
-			&&(CMLib.flags().aliveAwakeMobile(found,true))
+			&&(CMLib.flags().isAliveAwakeMobile(found,true))
 			&&(!found.isInCombat()))
 			{
 				if(found.location()==mob.location())
 				{
 					if((mob.isMonster())
-					&&(CMLib.flags().aliveAwakeMobile(mob,true))
+					&&(CMLib.flags().isAliveAwakeMobile(mob,true))
 					&&(CMLib.flags().canBeSeenBy(found,mob))
 					&&(!mob.isInCombat()))
 						CMLib.combat().postAttack(mob,found,mob.fetchWieldedItem());
@@ -127,21 +130,26 @@ public class Hunting extends CommonSkill
 			{
 				if(found!=null)
 				{
-					commonTell(mob,"You have found some "+foundShortName+" tracks!");
-					commonTell(mob,"You need to find the "+foundShortName+" nearby before the trail goes cold!");
-					displayText="You are hunting for "+found.name();
-					verb="hunting for "+found.name();
+					commonTell(mob,L("You have found some @x1 tracks!",foundShortName));
+					commonTell(mob,L("You need to find the @x1 nearby before the trail goes cold!",foundShortName));
+					displayText=L("You are hunting for @x1",found.name());
+					verb=L("hunting for @x1",found.name());
+					found.basePhyStats().setLevel(mob.basePhyStats().level());
+					found.recoverPhyStats();
+					final Ability A=CMClass.getAbility("Prop_ModExperience");
+					A.setMiscText("=20%");
+					found.addNonUninvokableEffect(A);
 					found.bringToLife(nearByRoom(),true);
 					CMLib.beanCounter().clearZeroMoney(found,null);
 				}
 				else
 				{
-					StringBuffer str=new StringBuffer("You can't seem to find any game around here.\n\r");
-					int d=lookingFor(RawMaterial.MATERIAL_FLESH,mob.location());
+					final StringBuffer str=new StringBuffer(L("You can't seem to find any game around here.\n\r"));
+					final int d=lookingFor(RawMaterial.MATERIAL_FLESH,mob.location());
 					if(d<0)
-						str.append("You might try elsewhere.");
+						str.append(L("You might try elsewhere."));
 					else
-						str.append("You might try "+Directions.getInDirectionName(d)+".");
+						str.append(L("You might try @x1.",CMLib.directions().getInDirectionName(d)));
 					commonTell(mob,str.toString());
 					unInvoke();
 				}
@@ -151,27 +159,28 @@ public class Hunting extends CommonSkill
 			if(mob.isMonster()
 			&&(CMLib.dice().rollPercentage()>50)
 			&&(CMLib.flags().isMobile(mob))
-			&&(CMLib.flags().aliveAwakeMobile(mob,true))
-			&&(CMLib.flags().canSenseMoving(found,mob)))
+			&&(CMLib.flags().isAliveAwakeMobile(mob,true))
+			&&(CMLib.flags().canSenseEnteringLeaving(found,mob)))
 			{
 				for(int d=Directions.NUM_DIRECTIONS()-1;d>=0;d--)
 				{
-					Room R=mob.location().getRoomInDir(d);
+					final Room R=mob.location().getRoomInDir(d);
 					if((R!=null)&&(R==found.location()))
-					{ CMLib.tracking().move(mob,d,false,false); break;}
+					{ CMLib.tracking().walk(mob,d,false,false); break;}
 				}
 			}
 		}
 		return super.tick(ticking,tickID);
 	}
 
+	@Override
 	public void unInvoke()
 	{
 		if(canBeUninvoked())
 		{
-			if((affected!=null)&&(affected instanceof MOB))
+			if(affected instanceof MOB)
 			{
-				MOB mob=(MOB)affected;
+				final MOB mob=(MOB)affected;
 				if((found!=null)&&(!found.amDead())&&(found.location()!=null)&&(!found.isInCombat()))
 				{
 					if(found.location()==mob.location())
@@ -179,7 +188,7 @@ public class Hunting extends CommonSkill
 					found.location().delInhabitant(found);
 					found.setLocation(null);
 					found.destroy();
-					mob.location().show(mob,null,CMMsg.MSG_NOISYMOVEMENT,"<S-NAME> <S-HAS-HAVE> lost the trail.");
+					mob.location().show(mob,null,getActivityMessageType(),L("<S-NAME> <S-HAS-HAVE> lost the trail."));
 				}
 			}
 		}
@@ -187,14 +196,17 @@ public class Hunting extends CommonSkill
 	}
 
 
-	public boolean invoke(MOB mob, Vector commands, Environmental givenTarget, boolean auto, int asLevel)
+	@Override
+	public boolean invoke(MOB mob, List<String> commands, Physical givenTarget, boolean auto, int asLevel)
 	{
-		verb="hunting";
+		if(super.checkStop(mob, commands))
+			return true;
+		verb=L("hunting");
 		found=null;
 		activityRoom=null;
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
 			return false;
-		int resourceType=mob.location().myResource();
+		final int resourceType=mob.location().myResource();
 		if((proficiencyCheck(mob,0,auto))
 		   &&(nearByRoom()!=null)
 		   &&(resourceType!=RawMaterial.RESOURCE_FISH)
@@ -216,13 +228,13 @@ public class Hunting extends CommonSkill
 			{
 				foundShortName=found.name();
 				int x=0;
-				if((x=foundShortName.lastIndexOf(" "))>=0)
+				if((x=foundShortName.lastIndexOf(' '))>=0)
 					foundShortName=foundShortName.substring(x).trim().toLowerCase();
 				found.setLocation(null);
 			}
 		}
-		int duration=10+mob.envStats().level()+(super.getXTIMELevel(mob)*2);
-		CMMsg msg=CMClass.getMsg(mob,found,this,CMMsg.MSG_NOISYMOVEMENT,"<S-NAME> start(s) hunting.");
+		final int duration=10+mob.phyStats().level()+(super.getXTIMELevel(mob)*2);
+		final CMMsg msg=CMClass.getMsg(mob,found,this,getActivityMessageType(),L("<S-NAME> start(s) hunting."));
 		if(mob.location().okMessage(mob,msg))
 		{
 			mob.location().send(mob,msg);

@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Commands;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,22 +10,21 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
-
-
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2004-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,46 +32,74 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
+
 public class MXP extends StdCommand
 {
 	public MXP(){}
 
-	private String[] access={"MXP"};
-	public String[] getAccessWords(){return access;}
-	public boolean execute(MOB mob, Vector commands, int metaFlags)
+	private final String[] access=I(new String[]{"MXP"});
+	@Override public String[] getAccessWords(){return access;}
+	@Override
+	public boolean execute(MOB mob, List<String> commands, int metaFlags)
 		throws java.io.IOException
 	{
 		if(!mob.isMonster())
 		{
-			if((!CMath.bset(mob.getBitmap(),MOB.ATT_MXP))
-            ||(!mob.session().clientTelnetMode(Session.TELNET_MXP)))
+			boolean doCodeResend = true;
+			if((commands!=null)&&(commands.size()>1))
 			{
-                mob.session().changeTelnetMode(Session.TELNET_MXP,true);
-                if(mob.session().getTerminalType().toLowerCase().startsWith("mushclient"))
-                	mob.session().negotiateTelnetMode(Session.TELNET_MXP);
-                for(int i=0;((i<5)&&(!mob.session().clientTelnetMode(Session.TELNET_MXP)));i++)
-                {
-                    try{mob.session().prompt("",100);}catch(Exception e){}
-                }
-                if(mob.session().clientTelnetMode(Session.TELNET_MXP))
-                {
-					mob.setBitmap(CMath.setb(mob.getBitmap(),MOB.ATT_MXP));
-					StringBuffer mxpText=Resources.getFileResource("text/mxp.txt",true);
-			        if(mxpText!=null)
-			            mob.session().rawOut("\033[6z\n\r"+mxpText.toString()+"\n\r");
-					mob.tell("MXP codes enabled.\n\r");
-			    }
-                else
-                    mob.tell("Your client does not appear to support MXP.");
+				if(commands.get(1).toUpperCase().equals("OFF"))
+				{
+					final Command C=CMClass.getCommand("NOMXP");
+					if(C!=null)
+					{
+						return C.execute(mob, commands, metaFlags);
+					}
+				}
+				else
+				if(commands.get(1).toUpperCase().equals("QUIET"))
+				{
+					doCodeResend=false;
+				}
+			}
+			
+			if((!mob.isAttributeSet(MOB.Attrib.MXP))
+			||(!mob.session().getClientTelnetMode(Session.TELNET_MXP)))
+			{
+				mob.session().changeTelnetMode(Session.TELNET_MXP,true);
+				if(mob.session().getTerminalType().toLowerCase().startsWith("mushclient"))
+					mob.session().negotiateTelnetMode(Session.TELNET_MXP);
+				for(int i=0;((i<5)&&(!mob.session().getClientTelnetMode(Session.TELNET_MXP)));i++)
+				{
+					try
+					{
+						mob.session().prompt("", 250);
+					}
+					catch (final Exception e)
+					{
+					}
+				}
+				if(mob.session().getClientTelnetMode(Session.TELNET_MXP))
+				{
+					mob.setAttribute(MOB.Attrib.MXP,true);
+					if(doCodeResend)
+					{
+						final StringBuffer mxpText=Resources.getFileResource("text/mxp.txt",true);
+						if(mxpText!=null)
+							mob.session().rawOut("\033[6z\n\r"+mxpText.toString()+"\n\r");
+						mob.tell(L("MXP codes enabled.\n\r"));
+					}
+				}
+				else
+					mob.tell(L("Your client does not appear to support MXP."));
 			}
 			else
-				mob.tell("MXP codes are already enabled.\n\r");
+				mob.tell(L("MXP codes are already enabled.\n\r"));
 		}
 		return false;
 	}
-	
-	public boolean canBeOrdered(){return true;}
-	public boolean securityCheck(MOB mob){return super.securityCheck(mob)&&(!CMSecurity.isDisabled("MXP"));}
+
+	@Override public boolean canBeOrdered(){return true;}
+	@Override public boolean securityCheck(MOB mob){return super.securityCheck(mob)&&(!CMSecurity.isDisabled(CMSecurity.DisFlag.MXP));}
 }
 

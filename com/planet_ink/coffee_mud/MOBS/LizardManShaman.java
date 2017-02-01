@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.MOBS;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,6 +10,7 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -16,14 +18,14 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2003-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -33,18 +35,23 @@ import java.util.*;
 */
 public class LizardManShaman extends LizardMan
 {
-	public String ID(){return "LizardManShaman";}
+	@Override
+	public String ID()
+	{
+		return "LizardManShaman";
+	}
+
 	protected int spellDown=3;
 
 	public LizardManShaman()
 	{
 		super();
-		Username="a Lizard Man";
+		username="a Lizard Man";
 		setDescription("a 6 foot tall reptilian humanoid.");
 		setDisplayText("A mean looking Lizard Man stands here.");
-		CMLib.factions().setAlignment(this,Faction.ALIGN_EVIL);
+		CMLib.factions().setAlignment(this,Faction.Align.EVIL);
 		setMoney(20);
-		baseEnvStats.setWeight(225);
+		basePhyStats.setWeight(225);
 		setWimpHitPoint(0);
 
 		baseCharStats().setStat(CharStats.STAT_INTELLIGENCE,9);
@@ -52,45 +59,46 @@ public class LizardManShaman extends LizardMan
 		baseCharStats().setStat(CharStats.STAT_STRENGTH,18);
 
 		baseCharStats().setMyRace(CMClass.getRace("LizardMan"));
-		baseEnvStats().setAbility(0);
-		baseEnvStats().setDamage(6);
-		baseEnvStats().setSpeed(3);
-		baseEnvStats().setLevel(3);
-		baseEnvStats().setArmor(30);
+		basePhyStats().setAbility(0);
+		basePhyStats().setDamage(6);
+		basePhyStats().setSpeed(3);
+		basePhyStats().setLevel(3);
+		basePhyStats().setArmor(80);
 		baseCharStats().setCurrentClass(CMClass.getCharClass("Cleric"));
 
-		baseState.setHitPoints(CMLib.dice().roll(baseEnvStats().level(),20,baseEnvStats().level()));
+		baseState.setHitPoints(CMLib.dice().roll(basePhyStats().level(),20,basePhyStats().level()));
 
 		recoverMaxState();
 		resetToMaxState();
-		recoverEnvStats();
+		recoverPhyStats();
 		recoverCharStats();
 	}
 
-    public void addNaturalAbilities()
-    {
-        Ability p1 =CMClass.getAbility("Prayer_ProtGood");
-        p1.setProficiency(CMLib.dice().roll(5, 10, 50));
+	public void addNaturalAbilities()
+	{
+		final Ability p1 =CMClass.getAbility("Prayer_ProtGood");
+		p1.setProficiency(CMLib.dice().roll(5, 10, 50));
 		p1.setSavable(false);
-        this.addAbility(p1);
+		this.addAbility(p1);
 
-        Ability p2 =CMClass.getAbility("Prayer_CauseLight");
-        p2.setProficiency(CMLib.dice().roll(5, 10, 50));
+		final Ability p2 =CMClass.getAbility("Prayer_CauseLight");
+		p2.setProficiency(CMLib.dice().roll(5, 10, 50));
 		p2.setSavable(false);
-        this.addAbility(p2);
+		this.addAbility(p2);
 
-        Ability p3 =CMClass.getAbility("Prayer_Curse");
-        p3.setProficiency(CMLib.dice().roll(5, 10, 50));
+		final Ability p3 =CMClass.getAbility("Prayer_Curse");
+		p3.setProficiency(CMLib.dice().roll(5, 10, 50));
 		p3.setSavable(false);
-        this.addAbility(p3);
+		this.addAbility(p3);
 
-        Ability p4 =CMClass.getAbility("Prayer_Paralyze");
-        p4.setProficiency(CMLib.dice().roll(5, 10, 50));
+		final Ability p4 =CMClass.getAbility("Prayer_Paralyze");
+		p4.setProficiency(CMLib.dice().roll(5, 10, 50));
 		p4.setSavable(false);
-        this.addAbility(p4);
+		this.addAbility(p4);
 
-    }
+	}
 
+	@Override
 	public boolean tick(Tickable ticking, int tickID)
 	{
 		if((!amDead())&&(tickID==Tickable.TICKID_MOB))
@@ -108,25 +116,21 @@ public class LizardManShaman extends LizardMan
 		return super.tick(ticking,tickID);
 	}
 
-    public boolean castSpell()
-    {
-	    Ability prayer = null;
-        if(CMLib.dice().rollPercentage() < 70)
-        {
-            prayer = fetchAbility(CMLib.dice().roll(1,numLearnedAbilities(),-1));
-            while((prayer==null)||(this.baseEnvStats().level() < prayer.baseEnvStats().level()))
-				prayer = fetchAbility(CMLib.dice().roll(1,numLearnedAbilities(),-1));
-        }
-        else
-        {
-            prayer = CMClass.getAbility("Prayer_CureLight");
-            prayer.setProficiency(CMLib.dice().roll(5, 10, 50));
-        }
+	public boolean castSpell()
+	{
+		Ability prayer = null;
+		if(CMLib.dice().rollPercentage() < 70)
+			prayer = fetchRandomAbility();
+		else
+		{
+			prayer = CMClass.getAbility("Prayer_CureLight");
+			prayer.setProficiency(CMLib.dice().roll(5, 10, 50));
+		}
 
 		if(prayer!=null)
-		    return prayer.invoke(this,null,false,0);
-        return false;
-    }
+			return prayer.invoke(this,null,false,0);
+		return false;
+	}
 
 
 }

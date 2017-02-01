@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.CharClasses;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,6 +10,7 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -16,14 +18,14 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2003-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -31,45 +33,113 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
 public class Prancer extends StdCharClass
 {
-	public String ID(){return "Prancer";}
-	public String name(){return "Dancer";}
-	public String baseClass(){return "Bard";}
-	public int getMovementMultiplier(){return 18;}
-	public int getBonusPracLevel(){return 1;}
-	public int getBonusAttackLevel(){return 0;}
-	public int getAttackAttribute(){return CharStats.STAT_CHARISMA;}
-	public int getLevelsPerBonusDamage(){ return 10;}
-	public int getHPDivisor(){return 3;}
-	public int getHPDice(){return 2;}
-	public int getHPDie(){return 6;}
-	public int getManaDivisor(){return 6;}
-	public int getManaDice(){return 1;}
-	public int getManaDie(){return 2;}
-	protected String armorFailMessage(){return "<S-NAME> armor makes <S-HIM-HER> mess up <S-HIS-HER> <SKILL>!";}
-	public int allowedArmorLevel(){return CharClass.ARMOR_CLOTH;}
-	public int allowedWeaponLevel(){return CharClass.WEAPONS_THIEFLIKE;}
-	private HashSet disallowedWeapons=buildDisallowedWeaponClasses();
-	protected HashSet disallowedWeaponClasses(MOB mob){return disallowedWeapons;}
+	@Override
+	public String ID()
+	{
+		return "Prancer";
+	}
+
+	private final static String localizedStaticName = CMLib.lang().L("Dancer");
+
+	@Override
+	public String name()
+	{
+		return localizedStaticName;
+	}
+
+	@Override
+	public String baseClass()
+	{
+		return "Bard";
+	}
+
+	@Override
+	public String getMovementFormula()
+	{
+		return "18*((@x2<@x3)/18)";
+	}
+
+	@Override
+	public int getBonusPracLevel()
+	{
+		return 1;
+	}
+
+	@Override
+	public int getBonusAttackLevel()
+	{
+		return 0;
+	}
+
+	@Override
+	public int getAttackAttribute()
+	{
+		return CharStats.STAT_CHARISMA;
+	}
+
+	@Override
+	public int getLevelsPerBonusDamage()
+	{
+		return 10;
+	}
+
+	@Override
+	public String getHitPointsFormula()
+	{
+		return "((@x6<@x7)/3)+(2*(1?6))";
+	}
+
+	@Override
+	public String getManaFormula()
+	{
+		return "((@x4<@x5)/6)+(1*(1?2))";
+	}
+
+	@Override
+	protected String armorFailMessage()
+	{
+		return L("<S-NAME> armor makes <S-HIM-HER> mess up <S-HIS-HER> <SKILL>!");
+	}
+
+	@Override
+	public int allowedArmorLevel()
+	{
+		return CharClass.ARMOR_CLOTH;
+	}
+
+	@Override
+	public int allowedWeaponLevel()
+	{
+		return CharClass.WEAPONS_THIEFLIKE;
+	}
+
+	private final Set<Integer> disallowedWeapons = buildDisallowedWeaponClasses();
+
+	@Override
+	protected Set<Integer> disallowedWeaponClasses(MOB mob)
+	{
+		return disallowedWeapons;
+	}
 
 	public Prancer()
 	{
 		super();
 		maxStatAdj[CharStats.STAT_CHARISMA]=4;
 		maxStatAdj[CharStats.STAT_STRENGTH]=4;
-    }
-    public void initializeClass()
-    {
-        super.initializeClass();
+	}
+	@Override
+	public void initializeClass()
+	{
+		super.initializeClass();
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Specialization_Natural",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Specialization_Ranged",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Specialization_Sword",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Skill_Recall",50,true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Skill_Write",50,true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Skill_Swim",false);
-        CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Skill_Befriend",50,true);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Skill_Befriend",50,true);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Dance_Stop",100,true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Dance_CanCan",true);
@@ -146,69 +216,76 @@ public class Prancer extends StdCharClass
 		CMLib.ableMapper().addCharAbilityMapping(ID(),30,"Dance_Square",true);
 	}
 
-	public int availabilityCode(){return Area.THEME_FANTASY;}
-
-    public void executeMsg(Environmental host, CMMsg msg)
-    {
-        super.executeMsg(host,msg);
-        Bard.visitationBonusMessage(host,msg);
-    }
-    
-	public String getStatQualDesc(){return "Charisma 9+, Strength 9+";}
-	public boolean qualifiesForThisClass(MOB mob, boolean quiet)
+	@Override
+	public int availabilityCode()
 	{
-		if(mob != null)
-		{
-			if(mob.baseCharStats().getStat(CharStats.STAT_CHARISMA) <= 8)
-			{
-				if(!quiet)
-					mob.tell("You need at least a 9 Charisma to become a Dancer.");
-				return false;
-			}
-			if(mob.baseCharStats().getStat(CharStats.STAT_STRENGTH) <= 8)
-			{
-				if(!quiet)
-					mob.tell("You need at least a 9 Strength to become a Dancer.");
-				return false;
-			}
-			if((!(mob.charStats().getMyRace().racialCategory().equals("Human")))
-			&&(!(mob.charStats().getMyRace().racialCategory().equals("Humanoid")))
-			&&(!(mob.charStats().getMyRace().racialCategory().equals("Elf")))
-			&&(!(mob.charStats().getMyRace().racialCategory().equals("Halfling"))))
-			{
-				if(!quiet)
-					mob.tell("You must be Human, Elf, Halfling, or Half Elf to be a Dancer");
-				return false;
-			}
-		}
-		return super.qualifiesForThisClass(mob,quiet);
+		return Area.THEME_FANTASY;
 	}
-	public String getOtherLimitsDesc(){return "";}
-	public Vector outfit(MOB myChar)
+
+	@Override
+	public void executeMsg(Environmental host, CMMsg msg)
+	{
+		super.executeMsg(host,msg);
+		Bard.visitationBonusMessage(host,msg);
+	}
+
+	private final String[] raceRequiredList=new String[]{
+		"Human","Humanoid","Elf","Halfling"
+	};
+
+	@Override
+	public String[] getRequiredRaceList()
+	{
+		return raceRequiredList;
+	}
+
+	@SuppressWarnings("unchecked")
+	private final Pair<String,Integer>[] minimumStatRequirements=new Pair[]{
+		new Pair<String,Integer>("Charisma",Integer.valueOf(9)),
+		new Pair<String,Integer>("Strength",Integer.valueOf(9))
+	};
+
+	@Override
+	public Pair<String, Integer>[] getMinimumStatRequirements()
+	{
+		return minimumStatRequirements;
+	}
+
+	@Override
+	public String getOtherLimitsDesc()
+	{
+		return "";
+	}
+
+	@Override
+	public List<Item> outfit(MOB myChar)
 	{
 		if(outfitChoices==null)
 		{
-			outfitChoices=new Vector();
-			Weapon w=CMClass.getWeapon("Shortsword");
-			outfitChoices.addElement(w);
+			final Weapon w=CMClass.getWeapon("Shortsword");
+			if(w == null)
+				return new Vector<Item>();
+			outfitChoices=new Vector<Item>();
+			outfitChoices.add(w);
 		}
 		return outfitChoices;
 	}
-	
 
-	
+
+
+	@Override
 	public void grantAbilities(MOB mob, boolean isBorrowedClass)
 	{
 		super.grantAbilities(mob,isBorrowedClass);
 		if(mob.playerStats()==null)
 		{
-			DVector V=CMLib.ableMapper().getUpToLevelListings(ID(),
+			final List<AbilityMapper.AbilityMapping> V=CMLib.ableMapper().getUpToLevelListings(ID(),
 												mob.charStats().getClassLevel(ID()),
 												false,
 												false);
-			for(Enumeration a=V.getDimensionVector(1).elements();a.hasMoreElements();)
+			for(final AbilityMapper.AbilityMapping able : V)
 			{
-				Ability A=CMClass.getAbility((String)a.nextElement());
+				final Ability A=CMClass.getAbility(able.abilityID());
 				if((A!=null)
 				&&((A.classificationCode()&Ability.ALL_ACODES)==Ability.ACODE_SONG)
 				&&(!CMLib.ableMapper().getDefaultGain(ID(),true,A.ID())))
@@ -217,67 +294,42 @@ public class Prancer extends StdCharClass
 		}
 	}
 
-	public void affectEnvStats(Environmental affected, EnvStats affectableStats)
+	@Override
+	public void affectPhyStats(Physical affected, PhyStats affectableStats)
 	{
-		super.affectEnvStats(affected,affectableStats);
+		super.affectPhyStats(affected,affectableStats);
 		if(affected instanceof MOB)
 		{
 			if(CMLib.flags().isStanding((MOB)affected))
 			{
-				MOB mob=(MOB)affected;
-				int attArmor=(((int)Math.round(CMath.div(mob.charStats().getStat(CharStats.STAT_DEXTERITY),9.0)))+1)*(mob.charStats().getClassLevel(this)-1);
+				final MOB mob=(MOB)affected;
+				final int attArmor=(((int)Math.round(CMath.div(mob.charStats().getStat(CharStats.STAT_DEXTERITY),9.0)))+1)*(mob.charStats().getClassLevel(this)-1);
 				affectableStats.setArmor(affectableStats.armor()-attArmor);
 			}
 		}
 	}
 
-	public void unLevel(MOB mob)
+	@Override
+	public int adjustExperienceGain(MOB host, MOB mob, MOB victim, int amount)
 	{
-		if(mob.envStats().level()<2)
-			return;
-		super.unLevel(mob);
-	    if(((mob.baseEnvStats().level()+1) % 3)==0)
-	    {
-			int dexStat=mob.charStats().getStat(CharStats.STAT_DEXTERITY);
-			int maxDexStat=(CMProps.getIntVar(CMProps.SYSTEMI_BASEMAXSTAT)
-						 +mob.charStats().getStat(CharStats.STAT_MAX_DEXTERITY_ADJ));
-			if(dexStat>maxDexStat) dexStat=maxDexStat;
-			int attArmor=(int)Math.round(CMath.div(dexStat,10.0));
-			if(dexStat>=25)attArmor+=2;
-			else
-			if(dexStat>=22)attArmor+=1;
-			attArmor=attArmor*-1;
-			mob.baseEnvStats().setArmor(mob.baseEnvStats().armor()-attArmor);
-			mob.envStats().setArmor(mob.envStats().armor()-attArmor);
-	    }
-
-		mob.recoverEnvStats();
-		mob.recoverCharStats();
-		mob.recoverMaxState();
+		return Bard.bardAdjustExperienceGain(host, mob, victim, amount, 5.0);
 	}
 
-    public int adjustExperienceGain(MOB host, MOB mob, MOB victim, int amount){ return Bard.bardAdjustExperienceGain(host,mob,victim,amount,5.0);}
-    
-	public String getOtherBonusDesc(){return "Receives defensive bonus for high dexterity.  Receives group bonus combat experience when in an intelligent group, and more for a group of players.  Receives exploration and pub-finding experience based on danger level.";}
-
-	public void level(MOB mob, Vector newAbilityIDs)
+	@Override
+	public String getOtherBonusDesc()
 	{
-	    if(CMSecurity.isDisabled("LEVELS"))  return;
-	    if((mob.baseEnvStats().level() % 3)==0)
-	    {
-			int dexStat=mob.charStats().getStat(CharStats.STAT_DEXTERITY);
-			int maxDexStat=(CMProps.getIntVar(CMProps.SYSTEMI_BASEMAXSTAT)
-						 +mob.charStats().getStat(CharStats.STAT_MAX_DEXTERITY_ADJ));
-			if(dexStat>maxDexStat) dexStat=maxDexStat;
-			int attArmor=((int)Math.round(CMath.div(dexStat,10.0)))+1;
-			if(dexStat>=25)attArmor+=2;
-			else
-			if(dexStat>=22)attArmor+=1;
-			
-			mob.baseEnvStats().setArmor(mob.baseEnvStats().armor()-attArmor);
-			mob.envStats().setArmor(mob.envStats().armor()-attArmor);
-			mob.tell("^NYour grace grants you a defensive bonus of ^H"+attArmor+"^?.^N");
-	    }
+		return L("Receives defensive bonus for high dexterity.  Receives group bonus combat experience when in an intelligent group, and more for a group of players.  "
+				+ "Receives exploration and pub-finding experience based on danger level.");
+	}
+
+	@Override
+	public void level(MOB mob, List<String> newAbilityIDs)
+	{
+		super.level(mob, newAbilityIDs);
+		if(CMSecurity.isDisabled(CMSecurity.DisFlag.LEVELS))
+			return;
+		final int attArmor=(((int)Math.round(CMath.div(mob.charStats().getStat(CharStats.STAT_DEXTERITY),9.0)))+1);
+		mob.tell(L("^NYour grace grants you a defensive bonus of ^H@x1^?.^N",""+attArmor));
 	}
 }
 

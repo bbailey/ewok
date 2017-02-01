@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.core.database;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,6 +10,7 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -16,14 +18,14 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.sql.*;
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2003-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -31,7 +33,6 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
 public class QuestLoader
 {
 	protected DBConnector DB=null;
@@ -39,100 +40,136 @@ public class QuestLoader
 	{
 		DB=newDB;
 	}
-	public void DBRead(MudHost myHost)
+	public List<Quest> DBRead()
 	{
-		CMLib.quests().shutdown();
+		List<Quest> quests=new LinkedList<Quest>();
 		DBConnection D=null;
 		try
 		{
 			D=DB.DBFetch();
-			ResultSet R=D.query("SELECT * FROM CMQUESTS");
+			final ResultSet R=D.query("SELECT * FROM CMQUESTS");
 			while(R.next())
 			{
-				String questName=DBConnections.getRes(R,"CMQUESID");
-				String questScript=DBConnections.getRes(R,"CMQSCRPT");
-				String questWinners=DBConnections.getRes(R,"CMQWINNS");
-				Quest Q=(Quest)CMClass.getCommon("DefaultQuest");
-				Q.setScript(questScript);
+				final String questName=DBConnections.getRes(R,"CMQUESID");
+				final String questScript=DBConnections.getRes(R,"CMQSCRPT");
+				final String questWinners=DBConnections.getRes(R,"CMQWINNS");
+				final long flags=DBConnections.getLongRes(R, "CMQFLAGS");
+				final Quest Q=(Quest)CMClass.getCommon("DefaultQuest");
+				Q.setFlags(flags);
+				final boolean loaded=Q.setScript(questScript,!Q.suspended());
+				Q.setFlags(flags);
 				Q.setWinners(questWinners);
 				if(Q.name().length()==0)
 					Q.setName(questName);
+				if(!loaded)
+				{
+					if(!Q.suspended())
+					{
+						Log.sysOut("QuestLoader","Unable to load Quest '"+questName+"'.  Suspending.");
+						Q.setSuspended(true);
+					}
+					boolean dup=false;
+					for(Quest Q2 : quests)
+					{
+						if(Q2.name().equalsIgnoreCase(Q.name()))
+							dup=true;
+					}
+					if(!dup)
+						quests.add(Q);
+					continue;
+				}
 				if(Q.name().length()==0)
-                    Log.sysOut("QuestLoader","Unable to load Quest '"+questName+"' due to blank name.");
-                else
-                if(Q.duration()<0)
-                    Log.sysOut("QuestLoader","Unable to load Quest '"+questName+"' due to duration "+Q.duration()+".");
-                else
-                if(CMLib.quests().fetchQuest(Q.name())!=null)
-                    Log.sysOut("QuestLoader","Unable to load Quest '"+questName+"' due to it already being loaded.");
-                else
-					CMLib.quests().addQuest(Q);
+					Log.sysOut("QuestLoader","Unable to load Quest '"+questName+"' due to blank name.");
+				else
+				if(Q.duration()<0)
+					Log.sysOut("QuestLoader","Unable to load Quest '"+questName+"' due to duration "+Q.duration()+".");
+				else
+				if(CMLib.quests().fetchQuest(Q.name())!=null)
+					Log.sysOut("QuestLoader","Unable to load Quest '"+questName+"' due to it already being loaded.");
+				else
+					quests.add(Q);
 			}
 		}
-		catch(SQLException sqle)
+		catch(final SQLException sqle)
 		{
 			Log.errOut("Quest",sqle);
 		}
-		if(D!=null) DB.DBDone(D);
+		finally
+		{
+			DB.DBDone(D);
+		}
+		return quests;
 	}
-	
-	
+
+
 	public void DBUpdateQuest(Quest Q)
 	{
-		if(Q==null) return;
+		if(Q==null)
+			return;
 		DB.update("DELETE FROM CMQUESTS WHERE CMQUESID='"+Q.name()+"'");
-		DB.update(
+		DB.updateWithClobs(
 		"INSERT INTO CMQUESTS ("
 		+"CMQUESID, "
 		+"CMQUTYPE, "
+		+"CMQFLAGS, "
 		+"CMQSCRPT, "
 		+"CMQWINNS "
 		+") values ("
 		+"'"+Q.name()+"',"
 		+"'"+CMClass.classID(Q)+"',"
-		+"'"+Q.script()+" ',"
-		+"'"+Q.getWinnerStr()+" '"
-		+")");
+		+Q.getFlags()+","
+		+"?,"
+		+"?"
+		+")", new String[][]{{Q.script()+" ",Q.getWinnerStr()+" "}});
 	}
-	public void DBUpdateQuests(Vector quests)
+	public void DBUpdateQuests(List<Quest> quests)
 	{
-		if(quests==null) quests=new Vector();
+		if(quests==null)
+			quests=new Vector<Quest>();
 		String quType="DefaultQuest";
-		if(quests.size()>0) quType=CMClass.classID(quests.firstElement());
+		if(quests.size()>0)
+			quType=CMClass.classID(quests.get(0));
 		DBConnection D=null;
 		DB.update("DELETE FROM CMQUESTS WHERE CMQUTYPE='"+quType+"'");
-		try{Thread.sleep((1000+(quests.size()*100)));}catch(Exception e){}
-		if(DB.queryRows("SELECT * FROM CMQUESTS WHERE CMQUTYPE='"+quType+"'")>0) 
+		CMLib.s_sleep((1000+(quests.size()*100)));
+		if(DB.queryRows("SELECT * FROM CMQUESTS WHERE CMQUTYPE='"+quType+"'")>0)
 			Log.errOut("Failed to delete quest typed '"+quType+"'.");
 		DB.update("DELETE FROM CMQUESTS WHERE CMQUTYPE='Quests'");
-		try{Thread.sleep((1000+(quests.size()*100)));}catch(Exception e){}
-		if(DB.queryRows("SELECT * FROM CMQUESTS WHERE CMQUTYPE='Quests'")>0) 
+		CMLib.s_sleep((1000+(quests.size()*100)));
+		if(DB.queryRows("SELECT * FROM CMQUESTS WHERE CMQUTYPE='Quests'")>0)
 			Log.errOut("Failed to delete quest typed 'Quests'.");
-		D=DB.DBFetch();
+		D=DB.DBFetchEmpty();
 		for(int m=0;m<quests.size();m++)
 		{
-			Quest Q=(Quest)quests.elementAt(m);
-            if(Q.isCopy()) continue;
-			try{
-				D.update(
+			final Quest Q=quests.get(m);
+			if(Q.isCopy())
+				continue;
+			try
+			{
+				D.rePrepare(
 				"INSERT INTO CMQUESTS ("
 				+"CMQUESID, "
 				+"CMQUTYPE, "
+				+"CMQFLAGS, "
 				+"CMQSCRPT, "
 				+"CMQWINNS "
 				+") values ("
 				+"'"+Q.name()+"',"
 				+"'"+CMClass.classID(Q)+"',"
-				+"'"+Q.script()+" ',"
-				+"'"+Q.getWinnerStr()+" '"
-				+")",0);
+				+Q.getFlags()+","
+				+"?,"
+				+"?"
+				+")");
+				D.setPreparedClobs(new String[]{Q.script()+" ",Q.getWinnerStr()+" "});
+				D.update("",0);
 			}
-			catch(java.sql.SQLException sqle)
+			catch(final java.sql.SQLException sqle)
 			{
 				Log.errOut("Quest",sqle);
 			}
 		}
-		if(D!=null) DB.DBDone(D);
+		if(D!=null)
+			DB.DBDone(D);
 	}
 
 }

@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Songs;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,6 +10,7 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -17,14 +19,14 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2003-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,27 +34,29 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
 public class Dance_Cotillon extends Dance
 {
-	public String ID() { return "Dance_Cotillon"; }
-	public String name(){ return "Cotillon";}
-	public int abstractQuality(){ return Ability.QUALITY_BENEFICIAL_OTHERS;}
-	protected String danceOf(){return name()+" Dance";}
-    protected boolean HAS_QUANTITATIVE_ASPECT(){return false;}
+	@Override public String ID() { return "Dance_Cotillon"; }
+	private final static String localizedName = CMLib.lang().L("Cotillon");
+	@Override public String name() { return localizedName; }
+	@Override public int abstractQuality(){ return Ability.QUALITY_BENEFICIAL_OTHERS;}
+	@Override protected String danceOf(){return name()+" Dance";}
+	@Override protected boolean HAS_QUANTITATIVE_ASPECT(){return false;}
 	protected MOB whichLast=null;
 
-    public int castingQuality(MOB mob, Environmental target)
-    {
-        if(mob!=null)
-        {
-            if((!mob.isInCombat())
-            ||(mob.getGroupMembers(new HashSet()).size()<2))
-                return Ability.QUALITY_INDIFFERENT;
-        }
-        return super.castingQuality(mob,target);
-    }
-    
+	@Override
+	public int castingQuality(MOB mob, Physical target)
+	{
+		if(mob!=null)
+		{
+			if((!mob.isInCombat())
+			||(mob.getGroupMembers(new HashSet<MOB>()).size()<2))
+				return Ability.QUALITY_INDIFFERENT;
+		}
+		return super.castingQuality(mob,target);
+	}
+
+	@Override
 	public boolean tick(Tickable ticking, int tickID)
 	{
 		if(!super.tick(ticking, tickID))
@@ -63,12 +67,12 @@ public class Dance_Cotillon extends Dance
 				whichLast=invoker();
 			else
 			{
-				MOB M=(MOB)affected;
+				final MOB M=(MOB)affected;
 				boolean pass=false;
 				boolean found=false;
 				for(int i=0;i<M.location().numInhabitants();i++)
 				{
-					MOB M2=M.location().fetchInhabitant(i);
+					final MOB M2=M.location().fetchInhabitant(i);
 					if(M2==whichLast)
 						found=true;
 					else
@@ -91,7 +95,7 @@ public class Dance_Cotillon extends Dance
 				if((whichLast!=null)
 				&&(M.isInCombat())
 				&&(M.getVictim().getVictim()!=whichLast)
-				&&(whichLast.location().show(whichLast,null,M.getVictim(),CMMsg.MSG_NOISYMOVEMENT,"<S-NAME> dance(s) into <O-YOUPOSS> way.")))
+				&&(whichLast.location().show(whichLast,null,M.getVictim(),CMMsg.MSG_NOISYMOVEMENT,L("<S-NAME> dance(s) into <O-YOUPOSS> way."))))
 					M.getVictim().setVictim(whichLast);
 			}
 		}

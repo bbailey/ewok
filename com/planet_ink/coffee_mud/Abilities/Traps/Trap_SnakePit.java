@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Traps;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,20 +10,21 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2003-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -30,28 +32,60 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
 public class Trap_SnakePit extends Trap_RoomPit
 {
-	public String ID() { return "Trap_SnakePit"; }
-	public String name(){ return "snake pit";}
-	protected int canAffectCode(){return Ability.CAN_ROOMS;}
-	protected int canTargetCode(){return 0;}
-	protected int trapLevel(){return 10;}
-	public String requiresToSet(){return "some caged snakes";}
+	@Override
+	public String ID()
+	{
+		return "Trap_SnakePit";
+	}
 
-	protected Vector monsters=null;
+	private final static String	localizedName	= CMLib.lang().L("snake pit");
+
+	@Override
+	public String name()
+	{
+		return localizedName;
+	}
+
+	@Override
+	protected int canAffectCode()
+	{
+		return Ability.CAN_ROOMS;
+	}
+
+	@Override
+	protected int canTargetCode()
+	{
+		return 0;
+	}
+
+	@Override
+	protected int trapLevel()
+	{
+		return 10;
+	}
+
+	@Override
+	public String requiresToSet()
+	{
+		return "some caged snakes";
+	}
+
+	protected List<MOB> monsters=null;
 
 	protected Item getCagedAnimal(MOB mob)
 	{
-		if(mob==null) return null;
-		if(mob.location()==null) return null;
+		if(mob==null)
+			return null;
+		if(mob.location()==null)
+			return null;
 		for(int i=0;i<mob.location().numItems();i++)
 		{
-			Item I=mob.location().fetchItem(i);
+			final Item I=mob.location().getItem(i);
 			if(I instanceof CagedAnimal)
 			{
-				MOB M=((CagedAnimal)I).unCageMe();
+				final MOB M=((CagedAnimal)I).unCageMe();
 				if((M!=null)&&(M.baseCharStats().getMyRace().racialCategory().equalsIgnoreCase("Serpent")))
 					return I;
 			}
@@ -59,45 +93,52 @@ public class Trap_SnakePit extends Trap_RoomPit
 		return null;
 	}
 
-	public Trap setTrap(MOB mob, Environmental E, int trapBonus, int qualifyingClassLevel, boolean perm)
+	@Override
+	public Trap setTrap(MOB mob, Physical P, int trapBonus, int qualifyingClassLevel, boolean perm)
 	{
-		if(E==null) return null;
+		if(P==null)
+			return null;
 		Item I=getCagedAnimal(mob);
-		StringBuffer buf=new StringBuffer("<SNAKES>");
+		final StringBuffer buf=new StringBuffer("<SNAKES>");
 		int num=0;
 		while((I!=null)&&((++num)<6))
 		{
 			buf.append(((CagedAnimal)I).cageText());
-            I.destroy();
+			I.destroy();
 			I=getCagedAnimal(mob);
 		}
 		buf.append("</SNAKES>");
 		setMiscText(buf.toString());
-		return super.setTrap(mob,E,trapBonus,qualifyingClassLevel,perm);
+		return super.setTrap(mob,P,trapBonus,qualifyingClassLevel,perm);
 	}
 
-    public Vector getTrapComponents() {
-        Vector V=new Vector();
-        Item I=CMClass.getItem("GenCaged");
-        ((CagedAnimal)I).setCageText(text());
-        I.recoverEnvStats();
-        I.text();
-        V.addElement(I);
-        return V;
-    }
-    
-	public boolean canSetTrapOn(MOB mob, Environmental E)
+	@Override
+	public List<Item> getTrapComponents()
 	{
-		if(!super.canSetTrapOn(mob,E)) return false;
+		final List<Item> V=new Vector<Item>();
+		final Item I=CMClass.getItem("GenCaged");
+		((CagedAnimal)I).setCageText(text());
+		I.recoverPhyStats();
+		I.text();
+		V.add(I);
+		return V;
+	}
+
+	@Override
+	public boolean canSetTrapOn(MOB mob, Physical P)
+	{
+		if(!super.canSetTrapOn(mob,P))
+			return false;
 		if(getCagedAnimal(mob)==null)
 		{
 			if(mob!=null)
-				mob.tell("You'll need to set down some caged snakes first.");
+				mob.tell(L("You'll need to set down some caged snakes first."));
 			return false;
 		}
 		return true;
 	}
 
+	@Override
 	public boolean tick(Tickable ticking, int tickID)
 	{
 		if((tickID==Tickable.TICKID_TRAP_RESET)&&(getReset()>0))
@@ -107,7 +148,7 @@ public class Trap_SnakePit extends Trap_RoomPit
 			{
 				for(int i=0;i<monsters.size();i++)
 				{
-					MOB M=(MOB)monsters.elementAt(i);
+					final MOB M=monsters.get(i);
 					if(M.amDead()||(!M.isInCombat()))
 						M.destroy();
 				}
@@ -117,38 +158,40 @@ public class Trap_SnakePit extends Trap_RoomPit
 		return super.tick(ticking,tickID);
 	}
 
+	@Override
 	public void finishSpringing(MOB target)
 	{
-		if((!invoker().mayIFight(target))||(target.envStats().weight()<5))
-			target.location().show(target,null,CMMsg.MSG_OK_ACTION,"<S-NAME> float(s) gently into the pit!");
+		if((!invoker().mayIFight(target))||(target.phyStats().weight()<5))
+			target.location().show(target,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> float(s) gently into the pit!"));
 		else
 		{
-			target.location().show(target,null,CMMsg.MSG_OK_ACTION,"<S-NAME> hit(s) the pit floor with a THUMP!");
-			int damage=CMLib.dice().roll(trapLevel()+abilityCode(),6,1);
-			CMLib.combat().postDamage(invoker(),target,this,damage,CMMsg.MASK_ALWAYS|CMMsg.TYP_JUSTICE,-1,null);
+			target.location().show(target,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> hit(s) the pit floor with a THUMP!"));
+			final int damage=CMLib.dice().roll(trapLevel()+abilityCode(),6,1);
+			CMLib.combat().postDamage(invoker(),target,this,damage,CMMsg.MASK_MALICIOUS|CMMsg.MASK_ALWAYS|CMMsg.TYP_JUSTICE,-1,null);
 		}
-		Vector snakes=new Vector();
+		final List<String> snakes=new Vector<String>();
 		String t=text();
 		int x=t.indexOf("</MOBITEM><MOBITEM>");
 		while(x>=0)
 		{
-			snakes.addElement(t.substring(0,x+10));
+			snakes.add(t.substring(0,x+10));
 			t=t.substring(x+10);
 			x=t.indexOf("</MOBITEM><MOBITEM>");
 		}
-		if(t.length()>0) snakes.addElement(t);
+		if(t.length()>0)
+			snakes.add(t);
 		if(snakes.size()>0)
-			monsters=new Vector();
+			monsters=new Vector<MOB>();
 		for(int i=0;i<snakes.size();i++)
 		{
-			t=(String)snakes.elementAt(i);
-			Item I=CMClass.getItem("GenCaged");
+			t=snakes.get(i);
+			final Item I=CMClass.getItem("GenCaged");
 			((CagedAnimal)I).setCageText(t);
-			MOB monster=((CagedAnimal)I).unCageMe();
+			final MOB monster=((CagedAnimal)I).unCageMe();
 			if(monster!=null)
 			{
-				monsters.addElement(monster);
-				monster.baseEnvStats().setRejuv(0);
+				monsters.add(monster);
+				monster.basePhyStats().setRejuv(PhyStats.NO_REJUV);
 				monster.bringToLife(target.location(),true);
 				monster.setVictim(target);
 				if(target.getVictim()==null)

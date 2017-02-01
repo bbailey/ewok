@@ -2,6 +2,7 @@ package com.planet_ink.coffee_mud.Abilities.Ranger;
 import com.planet_ink.coffee_mud.Abilities.StdAbility;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -15,18 +16,17 @@ import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
-
 import java.util.*;
 
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2002-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -34,29 +34,81 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
+
 public class Ranger_FindWater extends StdAbility
 {
-	public String ID() { return "Ranger_FindWater"; }
-	public String name(){ return "Find Water";}
-	public String displayText(){ return "(finding water)";}
-	protected int canAffectCode(){return CAN_MOBS;}
-	protected int canTargetCode(){return 0;}
-	public int abstractQuality(){return Ability.QUALITY_OK_SELF;}
-	private static final String[] triggerStrings = {"FINDWATER"};
-	public String[] triggerStrings(){return triggerStrings;}
-    public int classificationCode(){return Ability.ACODE_SKILL|Ability.DOMAIN_NATURELORE;}
-	public long flags(){return Ability.FLAG_TRACKING;}
+	@Override
+	public String ID()
+	{
+		return "Ranger_FindWater";
+	}
 
-	protected Vector theTrail=null;
-	public int nextDirection=-2;
+	private final static String	localizedName	= CMLib.lang().L("Find Water");
+
+	@Override
+	public String name()
+	{
+		return localizedName;
+	}
+
+	private final static String	localizedStaticDisplay	= CMLib.lang().L("(finding water)");
+
+	@Override
+	public String displayText()
+	{
+		return localizedStaticDisplay;
+	}
+
+	@Override
+	protected int canAffectCode()
+	{
+		return CAN_MOBS;
+	}
+
+	@Override
+	protected int canTargetCode()
+	{
+		return 0;
+	}
+
+	@Override
+	public int abstractQuality()
+	{
+		return Ability.QUALITY_OK_SELF;
+	}
+
+	private static final String[]	triggerStrings	= I(new String[] { "FINDWATER" });
+
+	@Override
+	public String[] triggerStrings()
+	{
+		return triggerStrings;
+	}
+
+	@Override
+	public int classificationCode()
+	{
+		return Ability.ACODE_SKILL | Ability.DOMAIN_NATURELORE;
+	}
+
+	@Override
+	public long flags()
+	{
+		return Ability.FLAG_TRACKING;
+	}
+
+	protected List<Room>	theTrail		= null;
+	public int				nextDirection	= -2;
+
+	@Override
 	public void unInvoke()
 	{
-		if((affected==null)||(!(affected instanceof MOB)))
+		if(!(affected instanceof MOB))
 			return;
 		super.unInvoke();
 	}
 
+	@Override
 	public boolean tick(Tickable ticking, int tickID)
 	{
 		if(!super.tick(ticking,tickID))
@@ -71,7 +123,7 @@ public class Ranger_FindWater extends StdAbility
 			||(!(affected instanceof MOB)))
 				return false;
 
-			MOB mob=(MOB)affected;
+			final MOB mob=(MOB)affected;
 
 			if(nextDirection==999)
 			{
@@ -83,22 +135,22 @@ public class Ranger_FindWater extends StdAbility
 			if(nextDirection==-1)
 			{
 				if(waterHere(mob,mob.location(),null).length()==0)
-					mob.tell("The water trail dries up here.");
+					mob.tell(L("The water trail dries up here."));
 				nextDirection=-999;
 				unInvoke();
 			}
 			else
 			if(nextDirection>=0)
 			{
-				mob.tell("The water trail seems to continue "+Directions.getDirectionName(nextDirection)+".");
+				mob.tell(L("The water trail seems to continue @x1.",CMLib.directions().getDirectionName(nextDirection)));
 				if(mob.isMonster())
 				{
-					Room nextRoom=mob.location().getRoomInDir(nextDirection);
+					final Room nextRoom=mob.location().getRoomInDir(nextDirection);
 					if((nextRoom!=null)&&(nextRoom.getArea()==mob.location().getArea()))
 					{
-						int dir=nextDirection;
+						final int dir=nextDirection;
 						nextDirection=-2;
-						CMLib.tracking().move(mob,dir,false,false);
+						CMLib.tracking().walk(mob,dir,false,false);
 					}
 					else
 						unInvoke();
@@ -111,14 +163,15 @@ public class Ranger_FindWater extends StdAbility
 		return true;
 	}
 
-	public void executeMsg(Environmental myHost, CMMsg msg)
+	@Override
+	public void executeMsg(final Environmental myHost, final CMMsg msg)
 	{
 		super.executeMsg(myHost,msg);
 
-		if((affected==null)||(!(affected instanceof MOB)))
+		if(!(affected instanceof MOB))
 			return;
 
-		MOB mob=(MOB)affected;
+		final MOB mob=(MOB)affected;
 		if((msg.amISource(mob))
 		&&(msg.amITarget(mob.location()))
 		&&(CMLib.flags().canBeSeenBy(mob.location(),mob))
@@ -133,7 +186,7 @@ public class Ranger_FindWater extends StdAbility
 		{
 			if((msg.tool()!=null)&&(msg.tool().ID().equals(ID())))
 			{
-				String str=waterHere((MOB)affected,msg.target(),null);
+				final String str=waterHere((MOB)affected,msg.target(),null);
 				if(str.length()>0)
 					((MOB)affected).tell(str);
 			}
@@ -142,7 +195,7 @@ public class Ranger_FindWater extends StdAbility
 			&&(waterHere((MOB)affected,msg.target(),null).length()>0)
 			&&(msg.source()!=msg.target()))
 			{
-				CMMsg msg2=CMClass.getMsg(msg.source(),msg.target(),this,CMMsg.MSG_LOOK,CMMsg.NO_EFFECT,CMMsg.NO_EFFECT,null);
+				final CMMsg msg2=CMClass.getMsg(msg.source(),msg.target(),this,CMMsg.MSG_LOOK,CMMsg.NO_EFFECT,CMMsg.NO_EFFECT,null);
 				msg.addTrailerMsg(msg2);
 			}
 		}
@@ -150,56 +203,62 @@ public class Ranger_FindWater extends StdAbility
 
 	public String waterCheck(MOB mob, Item I, Item container, StringBuffer msg)
 	{
-		if(I==null) return "";
+		if(I==null)
+			return "";
 		if(I.container()==container)
 		{
 			if(((I instanceof Drink))
 			&&(((Drink)I).containsDrink())
 			&&(CMLib.flags().canBeSeenBy(I,mob)))
-				msg.append(I.name()+" contains some sort of liquid.\n\r");
+				msg.append(L("@x1 contains some sort of liquid.\n\r",I.name()));
 		}
 		else
 		if((I.container()!=null)&&(I.container().container()==container))
 			if(msg.toString().indexOf(I.container().name()+" contains some sort of liquid.")<0)
-				msg.append(I.container().name()+" contains some sort of liquid.\n\r");
+				msg.append(L("@x1 contains some sort of liquid.\n\r",I.container().name()));
 		return msg.toString();
+	}
+
+	@Override
+	public void affectPhyStats(Physical affectedEnv, PhyStats affectableStats)
+	{
+		affectableStats.setSensesMask(affectableStats.sensesMask()|PhyStats.CAN_NOT_TRACK);
+		super.affectPhyStats(affectedEnv, affectableStats);
 	}
 
 	public String waterHere(MOB mob, Environmental E, Item container)
 	{
-		StringBuffer msg=new StringBuffer("");
-		if(E==null) return msg.toString();
+		final StringBuffer msg=new StringBuffer("");
+		if(E==null)
+			return msg.toString();
 		if((E instanceof Room)&&(CMLib.flags().canBeSeenBy(E,mob)))
 		{
-			Room room=(Room)E;
-			if((room.domainType()==Room.DOMAIN_OUTDOORS_UNDERWATER)
-			   ||(room.domainType()==Room.DOMAIN_OUTDOORS_WATERSURFACE)
-			   ||(room.domainType()==Room.DOMAIN_INDOORS_UNDERWATER)
-			   ||(room.domainType()==Room.DOMAIN_INDOORS_WATERSURFACE))
-				msg.append("Your water-finding senses are saturated.  This is a very wet place.\n\r");
+			final Room room=(Room)E;
+			if(CMLib.flags().isWateryRoom(room))
+				msg.append(L("Your water-finding senses are saturated.  This is a very wet place.\n\r"));
 			else
-			if(room.domainConditions()==Room.CONDITION_WET)
-				msg.append("Your water-finding senses are saturated.  This is a damp place.\n\r");
+			if(CMath.bset(room.getClimateType(),Places.CLIMASK_WET))
+				msg.append(L("Your water-finding senses are saturated.  This is a damp place.\n\r"));
 			else
 			if((room.getArea().getClimateObj().weatherType(room)==Climate.WEATHER_RAIN)
 			||(room.getArea().getClimateObj().weatherType(room)==Climate.WEATHER_THUNDERSTORM))
-				msg.append("It is raining here! Your water-finding senses are saturated!\n\r");
+				msg.append(L("It is raining here! Your water-finding senses are saturated!\n\r"));
 			else
 			if(room.getArea().getClimateObj().weatherType(room)==Climate.WEATHER_HAIL)
-				msg.append("It is hailing here! Your water-finding senses are saturated!\n\r");
+				msg.append(L("It is hailing here! Your water-finding senses are saturated!\n\r"));
 			else
 			if(room.getArea().getClimateObj().weatherType(room)==Climate.WEATHER_SNOW)
-				msg.append("It is snowing here! Your water-finding senses are saturated!\n\r");
+				msg.append(L("It is snowing here! Your water-finding senses are saturated!\n\r"));
 			else
 			{
 				for(int i=0;i<room.numItems();i++)
 				{
-					Item I=room.fetchItem(i);
+					final Item I=room.getItem(i);
 					waterCheck(mob,I,container,msg);
 				}
 				for(int m=0;m<room.numInhabitants();m++)
 				{
-					MOB M=room.fetchInhabitant(m);
+					final MOB M=room.fetchInhabitant(m);
 					if((M!=null)&&(M!=mob))
 						msg.append(waterHere(mob,M,null));
 				}
@@ -214,25 +273,25 @@ public class Ranger_FindWater extends StdAbility
 		else
 		if((E instanceof MOB)&&(CMLib.flags().canBeSeenBy(E,mob)))
 		{
-			for(int i=0;i<((MOB)E).inventorySize();i++)
+			for(int i=0;i<((MOB)E).numItems();i++)
 			{
-				Item I=((MOB)E).fetchInventory(i);
-				StringBuffer msg2=new StringBuffer("");
+				final Item I=((MOB)E).getItem(i);
+				final StringBuffer msg2=new StringBuffer("");
 				waterCheck(mob,I,container,msg2);
 				if(msg2.length()>0)
-					return E.name()+" is carrying some liquids.";
+					return L("@x1 is carrying some liquids.",E.name());
 			}
-			if(CMLib.coffeeShops().getShopKeeper(E)!=null)
+			final ShopKeeper SK=CMLib.coffeeShops().getShopKeeper(E);
+			if(SK!=null)
 			{
-				StringBuffer msg2=new StringBuffer("");
-				Vector V=CMLib.coffeeShops().getShopKeeper(E).getShop().getStoreInventory();
-				for(int v=0;v<V.size();v++)
+				final StringBuffer msg2=new StringBuffer("");
+				for(final Iterator<Environmental> i=SK.getShop().getStoreInventory();i.hasNext();)
 				{
-					Environmental E2=(Environmental)V.elementAt(v);
+					final Environmental E2=i.next();
 					if(E2 instanceof Item)
 						waterCheck(mob,(Item)E2,container,msg2);
 					if(msg2.length()>0)
-						return E.name()+" has some liquids in stock.";
+						return L("@x1 has some liquids in stock.",E.name());
 				}
 			}
 		}
@@ -240,59 +299,62 @@ public class Ranger_FindWater extends StdAbility
 	}
 
 
-	public boolean invoke(MOB mob, Vector commands, Environmental givenTarget, boolean auto, int asLevel)
+	@Override
+	public boolean invoke(MOB mob, List<String> commands, Physical givenTarget, boolean auto, int asLevel)
 	{
-		Vector V=CMLib.flags().flaggedAffects(mob,Ability.FLAG_TRACKING);
-		for(int v=0;v<V.size();v++)	((Ability)V.elementAt(v)).unInvoke();
+		final List<Ability> V=CMLib.flags().flaggedAffects(mob,Ability.FLAG_TRACKING);
+		for(final Ability A : V) A.unInvoke();
 		if(V.size()>0)
 		{
-			mob.tell("You stop tracking.");
-			if(commands.size()==0) return true;
+			mob.tell(L("You stop tracking."));
+			if(commands.size()==0)
+				return true;
 		}
 
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
 			return false;
 
-		String here=waterHere(mob,mob.location(),null);
+		final String here=waterHere(mob,mob.location(),null);
 		if(here.length()>0)
 		{
 			mob.tell(here);
 			return true;
 		}
 
-		boolean success=proficiencyCheck(mob,0,auto);
+		final boolean success=proficiencyCheck(mob,0,auto);
 
-		Vector rooms=new Vector();
+		final Vector<Room> rooms=new Vector<Room>();
 		TrackingLibrary.TrackingFlags flags;
-		flags = new TrackingLibrary.TrackingFlags()
-				.add(TrackingLibrary.TrackingFlag.NOEMPTYGRIDS)
-				.add(TrackingLibrary.TrackingFlag.NOAIR);
-		Vector checkSet=CMLib.tracking().getRadiantRooms(mob.location(),flags,60+(2*getXLEVELLevel(mob)));
-		for(Enumeration r=checkSet.elements();r.hasMoreElements();)
+		flags = CMLib.tracking().newFlags()
+				.plus(TrackingLibrary.TrackingFlag.NOEMPTYGRIDS)
+				.plus(TrackingLibrary.TrackingFlag.NOAIR);
+		int range=60 + (2*super.getXLEVELLevel(mob))+(10*super.getXMAXRANGELevel(mob));
+		final List<Room> checkSet=CMLib.tracking().getRadiantRooms(mob.location(),flags,range);
+		for (final Room room : checkSet)
 		{
-			Room R=CMLib.map().getRoom((Room)r.nextElement());
+			final Room R=CMLib.map().getRoom(room);
 			if(waterHere(mob,R,null).length()>0)
 				rooms.addElement(R);
 		}
 
 		if(rooms.size()>0)
-			theTrail=CMLib.tracking().findBastardTheBestWay(mob.location(),rooms,flags,60+(2*getXLEVELLevel(mob)));
+			theTrail=CMLib.tracking().findTrailToAnyRoom(mob.location(),rooms,flags,range);
 
 		if((success)&&(theTrail!=null))
 		{
-			CMMsg msg=CMClass.getMsg(mob,null,this,CMMsg.MSG_QUIETMOVEMENT,auto?"<S-NAME> begin(s) sniffing around for water!":"<S-NAME> begin(s) sensing water.");
+			final CMMsg msg=CMClass.getMsg(mob,null,this,CMMsg.MSG_QUIETMOVEMENT,auto?L("<S-NAME> begin(s) sniffing around for water!"):L("<S-NAME> begin(s) sensing water."));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);
-				Ranger_FindWater newOne=(Ranger_FindWater)this.copyOf();
+				final Ranger_FindWater newOne=(Ranger_FindWater)this.copyOf();
 				if(mob.fetchEffect(newOne.ID())==null)
 					mob.addEffect(newOne);
-				mob.recoverEnvStats();
+				mob.recoverPhyStats();
 				newOne.nextDirection=CMLib.tracking().trackNextDirectionFromHere(newOne.theTrail,mob.location(),false);
 			}
 		}
 		else
-			beneficialVisualFizzle(mob,null,"<S-NAME> attempt(s) to find water, but fail(s).");
+			beneficialVisualFizzle(mob,null,L("<S-NAME> attempt(s) to find water, but fail(s)."));
 
 		return success;
 	}

@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Common;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,21 +10,21 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
-
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2003-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,37 +33,64 @@ import java.util.*;
    limitations under the License.
 */
 
-@SuppressWarnings("unchecked")
 public class Scrapping extends CommonSkill
 {
-	public String ID() { return "Scrapping"; }
-	public String name(){ return "Scrapping";}
-	private static final String[] triggerStrings = {"SCRAP","SCRAPPING"};
-	public String[] triggerStrings(){return triggerStrings;}
-	protected int iniTrainsRequired(){return CMProps.getIntVar(CMProps.SYSTEMI_SKILLTRAINCOST);}
-	protected int iniPracticesRequired(){return CMProps.getIntVar(CMProps.SYSTEMI_SKILLPRACCOST);}
-    public int classificationCode() {   return Ability.ACODE_COMMON_SKILL|Ability.DOMAIN_NATURELORE; }
+	@Override
+	public String ID()
+	{
+		return "Scrapping";
+	}
 
-	protected Item found=null;
-	boolean fireRequired=false;
-	protected int amount=0;
-	protected String oldItemName="";
-	protected String foundShortName="";
-	protected boolean messedUp=false;
+	private final static String	localizedName	= CMLib.lang().L("Scrapping");
+
+	@Override
+	public String name()
+	{
+		return localizedName;
+	}
+
+	private static final String[]	triggerStrings	= I(new String[] { "SCRAP", "SCRAPPING" });
+
+	@Override
+	public String[] triggerStrings()
+	{
+		return triggerStrings;
+	}
+
+	@Override
+	protected ExpertiseLibrary.SkillCostDefinition getRawTrainingCost()
+	{
+		return CMProps.getNormalSkillGainCost(ID());
+	}
+
+	@Override
+	public int classificationCode()
+	{
+		return Ability.ACODE_COMMON_SKILL | Ability.DOMAIN_NATURELORE;
+	}
+
+	protected Item		found			= null;
+	boolean				fireRequired	= false;
+	protected int		amount			= 0;
+	protected String	oldItemName		= "";
+	protected String	foundShortName	= "";
+	protected boolean	messedUp		= false;
+
 	public Scrapping()
 	{
 		super();
-		displayText="You are scrapping...";
-		verb="scrapping";
+		displayText = L("You are scrapping...");
+		verb = L("scrapping");
 	}
 
+	@Override
 	public boolean tick(Tickable ticking, int tickID)
 	{
 		if((affected!=null)
 		&&(affected instanceof MOB)
 		&&(tickID==Tickable.TICKID_MOB))
 		{
-			MOB mob=(MOB)affected;
+			final MOB mob=(MOB)affected;
 			if((found==null)||(fireRequired&&(getRequiredFire(mob,0)==null)))
 			{
 				messedUp=true;
@@ -72,28 +100,37 @@ public class Scrapping extends CommonSkill
 		return super.tick(ticking,tickID);
 	}
 
+	@Override
 	public void unInvoke()
 	{
 		if(canBeUninvoked())
 		{
-			if((affected!=null)&&(affected instanceof MOB))
+			if(affected instanceof MOB)
 			{
-				MOB mob=(MOB)affected;
-				if((found!=null)&&(!aborted))
+				final MOB mob=(MOB)affected;
+				if((found!=null)&&(!aborted)&&(mob.location()!=null))
 				{
 					if(messedUp)
-						commonTell(mob,"You've messed up scrapping "+oldItemName+"!");
+						commonTell(mob,L("You've messed up scrapping @x1!",oldItemName));
 					else
 					{
-						amount=amount*abilityCode();
-						String s="s";
-						if(amount==1) s="";
-						mob.location().show(mob,null,CMMsg.MSG_NOISYMOVEMENT,"<S-NAME> manage(s) to scrap "+amount+" pound"+s+" of "+foundShortName+".");
-						for(int i=0;i<amount;i++)
+						amount=amount*(baseYield()+abilityCode());
+						final CMMsg msg=CMClass.getMsg(mob,found,this,getCompletedActivityMessageType(),null);
+						msg.setValue(amount);
+						if(mob.location().okMessage(mob, msg))
 						{
-							Item newFound=(Item)found.copyOf();
-							mob.location().addItemRefuse(newFound,CMProps.getIntVar(CMProps.SYSTEMI_EXPIRE_PLAYER_DROP));
-							CMLib.commands().postGet(mob,null,newFound,true);
+							String s="s";
+							if(msg.value()==1)
+								s="";
+							msg.modify(L("<S-NAME> manage(s) to scrap @x1 pound@x2 of @x3.",""+msg.value(),s,foundShortName));
+							mob.location().send(mob, msg);
+							for(int i=0;i<msg.value();i++)
+							{
+								final Item newFound=(Item)found.copyOf();
+								if(!dropAWinner(mob,newFound))
+									break;
+								CMLib.commands().postGet(mob,null,newFound,true);
+							}
 						}
 					}
 				}
@@ -103,14 +140,17 @@ public class Scrapping extends CommonSkill
 	}
 
 
-	public boolean invoke(MOB mob, Vector commands, Environmental givenTarget, boolean auto, int asLevel)
+	@Override
+	public boolean invoke(MOB mob, List<String> commands, Physical givenTarget, boolean auto, int asLevel)
 	{
-		verb="scrapping";
-		String str=CMParms.combine(commands,0);
-		Item I=mob.location().fetchItem(null,str);
+		if(super.checkStop(mob, commands))
+			return true;
+		verb=L("scrapping");
+		final String str=CMParms.combine(commands,0);
+		final Item I=mob.location().findItem(null,str);
 		if((I==null)||(!CMLib.flags().canBeSeenBy(I,mob)))
 		{
-			commonTell(mob,"You don't see anything called '"+str+"' here.");
+			commonTell(mob,L("You don't see anything called '@x1' here.",str));
 			return false;
 		}
 		boolean okMaterial=true;
@@ -121,70 +161,80 @@ public class Scrapping extends CommonSkill
 		case RawMaterial.MATERIAL_LIQUID:
 		case RawMaterial.MATERIAL_PAPER:
 		case RawMaterial.MATERIAL_ENERGY:
+		case RawMaterial.MATERIAL_GAS:
 		case RawMaterial.MATERIAL_VEGETATION:
 			{ okMaterial=false; break;}
 		}
 		if(!okMaterial)
 		{
-			commonTell(mob,"You don't know how to scrap "+I.name()+".");
+			commonTell(mob,L("You don't know how to scrap @x1.",I.name(mob)));
 			return false;
 		}
-		
+
 		if(I instanceof RawMaterial)
 		{
-			commonTell(mob,I.name()+" already looks like scrap.");
+			commonTell(mob,L("@x1 already looks like scrap.",I.name(mob)));
 			return false;
 		}
-		
-		if(CMLib.flags().enchanted(I))
+
+		if(CMLib.flags().isEnchanted(I))
 		{
-			commonTell(mob,I.name()+" is enchanted, and can't be scrapped.");
+			commonTell(mob,L("@x1 is enchanted, and can't be scrapped.",I.name(mob)));
 			return false;
 		}
-		
-		Vector V=new Vector();
+
+		final Vector<Item> V=new Vector<Item>();
 		int totalWeight=0;
 		for(int i=0;i<mob.location().numItems();i++)
 		{
-			Item I2=mob.location().fetchItem(i);
+			final Item I2=mob.location().getItem(i);
 			if((I2!=null)&&(I2.sameAs(I)))
 			{
-				totalWeight+=I2.envStats().weight();
+				totalWeight+=I2.phyStats().weight();
 				V.addElement(I2);
 			}
 		}
 
-		LandTitle t=CMLib.law().getLandTitle(mob.location());
+		final LandTitle t=CMLib.law().getLandTitle(mob.location());
 		if((t!=null)&&(!CMLib.law().doesHavePriviledgesHere(mob,mob.location())))
 		{
-			mob.tell("You are not allowed to scrap anything here.");
+			mob.tell(L("You are not allowed to scrap anything here."));
 			return false;
 		}
 
 		for(int i=0;i<mob.location().numItems();i++)
 		{
-			Item I2=mob.location().fetchItem(i);
+			final Item I2=mob.location().getItem(i);
 			if((I2.container()!=null)&&(V.contains(I2.container())))
 			{
-				commonTell(mob,"You need to remove the contents of "+I2.name()+" first.");
+				commonTell(mob,L("You need to remove the contents of @x1 first.",I2.name(mob)));
 				return false;
 			}
 		}
 		amount=totalWeight/5;
 		if(amount<1)
 		{
-			commonTell(mob,"You don't have enough here to get anything from.");
+			commonTell(mob,L("You don't have enough here to get anything from."));
 			return false;
 		}
 		fireRequired=false;
 		if(((I.material()&RawMaterial.MATERIAL_MASK)==RawMaterial.MATERIAL_GLASS)
 		||((I.material()&RawMaterial.MATERIAL_MASK)==RawMaterial.MATERIAL_METAL)
-		||((I.material()&RawMaterial.MATERIAL_MASK)==RawMaterial.MATERIAL_PLASTIC)
+		||((I.material()&RawMaterial.MATERIAL_MASK)==RawMaterial.MATERIAL_SYNTHETIC)
 		||((I.material()&RawMaterial.MATERIAL_MASK)==RawMaterial.MATERIAL_MITHRIL))
 		{
-			Item fire=getRequiredFire(mob,0);
+			final Item fire=getRequiredFire(mob,0);
 			fireRequired=true;
-			if(fire==null) return false;
+			if(fire==null)
+				return false;
+		}
+
+		final PrivateProperty prop=CMLib.law().getPropertyRecord(I);
+		if(((prop != null)&&(!CMLib.law().doesHavePrivilegesWith(mob, prop)))
+		||(I instanceof SailingShip))
+		{
+			commonTell(mob,L("@x1 can't be scrapped.",I.name(mob)));
+			return false;
 		}
 
 		found=null;
@@ -194,22 +244,22 @@ public class Scrapping extends CommonSkill
 		messedUp=!proficiencyCheck(mob,0,auto);
 		found=CMLib.materials().makeItemResource(I.material());
 		foundShortName="nothing";
-        playSound="ripping.wav";
+		playSound="ripping.wav";
 		if(found!=null)
 			foundShortName=RawMaterial.CODES.NAME(found.material()).toLowerCase();
-		CMMsg msg=CMClass.getMsg(mob,I,this,CMMsg.MSG_NOISYMOVEMENT,"<S-NAME> start(s) scrapping "+I.name()+".");
+		final CMMsg msg=CMClass.getMsg(mob,I,this,getActivityMessageType(),L("<S-NAME> start(s) scrapping @x1.",I.name()));
 		if(mob.location().okMessage(mob,msg))
 		{
 			mob.location().send(mob,msg);
 			for(int v=0;v<V.size();v++)
 			{
-			    if(((I.material()&RawMaterial.MATERIAL_MASK)==RawMaterial.MATERIAL_PRECIOUS)
-			    ||((I.material()&RawMaterial.MATERIAL_MASK)==RawMaterial.MATERIAL_METAL)
-			    ||((I.material()&RawMaterial.MATERIAL_MASK)==RawMaterial.MATERIAL_MITHRIL))
-			        duration+=((Item)V.elementAt(v)).envStats().weight();
-			    else
-			        duration+=((Item)V.elementAt(v)).envStats().weight()/2;
-			    ((Item)V.elementAt(v)).destroy();
+				if(((I.material()&RawMaterial.MATERIAL_MASK)==RawMaterial.MATERIAL_PRECIOUS)
+				||((I.material()&RawMaterial.MATERIAL_MASK)==RawMaterial.MATERIAL_METAL)
+				||((I.material()&RawMaterial.MATERIAL_MASK)==RawMaterial.MATERIAL_MITHRIL))
+					duration+=V.elementAt(v).phyStats().weight();
+				else
+					duration+=V.elementAt(v).phyStats().weight()/2;
+				V.elementAt(v).destroy();
 			}
 			beneficialAffect(mob,mob,asLevel,duration);
 		}

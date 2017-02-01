@@ -2,6 +2,7 @@ package com.planet_ink.coffee_mud.Items.MiscMagic;
 import com.planet_ink.coffee_mud.Items.Basic.StdItem;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -10,6 +11,7 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -18,14 +20,14 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2001-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -33,10 +35,15 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
+
 public class StdScroll extends StdItem implements MiscMagic, Scroll
 {
-	public String ID(){	return "StdScroll";}
+	@Override
+	public String ID()
+	{
+		return "StdScroll";
+	}
+
 	protected String readableScrollBy=null;
 
 	public StdScroll()
@@ -44,31 +51,40 @@ public class StdScroll extends StdItem implements MiscMagic, Scroll
 		super();
 
 		setName("a scroll");
-		baseEnvStats.setWeight(1);
+		basePhyStats.setWeight(1);
 		setDisplayText("a scroll is rolled up here.");
 		setDescription("A rolled up parchment marked with mystical symbols.");
 		secretIdentity="";
 		material=RawMaterial.RESOURCE_PAPER;
 		baseGoldValue=200;
-		recoverEnvStats();
+		setUsesRemaining(0);
+		recoverPhyStats();
 	}
 
-
-
+	@Override
 	public String getSpellList()
-	{ return miscText;}
-	public void setSpellList(String list){miscText=list;}
+	{
+		return miscText;
+	}
 
+	@Override
+	public void setSpellList(String list)
+	{
+		miscText = list;
+	}
+
+	@Override
 	public int value()
 	{
 		if(usesRemaining()<=0)
 			return 0;
 		return super.value();
 	}
+	@Override
 	public boolean useTheScroll(Ability A, MOB mob)
 	{
 		int manaRequired=5;
-		int q=CMLib.ableMapper().qualifyingLevel(mob,A);
+		final int q=CMLib.ableMapper().qualifyingLevel(mob,A);
 		if(q>0)
 		{
 			if(q<CMLib.ableMapper().qualifyingClassLevel(mob,A))
@@ -80,26 +96,27 @@ public class StdScroll extends StdItem implements MiscMagic, Scroll
 			manaRequired=25;
 		if(manaRequired>mob.curState().getMana())
 		{
-			mob.tell("You don't have enough mana.");
+			mob.tell(L("You don't have enough mana."));
 			return false;
 		}
 		mob.curState().adjMana(-manaRequired,mob.maxState());
 		return true;
 	}
 
+	@Override
 	public String secretIdentity()
 	{
-		return StdScroll.makeSecretIdentity("scroll",super.secretIdentity()," Charges: "+usesRemaining(),getSpells(this));
+		return StdScroll.makeSecretIdentity("scroll",super.secretIdentity()," Charges: "+usesRemaining(),getSpells());
 	}
 
-	public static String makeSecretIdentity(String thang, String id, String more, Vector V)
+	public static String makeSecretIdentity(String thang, String id, String more, List<Ability> V)
 	{
-		StringBuffer add=new StringBuffer("");
+		final StringBuffer add=new StringBuffer("");
 		for(int v=0;v<V.size();v++)
 		{
 			if(v==0)
 				add.append("A "+thang+" of ");
-			Ability A=(Ability)V.elementAt(v);
+			final Ability A=V.get(v);
 			if(V.size()==1)
 				add.append(A.name());
 			else
@@ -115,30 +132,31 @@ public class StdScroll extends StdItem implements MiscMagic, Scroll
 		add.append(id);
 		return add.toString();
 	}
-	
-	public void readIfAble(MOB mob, Scroll me, String spellName)
+
+	@Override
+	public void readIfAble(MOB mob, String spellName)
 	{
-		if(mob.isMine(me))
+		if(mob.isMine(this))
 		{
-			boolean readingMagic=(mob.fetchEffect("Spell_ReadMagic")!=null);
+			final boolean readingMagic=(mob.fetchEffect("Spell_ReadMagic")!=null);
 			if(readingMagic)
 			{
-				mob.tell(name()+" glows softly.");
-				me.setReadableScrollBy(mob.Name());
+				mob.tell(L("@x1 glows softly.",name()));
+				setReadableScrollBy(mob.Name());
 			}
-			if(me.isReadableScrollBy(mob.Name()))
+			if(isReadableScrollBy(mob.Name()))
 			{
 				if(me.usesRemaining()<=0)
-					mob.tell("The markings have been read off the parchment, and are no longer discernable.");
+					mob.tell(L("The markings have been read off the parchment, and are no longer discernable."));
 				else
 				{
-					Vector Spells=me.getSpells();
+					List<Ability> Spells=getSpells();
 					if(Spells.size()==0)
-						mob.tell("The scroll appears to contain no discernable information.");
+						mob.tell(L("The scroll appears to contain no discernable information."));
 					else
 					{
 						Ability thisOne=null;
-						Vector params=new Vector();
+						final Vector<String> params=new Vector<String>();
 						if(spellName.length()>0)
 						{
 							spellName=spellName.trim();
@@ -148,7 +166,7 @@ public class StdScroll extends StdItem implements MiscMagic, Scroll
 							while((thisOne==null)&&(spellName.length()>0))
 							{
 
-								int t=spellName.lastIndexOf(" ");
+								final int t=spellName.lastIndexOf(' ');
 								if(t<0)
 									spellName="";
 								else
@@ -162,23 +180,27 @@ public class StdScroll extends StdItem implements MiscMagic, Scroll
 							}
 						}
 
-						if((thisOne!=null)&&(me.useTheScroll(thisOne,mob)))
+						if((thisOne!=null)&&(useTheScroll(thisOne,mob)))
 						{
 							thisOne=(Ability)thisOne.copyOf();
-							thisOne.invoke(mob,params,null,true,envStats().level());
-							me.setUsesRemaining(me.usesRemaining()-1);
+							int level=phyStats().level();
+							final int lowest=CMLib.ableMapper().lowestQualifyingLevel(thisOne.ID());
+							if(level<lowest)
+								level=lowest;
+							thisOne.invoke(mob,params,null,true,level);
+							setUsesRemaining(usesRemaining()-1);
 						}
 						else
 						if(spellName.length()>0)
-							mob.tell("That is not written on the scroll.");
+							mob.tell(L("That is not written on the scroll."));
 						else
 						if(!mob.isMonster())
 						{
-							StringBuffer theNews=new StringBuffer("The scroll contains the following spells:\n\r");
-							Spells=me.getSpells();
+							final StringBuffer theNews=new StringBuffer("The scroll contains the following spells:\n\r");
+							Spells=getSpells();
 							for(int u=0;u<Spells.size();u++)
 							{
-								Ability A=(Ability)Spells.elementAt(u);
+								final Ability A=Spells.get(u);
 								theNews.append("Level "+CMStrings.padRight(""+CMLib.ableMapper().lowestQualifyingLevel(A.ID()),2)+": "+A.name()+"\n\r");
 							}
 							mob.tell(theNews.toString());
@@ -187,59 +209,52 @@ public class StdScroll extends StdItem implements MiscMagic, Scroll
 				}
 			}
 			else
-				mob.tell("The markings look magical, and are unknown to you.");
+				mob.tell(L("The markings look magical, and are unknown to you."));
 		}
 	}
 
-	public static Vector getSpells(SpellHolder me)
+	@Override
+	public List<Ability> getSpells()
 	{
 		int baseValue=200;
-		Vector theSpells=new Vector();
-		String names=me.getSpellList();
-		int del=names.indexOf(";");
-		while(del>=0)
+		final List<Ability> theSpells=new Vector<Ability>();
+		final String names=getSpellList();
+		final List<String> parsedSpells=CMParms.parseSemicolons(names, true);
+		for(String thisOne : parsedSpells)
 		{
-			String thisOne=names.substring(0,del);
-			if((thisOne.length()>0)&&(!thisOne.equals(";")))
+			thisOne=thisOne.trim();
+			String parms="";
+			final int x=thisOne.indexOf('(');
+			if((x>0)&&(thisOne.endsWith(")")))
 			{
-				Ability A=CMClass.getAbility(thisOne);
-				if((A!=null)&&((A.classificationCode()&Ability.ALL_DOMAINS)!=Ability.DOMAIN_ARCHON))
-				{
-					A=(Ability)A.copyOf();
-					baseValue+=(100*CMLib.ableMapper().lowestQualifyingLevel(A.ID()));
-					theSpells.addElement(A);
-				}
+				parms=thisOne.substring(x+1,thisOne.length()-1);
+				thisOne=thisOne.substring(0,x).trim();
 			}
-			names=names.substring(del+1);
-			del=names.indexOf(";");
-		}
-		if((names.length()>0)&&(!names.equals(";")))
-		{
-			Ability A=CMClass.getAbility(names);
-			if(A!=null)
+			Ability A=CMClass.getAbility(thisOne);
+			if((A!=null)&&((A.classificationCode()&Ability.ALL_DOMAINS)!=Ability.DOMAIN_ARCHON))
 			{
 				A=(Ability)A.copyOf();
+				A.setMiscText(parms);
 				baseValue+=(100*CMLib.ableMapper().lowestQualifyingLevel(A.ID()));
-				theSpells.addElement(A);
+				theSpells.add(A);
 			}
 		}
-		me.setBaseValue(baseValue);
-		me.recoverEnvStats();
+		setBaseValue(baseValue);
+		recoverPhyStats();
 		return theSpells;
 	}
-	
-	public Vector getSpells(){ return getSpells(this);}
 
-	public void executeMsg(Environmental myHost, CMMsg msg)
+	@Override
+	public void executeMsg(final Environmental myHost, final CMMsg msg)
 	{
 		if(msg.amITarget(this))
 		{
-			MOB mob=msg.source();
+			final MOB mob=msg.source();
 			switch(msg.targetMinor())
 			{
 			case CMMsg.TYP_READ:
 				if((msg.sourceMessage()==null)&&(msg.othersMessage()==null))
-					readIfAble(mob,this,msg.targetMessage());
+					readIfAble(mob,msg.targetMessage());
 				else
 					msg.addTrailerMsg(CMClass.getMsg(msg.source(),msg.target(),msg.tool(),CMMsg.NO_EFFECT,null,msg.targetCode(),msg.targetMessage(),CMMsg.NO_EFFECT,null));
 				return;
@@ -249,47 +264,90 @@ public class StdScroll extends StdItem implements MiscMagic, Scroll
 		}
 		super.executeMsg(myHost,msg);
 	}
+	@Override
 	public void setMiscText(String newText)
 	{
 		miscText=newText;
 		setSpellList(newText);
 	}
-	public boolean isReadableScrollBy(String name){return (readableScrollBy!=null) && (readableScrollBy.equalsIgnoreCase(name));}
-	public void setReadableScrollBy(String name){readableScrollBy=name;}
-	protected static String[] CODES={"CLASS","LEVEL","ABILITY","TEXT"};
-	public String getStat(String code){
+	
+	@Override
+	public boolean isReadableScrollBy(String name)
+	{
+		return (readableScrollBy != null) && (readableScrollBy.equalsIgnoreCase(name));
+	}
+
+	@Override
+	public void setReadableScrollBy(String name)
+	{
+		readableScrollBy = name;
+	}
+
+	protected static String[]	CODES	= { "CLASS", "LEVEL", "ABILITY", "TEXT" };
+
+	@Override
+	public String getStat(String code)
+	{
 		switch(getCodeNum(code))
 		{
-		case 0: return ID();
-		case 1: return ""+baseEnvStats().ability();
-		case 2: return ""+baseEnvStats().level();
-		case 3: return text();
+		case 0:
+			return ID();
+		case 1:
+			return "" + basePhyStats().ability();
+		case 2:
+			return "" + basePhyStats().level();
+		case 3:
+			return text();
 		}
 		return "";
 	}
+	@Override
 	public void setStat(String code, String val)
 	{
 		switch(getCodeNum(code))
 		{
-		case 0: return;
-		case 1: baseEnvStats().setLevel(CMath.s_parseIntExpression(val)); break;
-		case 2: baseEnvStats().setAbility(CMath.s_parseIntExpression(val)); break;
-		case 3: setMiscText(val); break;
+		case 0:
+			return;
+		case 1:
+			basePhyStats().setLevel(CMath.s_parseIntExpression(val));
+			break;
+		case 2:
+			basePhyStats().setAbility(CMath.s_parseIntExpression(val));
+			break;
+		case 3:
+			setMiscText(val);
+			break;
 		}
 	}
-	public String[] getStatCodes(){return CODES;}
-	protected int getCodeNum(String code){
+
+	@Override
+	public String[] getStatCodes()
+	{
+		return CODES;
+	}
+
+	@Override
+	protected int getCodeNum(String code)
+	{
 		for(int i=0;i<CODES.length;i++)
-			if(code.equalsIgnoreCase(CODES[i])) return i;
+		{
+			if(code.equalsIgnoreCase(CODES[i]))
+				return i;
+		}
 		return -1;
 	}
-    public boolean sameAs(Environmental E)
-    {
-        if(!(E instanceof StdScroll)) return false;
-        String[] codes=getStatCodes();
-        for(int i=0;i<codes.length;i++)
-            if(!E.getStat(codes[i]).equals(getStat(codes[i])))
-                return false;
-        return true;
-    }
+
+	@Override
+	public boolean sameAs(Environmental E)
+	{
+		if(!(E instanceof StdScroll))
+			return false;
+		final String[] codes=getStatCodes();
+		for(int i=0;i<codes.length;i++)
+		{
+			if(!E.getStat(codes[i]).equals(getStat(codes[i])))
+				return false;
+		}
+		return true;
+	}
 }

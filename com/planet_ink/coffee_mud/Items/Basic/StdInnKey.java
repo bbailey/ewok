@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Items.Basic;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,6 +10,7 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -16,14 +18,14 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2001-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -31,10 +33,14 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
 public class StdInnKey extends StdKey implements InnKey
 {
-	public String ID(){	return "StdInnKey";}
+	@Override
+	public String ID()
+	{
+		return "StdInnKey";
+	}
+
 	public ShopKeeper myShopkeeper=null;
 
 	public StdInnKey()
@@ -46,10 +52,11 @@ public class StdInnKey extends StdKey implements InnKey
 
 		material=RawMaterial.RESOURCE_STEEL;
 		baseGoldValue=10;
-		recoverEnvStats();
+		recoverPhyStats();
 	}
 
 
+	@Override
 	public boolean tick(Tickable ticking, int tickID)
 	{
 		if(tickID==Tickable.TICKID_ITEM_BOUNCEBACK)
@@ -70,23 +77,27 @@ public class StdInnKey extends StdKey implements InnKey
 		return true;
 	}
 
-	public void hangOnRack(ShopKeeper sk)
+	@Override
+	public void hangOnRack(ShopKeeper SK)
 	{
 		if(myShopkeeper==null)
 		{
-			myShopkeeper=sk;
+			myShopkeeper=SK;
 			int y=0;
-			Vector V=sk.getShop().getStoreInventory();
-			for(int v=0;v<V.size();v++)
-				if(V.elementAt(v) instanceof InnKey)
+			for(final Iterator<Environmental> i=SK.getShop().getStoreInventory();i.hasNext();)
+			{
+				final Environmental E=i.next();
+				if(E instanceof InnKey)
 					y++;
+			}
 			setName("key to room "+(y+1));
-			setDescription("The key goes to room "+(y+1)+", but will expire soon, so you better use it quickly! Give the key to your innkeeper, "+sk.name()+", when you leave.");
+			setDescription("The key goes to room "+(y+1)+", but will expire soon, so you better use it quickly! Give the key to your innkeeper, "+SK.name()+", when you leave.");
 			setMiscText("INN"+(y+1));
 		}
 	}
 
-	public void executeMsg(Environmental myHost, CMMsg msg)
+	@Override
+	public void executeMsg(final Environmental myHost, final CMMsg msg)
 	{
 		super.executeMsg(myHost,msg);
 		if(((msg.targetMinor()==CMMsg.TYP_GIVE)
@@ -100,7 +111,9 @@ public class StdInnKey extends StdKey implements InnKey
 			destroy();
 		}
 	}
-	public boolean okMessage(Environmental myHost, CMMsg msg)
+
+	@Override
+	public boolean okMessage(final Environmental myHost, final CMMsg msg)
 	{
 		if(!super.okMessage(myHost,msg))
 			return false;
@@ -112,7 +125,7 @@ public class StdInnKey extends StdKey implements InnKey
 		&&(msg.target()!=myShopkeeper)
 		&&(msg.tool()==this))
 		{
-			CMLib.commands().postSay((MOB)msg.target(),msg.source(),"I'm not interested.",false,false);
+			CMLib.commands().postSay((MOB)msg.target(),msg.source(),L("I'm not interested."),false,false);
 			return false;
 		}
 		else
@@ -120,7 +133,25 @@ public class StdInnKey extends StdKey implements InnKey
 		&&(myShopkeeper!=null)
 		&&(msg.tool()==myShopkeeper)
 		&&(msg.target()==this))
-			CMLib.threads().startTickDown(this,Tickable.TICKID_ITEM_BOUNCEBACK,CMProps.getIntVar(CMProps.SYSTEMI_TICKSPERMUDDAY));
+			CMLib.threads().startTickDown(this,Tickable.TICKID_ITEM_BOUNCEBACK,CMProps.getIntVar(CMProps.Int.TICKSPERMUDDAY));
+		else
+		if((msg.sourceMinor()==CMMsg.TYP_ENTER)
+		&&(msg.target() instanceof Room)
+		&&(owner()==msg.source())
+		&&(msg.source().location() != null)
+		&&(((Room)msg.target()).getArea()!=msg.source().location().getArea())
+		&&(super.miscText!=null))
+		{
+			final Area shopArea=CMLib.map().areaLocation(myShopkeeper);
+			if((shopArea==((Room)msg.target()).getArea())||(shopArea==null))
+			{
+				if(super.miscText.startsWith("-"))
+					super.miscText=super.miscText.substring(1);
+			}
+			else
+			if(!super.miscText.startsWith("-"))
+				super.miscText="-"+super.miscText;
+		}
 		return true;
 	}
 }

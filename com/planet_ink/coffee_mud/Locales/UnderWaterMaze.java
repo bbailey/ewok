@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Locales;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,6 +10,7 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -16,14 +18,14 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2001-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -31,25 +33,45 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
 public class UnderWaterMaze extends StdMaze
 {
-	public String ID(){return "UnderWaterMaze";}
+	@Override
+	public String ID()
+	{
+		return "UnderWaterMaze";
+	}
+
 	public UnderWaterMaze()
 	{
 		super();
-		baseEnvStats().setDisposition(baseEnvStats().disposition()|EnvStats.IS_SWIMMING);
-		baseEnvStats.setWeight(3);
-		recoverEnvStats();
+		basePhyStats().setDisposition(basePhyStats().disposition()|PhyStats.IS_SWIMMING);
+		basePhyStats.setWeight(3);
+		recoverPhyStats();
+		climask=Places.CLIMASK_WET;
+		atmosphere=RawMaterial.RESOURCE_FRESHWATER;
 	}
-	public int domainType(){return Room.DOMAIN_OUTDOORS_UNDERWATER;}
-	public int domainConditions(){return Room.CONDITION_WET;}
-	protected int baseThirst(){return 0;}
+
+	@Override
+	public int domainType()
+	{
+		return Room.DOMAIN_OUTDOORS_UNDERWATER;
+	}
+
+	@Override
+	protected int baseThirst()
+	{
+		return 0;
+	}
 
 
-	public String getGridChildLocaleID(){return "UnderWater";}
+	@Override
+	public String getGridChildLocaleID()
+	{
+		return "UnderWater";
+	}
 
-	public boolean okMessage(Environmental myHost, CMMsg msg)
+	@Override
+	public boolean okMessage(final Environmental myHost, final CMMsg msg)
 	{
 		switch(UnderWater.isOkUnderWaterAffect(this,msg))
 		{
@@ -58,15 +80,24 @@ public class UnderWaterMaze extends StdMaze
 		}
 		return super.okMessage(myHost,msg);
 	}
-	public void executeMsg(Environmental myHost, CMMsg msg)
+
+	@Override
+	public void executeMsg(final Environmental myHost, final CMMsg msg)
 	{
 		super.executeMsg(myHost,msg);
 		UnderWater.sinkAffects(this,msg);
 	}
-	public void affectEnvStats(Environmental affected, EnvStats affectableStats)
+
+	@Override
+	public void affectPhyStats(Physical affected, PhyStats affectableStats)
 	{
-		super.affectEnvStats(affected,affectableStats);
-		affectableStats.setDisposition(affectableStats.disposition()|EnvStats.IS_SWIMMING);
+		super.affectPhyStats(affected,affectableStats);
+		affectableStats.setDisposition(affectableStats.disposition()|PhyStats.IS_SWIMMING);
 	}
-	public Vector resourceChoices(){return UnderWater.roomResources;}
+
+	@Override
+	public List<Integer> resourceChoices()
+	{
+		return UnderWater.roomResources;
+	}
 }

@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Items.Basic;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,6 +10,7 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -17,14 +19,14 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2001-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -34,7 +36,12 @@ import java.util.*;
 */
 public class Gem extends StdItem
 {
-	public String ID(){	return "Gem";}
+	@Override
+	public String ID()
+	{
+		return "Gem";
+	}
+
 	public final static int QUARTZ 			= 0;
 	public final static int AZURITE			= 1;
 	public final static int BLOODSTONE		= 2;
@@ -48,28 +55,29 @@ public class Gem extends StdItem
 	public final static int PEARL			= 10;
 	public final static int EMERALD			= 11;
 	public final static int AMETHYST		= 12;
-    private int lastLevel=-1;
+	private int lastLevel=-1;
 
 	public Gem()
 	{
 		super();
 
 
-		Random randomizer = new Random(System.currentTimeMillis());
-		int ringType = Math.abs(randomizer.nextInt() % 12);
-		baseEnvStats.setLevel(ringType);
-		recoverEnvStats();
+		final Random randomizer = new Random(System.currentTimeMillis());
+		final int ringType = Math.abs(randomizer.nextInt() % 12);
+		basePhyStats.setLevel(ringType);
+		recoverPhyStats();
 	}
 
-    public void recoverEnvStats()
-    {
-        super.recoverEnvStats();
-        if(lastLevel!=envStats().level())
-        { 
-            lastLevel=envStats().level(); 
-            setItemDescription(envStats.level());
-        }
-    }
+	@Override
+	public void recoverPhyStats()
+	{
+		super.recoverPhyStats();
+		if(lastLevel!=phyStats().level())
+		{
+			lastLevel=phyStats().level();
+			setItemDescription(phyStats.level());
+		}
+	}
 
 	public void setItemDescription(int level)
 	{

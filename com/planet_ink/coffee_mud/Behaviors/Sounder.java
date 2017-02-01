@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Behaviors;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,20 +10,21 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2003-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -30,14 +32,14 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
+@SuppressWarnings("rawtypes")
 public class Sounder extends StdBehavior
 {
-	public String ID(){return "Sounder";}
+	@Override public String ID(){return "Sounder";}
 	protected int minTicks=23;
 	protected int maxTicks=23;
 	protected int tickDown=(int)Math.round(Math.random()*(maxTicks-minTicks))+minTicks;
-	protected int canImproveCode(){return Behavior.CAN_ITEMS|Behavior.CAN_MOBS|Behavior.CAN_ROOMS|Behavior.CAN_EXITS|Behavior.CAN_AREAS;}
+	@Override protected int canImproveCode(){return Behavior.CAN_ITEMS|Behavior.CAN_MOBS|Behavior.CAN_ROOMS|Behavior.CAN_EXITS|Behavior.CAN_AREAS;}
 	protected int[] triggers=null;
 	protected String[] strings=null;
 	protected static int UNDER_MASK=1023;
@@ -48,49 +50,57 @@ public class Sounder extends StdBehavior
 
 	public Sounder()
 	{
-        super();
+		super();
 		minTicks=23;
 		maxTicks=23;
 		tickReset();
 	}
 
+	@Override
+	public String accountForYourself()
+	{
+		return "triggered emoting";
+	}
 
 	protected void tickReset()
 	{
 		tickDown=(int)Math.round(Math.random()*(maxTicks-minTicks))+minTicks;
 	}
+	@Override
 	public void setParms(String newParms)
 	{
 		super.setParms(newParms);
-		Vector emote=CMParms.parseSemicolons(newParms,true);
+		final List<String> emote=CMParms.parseSemicolons(newParms,true);
 		triggers=new int[emote.size()];
 		strings=new String[emote.size()];
 
 		if(emote.size()>0)
 		{
-			String s=(String)emote.firstElement();
+			String s=emote.get(0);
 			minTicks=23;
 			minTicks=CMParms.getParmInt(newParms,"min",minTicks);
 			maxTicks=23;
 			maxTicks=CMParms.getParmInt(newParms,"max",maxTicks);
 			if((minTicks!=23)||(maxTicks!=23))
-				emote.removeElementAt(0);
+				emote.remove(0);
 			for(int v=0;v<emote.size();v++)
 			{
-				s=((String)emote.elementAt(v)).trim();
+				s=emote.get(v).trim();
 				s=CMStrings.replaceAll(s,"$n","<S-NAME>");
-                s=CMStrings.replaceAll(s,"$N","<S-NAME>");
+				s=CMStrings.replaceAll(s,"$N","<S-NAME>");
 				s=CMStrings.replaceAll(s,"$e","<S-HE-SHE>");
-                s=CMStrings.replaceAll(s,"$E","<S-HE-SHE>");
+				s=CMStrings.replaceAll(s,"$E","<S-HE-SHE>");
 				s=CMStrings.replaceAll(s,"$s","<S-HIS-HER>");
-                s=CMStrings.replaceAll(s,"$S","<S-HIS-HER>");
+				s=CMStrings.replaceAll(s,"$S","<S-HIS-HER>");
 				if(s.toUpperCase().startsWith("SOUND "))
 				{
 					s=s.substring(6).trim();
-					int x=s.indexOf(" ");
-					if(x<0) continue;
-					String y=s.substring(0,x);
-					if(!CMath.isNumber(y)) continue;
+					final int x=s.indexOf(' ');
+					if(x<0)
+						continue;
+					final String y=s.substring(0,x);
+					if(!CMath.isNumber(y))
+						continue;
 					triggers[v]=TICK_MASK+CMath.s_int(y);
 					s="^E"+s.substring(x+1).trim()+"^?";
 					strings[v]=s;
@@ -120,30 +130,30 @@ public class Sounder extends StdBehavior
 					strings[v]=s.substring(4).trim();
 				}
 				else
-                if((s.toUpperCase().startsWith("PUSH_ROOM ")))
-                {
-                    triggers[v]=CMMsg.TYP_PUSH|ROOM_MASK;
-                    strings[v]=s.substring(10).trim();
-                }
-                else
-                if((s.toUpperCase().startsWith("PUSH ")))
-                {
-                    triggers[v]=CMMsg.TYP_PUSH;
-                    strings[v]=s.substring(5).trim();
-                }
-                else
-                if((s.toUpperCase().startsWith("PULL_ROOM ")))
-                {
-                    triggers[v]=CMMsg.TYP_PULL|ROOM_MASK;
-                    strings[v]=s.substring(10).trim();
-                }
-                else
-                if((s.toUpperCase().startsWith("PULL ")))
-                {
-                    triggers[v]=CMMsg.TYP_PULL;
-                    strings[v]=s.substring(5).trim();
-                }
-                else
+				if((s.toUpperCase().startsWith("PUSH_ROOM ")))
+				{
+					triggers[v]=CMMsg.TYP_PUSH|ROOM_MASK;
+					strings[v]=s.substring(10).trim();
+				}
+				else
+				if((s.toUpperCase().startsWith("PUSH ")))
+				{
+					triggers[v]=CMMsg.TYP_PUSH;
+					strings[v]=s.substring(5).trim();
+				}
+				else
+				if((s.toUpperCase().startsWith("PULL_ROOM ")))
+				{
+					triggers[v]=CMMsg.TYP_PULL|ROOM_MASK;
+					strings[v]=s.substring(10).trim();
+				}
+				else
+				if((s.toUpperCase().startsWith("PULL ")))
+				{
+					triggers[v]=CMMsg.TYP_PULL;
+					strings[v]=s.substring(5).trim();
+				}
+				else
 				if((s.toUpperCase().startsWith("SIT ")))
 				{
 					triggers[v]=CMMsg.TYP_SIT;
@@ -318,15 +328,17 @@ public class Sounder extends StdBehavior
 
 	protected void emoteHere(Room room, MOB emoter, String emote)
 	{
-		if(room==null) return;
-		Room oldLoc=emoter.location();
-		if(emoter.location()!=room) emoter.setLocation(room);
-		CMMsg msg=CMClass.getMsg(emoter,null,CMMsg.MSG_EMOTE,emote);
+		if(room==null)
+			return;
+		final Room oldLoc=emoter.location();
+		if(emoter.location()!=room)
+			emoter.setLocation(room);
+		final CMMsg msg=CMClass.getMsg(emoter,null,CMMsg.MSG_EMOTE,emote);
 		if(room.okMessage(emoter,msg))
 		{
 			for(int i=0;i<room.numInhabitants();i++)
 			{
-				MOB M=room.fetchInhabitant(i);
+				final MOB M=room.fetchInhabitant(i);
 				if((M!=null)
 				&&(!M.isMonster())
 				&&(CMLib.flags().canSenseMoving(emoter,M)))
@@ -341,18 +353,18 @@ public class Sounder extends StdBehavior
 	{
 		MOB emoter=null;
 		emote=CMStrings.replaceAll(emote,"$p",ticking.name());
-        emote=CMStrings.replaceAll(emote,"$P",ticking.name());
+		emote=CMStrings.replaceAll(emote,"$P",ticking.name());
 		if(ticking instanceof Area)
 		{
 			emoter=CMClass.getMOB("StdMOB");
 			emoter.setName(ticking.name());
 			emoter.charStats().setStat(CharStats.STAT_GENDER,'N');
-			for(Enumeration r=((Area)ticking).getMetroMap();r.hasMoreElements();)
+			for(final Enumeration r=((Area)ticking).getMetroMap();r.hasMoreElements();)
 			{
-				Room R=(Room)r.nextElement();
+				final Room R=(Room)r.nextElement();
 				emoteHere(R,emoter,emote);
 			}
-            emoter.destroy();
+			emoter.destroy();
 		}
 		else
 		if(ticking instanceof Room)
@@ -361,7 +373,7 @@ public class Sounder extends StdBehavior
 			emoter.setName(ticking.name());
 			emoter.charStats().setStat(CharStats.STAT_GENDER,'N');
 			emoteHere((Room)ticking,emoter,emote);
-            emoter.destroy();
+			emoter.destroy();
 		}
 		else
 		if(ticking instanceof MOB)
@@ -375,24 +387,25 @@ public class Sounder extends StdBehavior
 		{
 			if((ticking instanceof Item)&&(!CMLib.flags().isInTheGame((Item)ticking,false)))
 				return;
-			Room R=getBehaversRoom(ticking);
+			final Room R=getBehaversRoom(ticking);
 			if(R!=null)
 			{
 				emoter=CMClass.getMOB("StdMOB");
 				emoter.setName(ticking.name());
 				emoter.charStats().setStat(CharStats.STAT_GENDER,'N');
 				emoteHere(R,emoter,emote);
-                emoter.destroy();
+				emoter.destroy();
 			}
 		}
 	}
 
+	@Override
 	public boolean tick(Tickable ticking, int tickID)
 	{
 		if(!super.tick(ticking,tickID))
 			return false;
 		if(((--tickDown)<=0)
-		&&(!CMSecurity.isDisabled("EMOTERS"))
+		&&(!CMSecurity.isDisabled(CMSecurity.DisFlag.EMOTERS))
 		&&((!(ticking instanceof MOB))||(canFreelyBehaveNormal(ticking))))
 		{
 			tickReset();
@@ -408,12 +421,13 @@ public class Sounder extends StdBehavior
 		return true;
 	}
 
+	@Override
 	public void executeMsg(Environmental E, CMMsg msg)
 	{
 		// this will work because, for items, behaviors
 		// get the first tick.
 		int lookFor=-1;
-		if((msg!=lastMsg)&&(!CMSecurity.isDisabled("EMOTERS")))
+		if((msg!=lastMsg)&&(!CMSecurity.isDisabled(CMSecurity.DisFlag.EMOTERS)))
 		switch(msg.targetMinor())
 		{
 		case CMMsg.TYP_OPEN:
@@ -423,6 +437,8 @@ public class Sounder extends StdBehavior
 				lookFor=msg.targetMinor();
 			break;
 		case CMMsg.TYP_GET:
+		case CMMsg.TYP_PUSH:
+		case CMMsg.TYP_PULL:
 		case CMMsg.TYP_REMOVE:
 		case CMMsg.TYP_WEAR:
 		case CMMsg.TYP_HOLD:
@@ -465,7 +481,7 @@ public class Sounder extends StdBehavior
 			break;
 		}
 		lastMsg=msg;
-		Room room=msg.source().location();
+		final Room room=msg.source().location();
 		if((lookFor>=0)
 		&&(room!=null)
 		&&((!(E instanceof MOB))||(lookFor==CMMsg.TYP_WEAPONATTACK)
@@ -477,12 +493,12 @@ public class Sounder extends StdBehavior
 			{
 				if(CMath.bset(triggers[v],ROOM_MASK))
 				{
-					CMMsg msg2=CMClass.getMsg(msg.source(),null,null,CMMsg.NO_EFFECT,CMMsg.NO_EFFECT,CMMsg.MSG_EMOTE,CMStrings.replaceAll(strings[v],"$p",E.name()));
+					final CMMsg msg2=CMClass.getMsg(msg.source(),null,null,CMMsg.NO_EFFECT,CMMsg.NO_EFFECT,CMMsg.MSG_EMOTE,CMStrings.replaceAll(strings[v],"$p",E.name()));
 					msg.addTrailerMsg(msg2);
 				}
 				else
 				{
-					CMMsg msg2=CMClass.getMsg(msg.source(),null,null,CMMsg.MSG_EMOTE,CMMsg.NO_EFFECT,CMMsg.NO_EFFECT,CMStrings.replaceAll(strings[v],"$p",E.name()));
+					final CMMsg msg2=CMClass.getMsg(msg.source(),null,null,CMMsg.MSG_EMOTE,CMMsg.NO_EFFECT,CMMsg.NO_EFFECT,CMStrings.replaceAll(strings[v],"$p",E.name()));
 					msg.addTrailerMsg(msg2);
 				}
 			}

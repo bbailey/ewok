@@ -81,7 +81,7 @@
                 return;
             if(social.indexOf(' ')>=0)
             {
-                window.alert('No spaces are allowed in your ID!');
+                if(window.alert) window.alert('No spaces are allowed in your ID!');
                 return;
             }
             document.RESOURCES.NEWSOCIALID.value=social;
@@ -142,7 +142,7 @@
     </script>
 </head>
 <body BGCOLOR=BLACK>
-<FORM NAME=RESOURCES TARGET=_top METHOD=POST ACTION="social.cmvp">
+<FORM  ACCEPT-CHARSET="UTF-8" NAME=RESOURCES TARGET=_top METHOD=POST ACTION="social.cmvp">
 <INPUT TYPE=HIDDEN NAME=AUTH VALUE="@Authenticate?AUTH@">
 <INPUT TYPE=HIDDEN NAME=NEWSOCIALID VALUE="">
 <INPUT TYPE=HIDDEN NAME=REPLACE VALUE="">

@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Behaviors;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,6 +10,7 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -17,13 +19,13 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2000-2010 Bo Zimmerman
+   Copyright 2003-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -33,11 +35,21 @@ import java.util.*;
 */
 public class FaithHelper extends StdBehavior
 {
-	public String ID(){return "FaithHelper";}
+	@Override public String ID(){return "FaithHelper";}
 
 	protected boolean mobKiller=false;
 
-	public void startBehavior(Environmental forMe)
+	@Override
+	public String accountForYourself()
+	{
+		if(parms.length()>0)
+			return "worshippers of "+parms+" protecting";
+		else
+			return "worshipper protecting";
+	}
+
+	@Override
+	public void startBehavior(PhysicalAgent forMe)
 	{
 		super.startBehavior(forMe);
 		if(forMe instanceof MOB)
@@ -47,17 +59,20 @@ public class FaithHelper extends StdBehavior
 		}
 	}
 
+	@Override
 	public void executeMsg(Environmental affecting, CMMsg msg)
 	{
 		super.executeMsg(affecting,msg);
-		if((msg.target()==null)||(!(msg.target() instanceof MOB))) return;
-		MOB source=msg.source();
-		MOB observer=(MOB)affecting;
-		MOB target=(MOB)msg.target();
+		if((msg.target()==null)||(!(msg.target() instanceof MOB)))
+			return;
+		final MOB source=msg.source();
+		final MOB observer=(MOB)affecting;
+		final MOB target=(MOB)msg.target();
 
-		if((target==null)||(observer==null)) return;
+		if((target==null)||(observer==null))
+			return;
 		if((source!=observer)
-		&&(CMath.bset(msg.targetCode(),CMMsg.MASK_MALICIOUS))
+		&&(CMath.bset(msg.targetMajor(),CMMsg.MASK_MALICIOUS))
 		&&(!observer.isInCombat())
 		&&(target!=observer)
 		&&(source!=target)

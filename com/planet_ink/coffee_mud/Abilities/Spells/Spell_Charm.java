@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Spells;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,21 +10,21 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
-
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2001-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -31,67 +32,74 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
+
 public class Spell_Charm extends Spell
 {
-	public String ID() { return "Spell_Charm"; }
-	public String name(){return "Charm";}
-	public String displayText(){return "(Charmed)";}
-	public int abstractQuality(){return Ability.QUALITY_MALICIOUS;}
-	protected int canAffectCode(){return CAN_MOBS;}
-	public int classificationCode(){	return Ability.ACODE_SPELL|Ability.DOMAIN_ENCHANTMENT;}
-	public long flags(){return Ability.FLAG_CHARMING;}
+	@Override public String ID() { return "Spell_Charm"; }
+	private final static String localizedName = CMLib.lang().L("Charm");
+	@Override public String name() { return localizedName; }
+	private final static String localizedStaticDisplay = CMLib.lang().L("(Charmed)");
+	@Override public String displayText() { return localizedStaticDisplay; }
+	@Override public int abstractQuality(){return Ability.QUALITY_MALICIOUS;}
+	@Override protected int canAffectCode(){return CAN_MOBS;}
+	@Override public int classificationCode(){	return Ability.ACODE_SPELL|Ability.DOMAIN_ENCHANTMENT;}
+	@Override public long flags(){return Ability.FLAG_CHARMING;}
 
 	protected MOB charmer=null;
 	protected MOB getCharmer()
 	{
-		if(charmer!=null) return charmer;
+		if(charmer!=null)
+			return charmer;
 		if((invoker!=null)&&(invoker!=affected))
 			charmer=invoker;
 		else
 		if((text().length()>0)&&(affected instanceof MOB))
 		{
-			Room R=((MOB)affected).location();
+			final Room R=((MOB)affected).location();
 			if(R!=null)
 				charmer=R.fetchInhabitant(text());
 		}
-		if(charmer==null) return invoker;
+		if(charmer==null)
+			return invoker;
 		return charmer;
 	}
 
-	public void executeMsg(Environmental myHost, CMMsg msg)
+	@Override
+	public void executeMsg(final Environmental myHost, final CMMsg msg)
 	{
 		super.executeMsg(myHost,msg);
 		if((affected!=null)
 		&&(affected instanceof MOB)
-		&&(msg.amISource((MOB)affected)||msg.amISource(((MOB)affected).amFollowing()))
+		&&(msg.amISource((MOB)affected)||msg.amISource(((MOB)affected).amFollowing())||(msg.source()==invoker()))
 		&&(msg.sourceMinor()==CMMsg.TYP_QUIT))
 		{
 			unInvoke();
-			if(msg.source().playerStats()!=null) msg.source().playerStats().setLastUpdated(0);
+			if(msg.source().playerStats()!=null)
+				msg.source().playerStats().setLastUpdated(0);
 		}
 	}
-	
-	public boolean okMessage(Environmental myHost, CMMsg msg)
+
+	@Override
+	public boolean okMessage(final Environmental myHost, final CMMsg msg)
 	{
-		if((affected==null)||(!(affected instanceof MOB)))
+		if(!(affected instanceof MOB))
 			return true;
 
-		MOB mob=(MOB)affected;
+		final MOB mob=(MOB)affected;
 
 		// when this spell is on a MOBs Affected list,
 		// it should consistantly prevent the mob
 		// from trying to do ANYTHING except sleep
 		if((msg.amITarget(mob))
-		&&(CMath.bset(msg.targetCode(),CMMsg.MASK_MALICIOUS))
+		&&(CMath.bset(msg.targetMajor(),CMMsg.MASK_MALICIOUS))
 		&&(msg.amISource(mob.amFollowing())))
 			unInvoke();
 		else
 		if((msg.amISource(mob))
-		&&(CMath.bset(msg.targetCode(),CMMsg.MASK_MALICIOUS))
+		&&(CMath.bset(msg.targetMajor(),CMMsg.MASK_MALICIOUS))
 		&&(msg.amITarget(mob.amFollowing())))
 		{
-			mob.tell("You like "+mob.amFollowing().charStats().himher()+" too much.");
+			mob.tell(L("You like @x1 too much.",mob.amFollowing().charStats().himher()));
 			return false;
 		}
 		else
@@ -102,7 +110,7 @@ public class Spell_Charm extends Spell
 		&&(mob.amFollowing()!=null)
 		&&(((Room)msg.target()).isInhabitant(mob.amFollowing())))
 		{
-			mob.tell("You don't want to leave your friend.");
+			mob.tell(L("You don't want to leave your friend."));
 			return false;
 		}
 		else
@@ -110,18 +118,19 @@ public class Spell_Charm extends Spell
 		&&(mob.amFollowing()!=null)
 		&&(msg.sourceMinor()==CMMsg.TYP_NOFOLLOW))
 		{
-			mob.tell("You like "+mob.amFollowing().name()+" too much.");
+			mob.tell(L("You like @x1 too much.",mob.amFollowing().name()));
 			return false;
 		}
 
 		return super.okMessage(myHost,msg);
 	}
 
+	@Override
 	public boolean tick(Tickable ticking, int tickID)
 	{
 		if((affecting()==null)||(!(affecting() instanceof MOB)))
 			return false;
-		MOB mob=(MOB)affecting();
+		final MOB mob=(MOB)affecting();
 		if((getCharmer()!=null)
 		&&(!CMLib.flags().isInTheGame(getCharmer(),false)))
 			unInvoke();
@@ -135,28 +144,29 @@ public class Spell_Charm extends Spell
 		return super.tick(ticking,tickID);
 	}
 
+	@Override
 	public void unInvoke()
 	{
 		// undo the affects of this spell
-		if((affected==null)||(!(affected instanceof MOB)))
+		if(!(affected instanceof MOB))
 			return;
-		MOB mob=(MOB)affected;
+		final MOB mob=(MOB)affected;
 
 		super.unInvoke();
 
 		if((canBeUninvoked()&&(!mob.amDead())))
 		{
-            
-			mob.location().show(mob,null,CMMsg.MSG_OK_VISUAL,"<S-YOUPOSS> free-will returns.");
+
+			mob.location().show(mob,null,CMMsg.MSG_OK_VISUAL,L("<S-YOUPOSS> free-will returns."));
 			if(mob.amFollowing()!=null)
 				CMLib.commands().postFollow(mob,null,false);
 			CMLib.commands().postStand(mob,true);
 			if(mob.isMonster())
 			{
-                if((CMLib.dice().rollPercentage()>50)
-                ||((mob.getStartRoom()!=null)
-                    &&(mob.getStartRoom().getArea()!=mob.location().getArea())
-                    &&(CMLib.flags().isAggressiveTo(mob,null)||(invoker==null)||(!mob.location().isInhabitant(invoker)))))
+				if((CMLib.dice().rollPercentage()>50)
+				||((mob.getStartRoom()!=null)
+					&&(mob.getStartRoom().getArea()!=mob.location().getArea())
+					&&((!CMLib.flags().isAggressiveTo(mob,invoker))||(invoker==null)||(!mob.location().isInhabitant(invoker)))))
 					CMLib.tracking().wanderAway(mob,true,true);
 				else
 				if((invoker!=null)&&(invoker!=mob))
@@ -165,50 +175,50 @@ public class Spell_Charm extends Spell
 		}
 	}
 
-    public int castingQuality(MOB mob, Environmental target)
-    {
-        if(mob!=null)
-        {
-            if(!CMLib.flags().canSpeak(mob))
-                return Ability.QUALITY_INDIFFERENT;
-            if(target instanceof MOB)
-            {
-                if(!CMLib.flags().canBeHeardBy(mob,(MOB)target))
-                    return Ability.QUALITY_INDIFFERENT;
-                if((mob.isMonster())&&(((MOB)target).isMonster()))
-                    return Ability.QUALITY_INDIFFERENT;
-            }
-        }
-        return super.castingQuality(mob,target);
-    }
-    
-	public boolean invoke(MOB mob, Vector commands, Environmental givenTarget, boolean auto, int asLevel)
+	@Override
+	public int castingQuality(MOB mob, Physical target)
 	{
-		MOB target=this.getTarget(mob,commands,givenTarget);
-		if(target==null) return false;
+		if(mob!=null)
+		{
+			if(!CMLib.flags().canSpeak(mob))
+				return Ability.QUALITY_INDIFFERENT;
+			if(target instanceof MOB)
+			{
+				if(!CMLib.flags().canBeHeardSpeakingBy(mob,(MOB)target))
+					return Ability.QUALITY_INDIFFERENT;
+				if((mob.isMonster())&&(((MOB)target).isMonster()))
+					return Ability.QUALITY_INDIFFERENT;
+			}
+		}
+		return super.castingQuality(mob,target);
+	}
 
-		int levelDiff=target.envStats().level()-(mob.envStats().level()+(2*getXLEVELLevel(mob)));
-		if(levelDiff<0) levelDiff=0;
+	@Override
+	public boolean invoke(MOB mob, List<String> commands, Physical givenTarget, boolean auto, int asLevel)
+	{
+		final MOB target=this.getTarget(mob,commands,givenTarget);
+		if(target==null)
+			return false;
+
+		int levelDiff=target.phyStats().level()-(mob.phyStats().level()+(2*getXLEVELLevel(mob)));
+		if(levelDiff<0)
+			levelDiff=0;
 
 		if(!CMLib.flags().canSpeak(mob))
 		{
-			mob.tell("You can't speak!");
+			mob.tell(L("You can't speak!"));
 			return false;
 		}
 
 		// if they can't hear the sleep spell, it
 		// won't happen
-		if((!auto)&&(!CMLib.flags().canBeHeardBy(mob,target)))
+		if((!auto)&&(!CMLib.flags().canBeHeardSpeakingBy(mob,target)))
 		{
-			mob.tell(target.charStats().HeShe()+" can't hear your words.");
+			mob.tell(L("@x1 can't hear your words.",target.charStats().HeShe()));
 			return false;
 		}
 
 
-		// the invoke method for spells receives as
-		// parameters the invoker, and the REMAINING
-		// command line parameters, divided into words,
-		// and added as String objects to a vector.
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
 			return false;
 
@@ -216,31 +226,28 @@ public class Spell_Charm extends Spell
 		boolean success=proficiencyCheck(mob,-25-((target.charStats().getStat(CharStats.STAT_INTELLIGENCE)*2)+(levelDiff*15)),auto);
 		if(success)
 		{
-			// it worked, so build a copy of this ability,
-			// and add it to the affects list of the
-			// affected MOB.  Then tell everyone else
-			// what happened.
-			String str=auto?"":"^S<S-NAME> smile(s) and wink(s) at <T-NAMESELF>.^?";
-			CMMsg msg=CMClass.getMsg(mob,target,this,CMMsg.MSG_CAST_VERBAL_SPELL,str);
+			final String str=auto?"":L("^S<S-NAME> smile(s) and wink(s) at <T-NAMESELF>.^?");
+			final CMMsg msg=CMClass.getMsg(mob,target,this,CMMsg.MSG_CAST_SOMANTIC_SPELL,str);
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);
 				if(msg.value()<=0)
 				{
-					success=maliciousAffect(mob,target,asLevel,-levelDiff,CMMsg.MSK_CAST_VERBAL|CMMsg.TYP_MIND|(auto?CMMsg.MASK_ALWAYS:0));
+					success=maliciousAffect(mob,target,asLevel,-levelDiff,CMMsg.MASK_MALICIOUS|CMMsg.MSK_CAST_SOMANTIC|CMMsg.TYP_MIND|(auto?CMMsg.MASK_ALWAYS:0))!=null;
 					if(success)
 					{
-						if(target.isInCombat()) target.makePeace();
+						if(target.isInCombat())
+							target.makePeace(true);
 						CMLib.commands().postFollow(target,mob,false);
 						CMLib.combat().makePeaceInGroup(mob);
 						if(target.amFollowing()!=mob)
-							mob.tell(target.name()+" seems unwilling to follow you.");
+							mob.tell(L("@x1 seems unwilling to follow you.",target.name(mob)));
 					}
 				}
 			}
 		}
 		if(!success)
-			return maliciousFizzle(mob,target,"<S-NAME> smile(s) and wink(s) at <T-NAMESELF>, but nothing happens.");
+			return maliciousFizzle(mob,target,L("<S-NAME> smile(s) and wink(s) at <T-NAMESELF>, but nothing happens."));
 
 		// return whether it worked
 		return success;

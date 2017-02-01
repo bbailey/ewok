@@ -11,7 +11,7 @@
 	<!--
 		function OpenFile(action)
 		{
-			var strFeatures="top=0,left=75,resizeable=no,scrollbars=yes,height=600,width=750,alwaysRaised=yes,dependent=yes";
+			var strFeatures="top=0,left=75,resizable=yes,scrollbars=yes,height=600,width=750,alwaysRaised=yes,dependent=yes";
 			w=window.open("browsefile.cmvp?"+action,"Filer",strFeatures, false);
 		}
 		function NewDir(named)
@@ -82,7 +82,7 @@
 	</script>
 </head>
 <body BGCOLOR=BLACK>
-<FORM NAME=BROWSE TARGET=_top METHOD=POST ACTION="browse.cmvp">
+<FORM  ACCEPT-CHARSET="UTF-8" NAME=BROWSE TARGET=_top METHOD=POST ACTION="browse.cmvp">
 @if?CheckReqParm?FUNCTION=DELDIR@<FONT COLOR=RED>@FileMgr?DELETEDIR@</FONT><BR>@endif@
 <INPUT TYPE=HIDDEN NAME=AUTH VALUE="@Authenticate?AUTH@">
 <INPUT TYPE=HIDDEN NAME=PATH VALUE="@RequestParameter?PATH@">
@@ -107,20 +107,22 @@
 @loop@
 @FileNext@
 	@if?FileInfo?ISDIRECTORY@
-		<TR><TD COLSPAN=6>
+		<TR bgcolor="#@RequestParameter?BGCOL@"><TD COLSPAN=6>
 		<a href="javascript:NewDir('@RequestParameter?FILE@')"  style="text-decoration:none">
-		@if?FileInfo?ISVFS@<I>@endif@ 	@if?FileInfo?ISBOTH@<B>@endif@
+		@if?FileInfo?ISBOTH@<B>@else@ @if?!FileInfo?ISLOCAL@<I>@endif@ @endif@
 		<FONT COLOR=YELLOW>@RequestParameter?FILE@</FONT>
-		@if?FileInfo?ISVFS@</I>@endif@ 	@if?FileInfo?ISBOTH@</B>@endif@
+		@if?FileInfo?ISBOTH@</B>@else@ @if?!FileInfo?ISLOCAL@</I>@endif@ @endif@
 		</a>
 		</TD></TR>
 	@endif@
 @back@
 @FileNext?RESET@
+@AddRequestParameter?BGCOL=000000@
 @loop@
 @FileNext@
 	@if?!FileInfo?ISDIRECTORY@ @if?FileInfo?ISFILE@
-		<TR><TD COLSPAN=2>
+		@if?CheckReqParm?BGCOL=404040@ @AddRequestParameter?BGCOL=000000@ @else@ @AddRequestParameter?BGCOL=404040@ @endif@
+		<TR bgcolor="#@RequestParameter?BGCOL@"><TD COLSPAN=2>
 		@if?FileInfo?ISVFS@<I>@endif@ 	@if?FileInfo?ISBOTH@<B>@endif@
 		<FONT COLOR=WHITE>@RequestParameter?FILE@</FONT>
 		@if?FileInfo?ISVFS@</I>@endif@ 	@if?FileInfo?ISBOTH@</B>@endif@
@@ -137,7 +139,7 @@
 <a href="javascript:NewFile('@RequestParametersEncoded@');"><IMG BORDER=0 SRC=images/document_new.gif alt="Create New File" title="Create New File"><FONT COLOR=AQUA>*new file*</FONT></a><BR>
 </FORM>
 <HR>
-<FORM NAME=UPLOADNAMESEARCH TARGET=_top ENCTYPE="multipart/form-data" ACTION=/grinder/browse.cmvp METHOD=POST>
+<FORM  ACCEPT-CHARSET="UTF-8" NAME=UPLOADNAMESEARCH TARGET=_top ENCTYPE="multipart/form-data" ACTION=/grinder/browse.cmvp METHOD=POST>
 <FONT COLOR=CYAN>*search for filenames (reg. exp.)*</FONT>
 <INPUT TYPE=HIDDEN NAME=AUTH VALUE="@Authenticate?AUTH@">
 <INPUT TYPE=HIDDEN NAME=PATH VALUE="@RequestParameter?PATH@">
@@ -146,7 +148,7 @@
 <INPUT TYPE=SUBMIT NAME=SUBMIT VALUE=SUBMIT>
 </FORM>
 <HR>
-<FORM NAME=UPLOADSEARCH TARGET=_top ENCTYPE="multipart/form-data" ACTION=/grinder/browse.cmvp METHOD=POST>
+<FORM  ACCEPT-CHARSET="UTF-8" NAME=UPLOADSEARCH TARGET=_top ENCTYPE="multipart/form-data" ACTION=/grinder/browse.cmvp METHOD=POST>
 <FONT COLOR=CYAN>*search inside files (reg. exp.)*</FONT>
 <INPUT TYPE=HIDDEN NAME=AUTH VALUE="@Authenticate?AUTH@">
 <INPUT TYPE=HIDDEN NAME=PATH VALUE="@RequestParameter?PATH@">
@@ -155,12 +157,12 @@
 <INPUT TYPE=SUBMIT NAME=SUBMIT VALUE=SUBMIT>
 </FORM>
 <HR>
-<FORM NAME=UPLOADUPLOAD TARGET=_top ENCTYPE="multipart/form-data" ACTION=/grinder/browse.cmvp METHOD=POST>
+<FORM  ACCEPT-CHARSET="UTF-8" NAME=UPLOADUPLOAD TARGET=_top ENCTYPE="multipart/form-data" ACTION=/grinder/browse.cmvp METHOD=POST>
 <FONT COLOR=CYAN>*upload a file*</FONT>
 <INPUT TYPE=HIDDEN NAME=AUTH VALUE="@Authenticate?AUTH@">
 <INPUT TYPE=HIDDEN NAME=PATH VALUE="@RequestParameter?PATH@">
 <INPUT TYPE=HIDDEN NAME=FUNCTION VALUE="UPLOAD">
-<INPUT TYPE=FILE NAME=FILE><BR>
+<FONT COLOR=WHITE><INPUT TYPE=FILE NAME=FILE></FONT><BR>
 <INPUT TYPE=SUBMIT NAME=SUBMIT VALUE=SUBMIT>
 </FORM>
 </BODY>

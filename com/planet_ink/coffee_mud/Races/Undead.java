@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Races;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,22 +10,21 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
-
-
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2001-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,71 +32,182 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
 public class Undead extends StdRace
 {
-	public String ID(){	return "Undead"; }
-	public String name(){ return "Undead"; }
-	public int shortestMale(){return 64;}
-	public int shortestFemale(){return 60;}
-	public int heightVariance(){return 12;}
-	public int lightestWeight(){return 100;}
-	public int weightVariance(){return 100;}
-	public long forbiddenWornBits(){return 0;}
-	public String racialCategory(){return "Undead";}
-	public boolean fertile(){return false;}
-	public boolean uncharmable(){return true;}
+	@Override
+	public String ID()
+	{
+		return "Undead";
+	}
 
-	//                                an ey ea he ne ar ha to le fo no gi mo wa ta wi
+	private final static String localizedStaticName = CMLib.lang().L("Undead");
+
+	@Override
+	public String name()
+	{
+		return localizedStaticName;
+	}
+
+	@Override
+	public int shortestMale()
+	{
+		return 64;
+	}
+
+	@Override
+	public int shortestFemale()
+	{
+		return 60;
+	}
+
+	@Override
+	public int heightVariance()
+	{
+		return 12;
+	}
+
+	@Override
+	public int lightestWeight()
+	{
+		return 100;
+	}
+
+	@Override
+	public int weightVariance()
+	{
+		return 100;
+	}
+
+	@Override
+	public long forbiddenWornBits()
+	{
+		return 0;
+	}
+
+	private final static String localizedStaticRacialCat = CMLib.lang().L("Undead");
+
+	@Override
+	public String racialCategory()
+	{
+		return localizedStaticRacialCat;
+	}
+
+	@Override
+	public boolean fertile()
+	{
+		return false;
+	}
+
+	@Override
+	public boolean uncharmable()
+	{
+		return true;
+	}
+
+	@Override
+	public int[] getBreathables()
+	{
+		return breatheAnythingArray;
+	}
+
+	//  							  an ey ea he ne ar ha to le fo no gi mo wa ta wi
 	private static final int[] parts={0 ,2 ,2 ,1 ,1 ,2 ,2 ,1 ,2 ,2 ,1 ,0 ,1 ,1 ,0 ,0 };
-	public int[] bodyMask(){return parts;}
 
-	private int[] agingChart={0,0,0,0,0,Integer.MAX_VALUE,Integer.MAX_VALUE,Integer.MAX_VALUE,Integer.MAX_VALUE};
-	public int[] getAgingChart(){return agingChart;}
-	
-	protected static Vector resources=new Vector();
+	@Override
+	public int[] bodyMask()
+	{
+		return parts;
+	}
 
-	public int availabilityCode(){return Area.THEME_FANTASY|Area.THEME_SKILLONLYMASK;}
+	private final int[]	agingChart	= { 0, 0, 0, 0, 0, YEARS_AGE_LIVES_FOREVER, YEARS_AGE_LIVES_FOREVER, YEARS_AGE_LIVES_FOREVER, YEARS_AGE_LIVES_FOREVER };
 
+	@Override
+	public int[] getAgingChart()
+	{
+		return agingChart;
+	}
+
+	protected static Vector<RawMaterial>	resources	= new Vector<RawMaterial>();
+
+	@Override
+	public int availabilityCode()
+	{
+		return Area.THEME_FANTASY | Area.THEME_SKILLONLYMASK;
+	}
+
+	@Override
 	public void affectCharState(MOB affectedMOB, CharState affectableState)
 	{
 		super.affectCharState(affectedMOB, affectableState);
-		affectableState.setHunger(999999);
+		affectableState.setHunger(CharState.DEFAULT_HUNGER_FULL+10);
 		affectedMOB.curState().setHunger(affectableState.getHunger());
-		affectableState.setThirst(999999);
+		affectableState.setThirst(CharState.DEFAULT_THIRST_FULL+10);
 		affectedMOB.curState().setThirst(affectableState.getThirst());
 	}
-	public void affectEnvStats(Environmental affected, EnvStats affectableStats)
+
+	@Override
+	public void affectPhyStats(Physical affected, PhyStats affectableStats)
 	{
-		affectableStats.setDisposition(affectableStats.disposition()|EnvStats.IS_GOLEM);
-		affectableStats.setSensesMask(affectableStats.sensesMask()|EnvStats.CAN_SEE_INFRARED);
+		affectableStats.setDisposition(affectableStats.disposition()|PhyStats.IS_GOLEM);
+		affectableStats.setSensesMask(affectableStats.sensesMask()|PhyStats.CAN_SEE_INFRARED);
 	}
 
-	public void executeMsg(Environmental myHost, CMMsg msg)
+	@Override
+	public void executeMsg(final Environmental myHost, final CMMsg msg)
 	{
 		super.executeMsg(myHost,msg);
 		if(msg.amITarget(myHost)
 		&&(msg.targetMinor()==CMMsg.TYP_SNIFF)
+		&&(CMLib.flags().canSmell(msg.source()))
 		&&(myHost instanceof MOB)
-        &&(ID().equals("Undead")))
-		    msg.source().tell(name()+" stinks of grime and decay.");
+		&&(ID().equals("Undead")))
+			msg.source().tell(L("@x1 stinks of grime and decay.",name()));
 	}
+
+	@Override 
+	public boolean tick(Tickable myChar, int tickID)
+	{
+		if(myChar instanceof MOB)
+		{
+			final MOB myM=(MOB)myChar;
+			myM.curState().setHunger(myM.maxState().getHunger());
+			myM.curState().setThirst(myM.maxState().getThirst());
+		}
+		return true;
+	}
+
 	
-	public boolean okMessage(Environmental myHost, CMMsg msg)
+	@Override
+	public String makeMobName(char gender, int age)
+	{
+		switch(age)
+		{
+			case Race.AGE_INFANT:
+				return name().toLowerCase()+" of a baby";
+			case Race.AGE_TODDLER:
+				return name().toLowerCase()+" of a toddler";
+			case Race.AGE_CHILD:
+				return name().toLowerCase()+" of a child";
+			default :
+				return super.makeMobName('N', age);
+		}
+	}
+
+	@Override
+	public boolean okMessage(final Environmental myHost, final CMMsg msg)
 	{
 		if((myHost!=null)&&(myHost instanceof MOB))
 		{
-			MOB mob=(MOB)myHost;
+			final MOB mob=(MOB)myHost;
 			if(msg.amITarget(mob)&&(msg.targetMinor()==CMMsg.TYP_HEALING))
 			{
-				int amount=msg.value();
+				final int amount=msg.value();
 				if((amount>0)
-				&&(msg.tool()!=null)
 				&&(msg.tool() instanceof Ability)
 				&&(CMath.bset(((Ability)msg.tool()).flags(),Ability.FLAG_HEALINGMAGIC|Ability.FLAG_HOLY))
 				&&(!CMath.bset(((Ability)msg.tool()).flags(),Ability.FLAG_UNHOLY)))
 				{
-					CMLib.combat().postDamage(msg.source(),mob,msg.tool(),amount,CMMsg.MASK_ALWAYS|CMMsg.TYP_ACID,Weapon.TYPE_BURNING,"The healing magic from <S-NAME> <DAMAGE> <T-NAMESELF>.");
+					CMLib.combat().postDamage(msg.source(),mob,msg.tool(),amount,CMMsg.MASK_ALWAYS|CMMsg.TYP_ACID,Weapon.TYPE_BURNING,L("The healing magic from <S-NAME> <DAMAGES> <T-NAMESELF>."));
 					if((mob.getVictim()==null)&&(mob!=msg.source())&&(mob.isMonster()))
 						mob.setVictim(msg.source());
 				}
@@ -105,127 +216,145 @@ public class Undead extends StdRace
 			else
 			if((msg.amITarget(mob))
 			&&(msg.targetMinor()==CMMsg.TYP_DAMAGE)
-			&&(msg.tool()!=null)
-			&&(msg.tool() instanceof Ability)
-			&&(CMath.bset(((Ability)msg.tool()).flags(),Ability.FLAG_UNHOLY))
-			&&(!CMath.bset(((Ability)msg.tool()).flags(),Ability.FLAG_HOLY)))
+			&&((msg.targetMinor()==CMMsg.TYP_UNDEAD)
+				||((msg.tool() instanceof Ability)
+					&&(CMath.bset(((Ability)msg.tool()).flags(),Ability.FLAG_UNHOLY))
+					&&(!CMath.bset(((Ability)msg.tool()).flags(),Ability.FLAG_HOLY)))))
 			{
-				int amount=msg.value();
+				final int amount=msg.value();
 				if(amount>0)
-				{
-					CMLib.combat().postHealing(msg.source(),mob,msg.tool(),CMMsg.MASK_ALWAYS|CMMsg.TYP_CAST_SPELL,amount,"The harming magic heals <T-NAMESELF>.");
-					return false;
-				}
+					msg.modify(msg.source(),mob,msg.tool(),CMMsg.MASK_ALWAYS|CMMsg.TYP_CAST_SPELL,CMMsg.MSG_HEALING,CMMsg.MASK_ALWAYS|CMMsg.TYP_CAST_SPELL,L("The harming magic heals <T-NAMESELF>."));
 			}
 			else
 			if((msg.amITarget(mob))
-			&&(CMath.bset(msg.targetCode(),CMMsg.MASK_MALICIOUS)
+			&&(CMath.bset(msg.targetMajor(),CMMsg.MASK_MALICIOUS)
 				||(msg.targetMinor()==CMMsg.TYP_DAMAGE))
 			&&((msg.targetMinor()==CMMsg.TYP_DISEASE)
 				||(msg.targetMinor()==CMMsg.TYP_GAS)
 				||(msg.targetMinor()==CMMsg.TYP_MIND)
 				||(msg.targetMinor()==CMMsg.TYP_PARALYZE)
 				||(msg.targetMinor()==CMMsg.TYP_POISON)
-				||(msg.targetMinor()==CMMsg.TYP_UNDEAD)
 				||(msg.sourceMinor()==CMMsg.TYP_DISEASE)
 				||(msg.sourceMinor()==CMMsg.TYP_GAS)
 				||(msg.sourceMinor()==CMMsg.TYP_MIND)
 				||(msg.sourceMinor()==CMMsg.TYP_PARALYZE)
-				||(msg.sourceMinor()==CMMsg.TYP_POISON)
-				||(msg.sourceMinor()==CMMsg.TYP_UNDEAD))
+				||(msg.sourceMinor()==CMMsg.TYP_POISON))
 			&&(!mob.amDead()))
 			{
 				String immunityName="certain";
 				if(msg.tool()!=null)
 					immunityName=msg.tool().name();
 				if(mob!=msg.source())
-					mob.location().show(mob,msg.source(),CMMsg.MSG_OK_VISUAL,"<S-NAME> seem(s) immune to "+immunityName+" attacks from <T-NAME>.");
+					mob.location().show(mob,msg.source(),CMMsg.MSG_OK_VISUAL,L("<S-NAME> seem(s) immune to @x1 attacks from <T-NAME>.",immunityName));
 				else
-					mob.location().show(mob,msg.source(),CMMsg.MSG_OK_VISUAL,"<S-NAME> seem(s) immune to "+immunityName+".");
+					mob.location().show(mob,msg.source(),CMMsg.MSG_OK_VISUAL,L("<S-NAME> seem(s) immune to @x1.",immunityName));
 				return false;
 			}
 		}
 		return super.okMessage(myHost,msg);
 	}
 
+	private static final int[] UNDEAD_SAVE_STATS = new int[]
+	{
+		CharStats.STAT_SAVE_POISON,
+		CharStats.STAT_SAVE_MIND,
+		CharStats.STAT_SAVE_GAS,
+		CharStats.STAT_SAVE_PARALYSIS,
+		CharStats.STAT_SAVE_UNDEAD,
+		CharStats.STAT_SAVE_DISEASE
+		
+	};
+	
+	@Override
 	public void affectCharStats(MOB affectedMOB, CharStats affectableStats)
 	{
 		super.affectCharStats(affectedMOB, affectableStats);
-		affectableStats.setStat(CharStats.STAT_SAVE_POISON,affectableStats.getStat(CharStats.STAT_SAVE_POISON)+100);
-		affectableStats.setStat(CharStats.STAT_SAVE_MIND,affectableStats.getStat(CharStats.STAT_SAVE_MIND)+100);
-		affectableStats.setStat(CharStats.STAT_SAVE_GAS,affectableStats.getStat(CharStats.STAT_SAVE_GAS)+100);
-		affectableStats.setStat(CharStats.STAT_SAVE_PARALYSIS,affectableStats.getStat(CharStats.STAT_SAVE_PARALYSIS)+100);
-		affectableStats.setStat(CharStats.STAT_SAVE_UNDEAD,affectableStats.getStat(CharStats.STAT_SAVE_UNDEAD)+100);
-		affectableStats.setStat(CharStats.STAT_SAVE_DISEASE,affectableStats.getStat(CharStats.STAT_SAVE_DISEASE)+100);
+		for(int statDex=0;statDex<UNDEAD_SAVE_STATS.length;statDex++)
+		{
+			final int stat = UNDEAD_SAVE_STATS[statDex];
+			affectableStats.setStat(stat,affectableStats.getStat(stat)+100);
+		}
 	}
+
+	@Override
 	public DeadBody getCorpseContainer(MOB mob, Room room)
 	{
-		DeadBody body=super.getCorpseContainer(mob,room);
+		final DeadBody body=super.getCorpseContainer(mob,room);
 		if((body!=null)&&(mob!=null))
 		{
-			if(!CMSecurity.isDisabled("AUTODISEASE"))
+			if(!CMSecurity.isDisabled(CMSecurity.DisFlag.AUTODISEASE))
 			{
 				if((mob.name().toUpperCase().indexOf("DRACULA")>=0)
 				||(mob.name().toUpperCase().indexOf("VAMPIRE")>=0))
-					body.addNonUninvokableEffect(CMClass.getAbility("Disease_Vampirism"));
+				{
+					if(!CMSecurity.isAbilityDisabled("Disease_Vampirism"))
+						body.addNonUninvokableEffect(CMClass.getAbility("Disease_Vampirism"));
+				}
 				else
 				if((mob.name().toUpperCase().indexOf("GHOUL")>=0)
 				||(mob.name().toUpperCase().indexOf("GHAST")>=0))
-					body.addNonUninvokableEffect(CMClass.getAbility("Disease_Cannibalism"));
+				{
+					if(!CMSecurity.isAbilityDisabled("Disease_Cannibalism"))
+						body.addNonUninvokableEffect(CMClass.getAbility("Disease_Cannibalism"));
+				}
 			}
-	        if(ID().equals("Undead"))
-	        {
-	            Ability A=CMClass.getAbility("Prop_Smell");
-	            body.addNonUninvokableEffect(A);
-	            A.setMiscText(body.name()+" SMELLS HORRIBLE!");
-	        }
+			if(ID().equals("Undead"))
+			{
+				final Ability A=CMClass.getAbility("Prop_Smell");
+				body.addNonUninvokableEffect(A);
+				A.setMiscText(body.name()+" SMELLS HORRIBLE!");
+			}
 		}
 		return body;
 	}
+
+	@Override
 	public String healthText(MOB viewer, MOB mob)
 	{
-		double pct=(CMath.div(mob.curState().getHitPoints(),mob.maxState().getHitPoints()));
+		final double pct=(CMath.div(mob.curState().getHitPoints(),mob.maxState().getHitPoints()));
 
 		if(pct<.10)
-			return "^r" + mob.displayName(viewer) + "^r is near destruction!^N";
+			return L("^r@x1^r is near destruction!^N",mob.name(viewer));
 		else
 		if(pct<.20)
-			return "^r" + mob.displayName(viewer) + "^r is massively broken and damaged.^N";
+			return L("^r@x1^r is massively broken and damaged.^N",mob.name(viewer));
 		else
 		if(pct<.30)
-			return "^r" + mob.displayName(viewer) + "^r is very damaged.^N";
+			return L("^r@x1^r is very damaged.^N",mob.name(viewer));
 		else
 		if(pct<.40)
-			return "^y" + mob.displayName(viewer) + "^y is somewhat damaged.^N";
+			return L("^y@x1^y is somewhat damaged.^N",mob.name(viewer));
 		else
 		if(pct<.50)
-			return "^y" + mob.displayName(viewer) + "^y is very weak and slightly damaged.^N";
+			return L("^y@x1^y is very weak and slightly damaged.^N",mob.name(viewer));
 		else
 		if(pct<.60)
-			return "^p" + mob.displayName(viewer) + "^p has lost stability and is weak.^N";
+			return L("^p@x1^p has lost stability and is weak.^N",mob.name(viewer));
 		else
 		if(pct<.70)
-			return "^p" + mob.displayName(viewer) + "^p is unstable and slightly weak.^N";
+			return L("^p@x1^p is unstable and slightly weak.^N",mob.name(viewer));
 		else
 		if(pct<.80)
-			return "^g" + mob.displayName(viewer) + "^g is unbalanced and unstable.^N";
+			return L("^g@x1^g is unbalanced and unstable.^N",mob.name(viewer));
 		else
 		if(pct<.90)
-			return "^g" + mob.displayName(viewer) + "^g is somewhat unbalanced.^N";
+			return L("^g@x1^g is somewhat unbalanced.^N",mob.name(viewer));
 		else
 		if(pct<.99)
-			return "^g" + mob.displayName(viewer) + "^g is no longer in perfect condition.^N";
+			return L("^g@x1^g is no longer in perfect condition.^N",mob.name(viewer));
 		else
-			return "^c" + mob.displayName(viewer) + "^c is in perfect condition.^N";
+			return L("^c@x1^c is in perfect condition.^N",mob.name(viewer));
 	}
-	public Vector myResources()
+
+	@Override
+	public List<RawMaterial> myResources()
 	{
 		synchronized(resources)
 		{
 			if(resources.size()==0)
 			{
 				resources.addElement(makeResource
-				("some "+name().toLowerCase()+" blood",RawMaterial.RESOURCE_BLOOD));
+				(L("some @x1 blood",name().toLowerCase()),RawMaterial.RESOURCE_BLOOD));
 			}
 		}
 		return resources;

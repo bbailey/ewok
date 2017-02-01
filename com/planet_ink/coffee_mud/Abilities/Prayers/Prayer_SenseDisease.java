@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Prayers;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,21 +10,21 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
-
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2004-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -31,77 +32,73 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
+
 public class Prayer_SenseDisease extends Prayer
 {
-	public String ID() { return "Prayer_SenseDisease"; }
-	public String name(){ return "Sense Disease";}
-	public String displayText(){ return "(Sense Disease)";}
-	public int classificationCode(){return Ability.ACODE_PRAYER|Ability.DOMAIN_COMMUNING;}
-	public int enchantQuality(){return Ability.QUALITY_BENEFICIAL_SELF;}
-	protected int canAffectCode(){return CAN_MOBS;}
-	protected int canTargetCode(){return CAN_MOBS;}
-	public int abstractQuality(){ return Ability.QUALITY_OK_SELF;}
-	public long flags(){return Ability.FLAG_HOLY;}
+	@Override public String ID() { return "Prayer_SenseDisease"; }
+	private final static String localizedName = CMLib.lang().L("Sense Disease");
+	@Override public String name() { return localizedName; }
+	private final static String localizedStaticDisplay = CMLib.lang().L("(Sense Disease)");
+	@Override public String displayText() { return localizedStaticDisplay; }
+	@Override public int classificationCode(){return Ability.ACODE_PRAYER|Ability.DOMAIN_COMMUNING;}
+	@Override public int enchantQuality(){return Ability.QUALITY_BENEFICIAL_SELF;}
+	@Override protected int canAffectCode(){return CAN_MOBS;}
+	@Override protected int canTargetCode(){return CAN_MOBS;}
+	@Override public int abstractQuality(){ return Ability.QUALITY_OK_SELF;}
+	@Override public long flags(){return Ability.FLAG_HOLY;}
 	protected Room lastRoom=null;
 
+	@Override
 	public void unInvoke()
 	{
 		// undo the affects of this spell
-		if((affected==null)||(!(affected instanceof MOB)))
+		if(!(affected instanceof MOB))
 			return;
-		MOB mob=(MOB)affected;
+		final MOB mob=(MOB)affected;
 
 		super.unInvoke();
 		if(canBeUninvoked())
 		{
 			lastRoom=null;
-			mob.tell("Your disease sensations fade.");
+			mob.tell(L("Your disease sensations fade."));
 		}
 	}
 
-	public Ability getDisease(Environmental mob)
+	public Ability getDisease(Physical mob)
 	{
-		if(mob instanceof MOB)
+		for(final Enumeration<Ability> a=mob.effects();a.hasMoreElements();)
 		{
-			for(int m=0;m<((MOB)mob).numAllEffects();m++)
-			{
-				Ability A=((MOB)mob).fetchEffect(m);
-				if((A.classificationCode()&Ability.ALL_ACODES)==Ability.ACODE_DISEASE)
-					return A;
-			}
-		}
-		else
-		for(int m=0;m<mob.numEffects();m++)
-		{
-			Ability A=mob.fetchEffect(m);
+			final Ability A=a.nextElement();
 			if((A.classificationCode()&Ability.ALL_ACODES)==Ability.ACODE_DISEASE)
 				return A;
 		}
 		return null;
 	}
-	private static final Vector empty=new Vector();
-	public Vector diseased(MOB mob, Room R)
+	private static final Vector<Physical> empty=new ReadOnlyVector<Physical>();
+	public Vector<Physical> diseased(MOB mob, Room R)
 	{
-		if(R==null) return empty;
-		Vector V=null;
+		if(R==null)
+			return empty;
+		Vector<Physical> V=null;
 		for(int i=0;i<R.numInhabitants();i++)
 		{
-			MOB M=R.fetchInhabitant(i);
+			final MOB M=R.fetchInhabitant(i);
 			if((M!=null)&&(M!=mob)&&(getDisease(M)!=null))
 			{
-				if(V==null) V=new Vector();
+				if(V==null)
+					V=new Vector<Physical>();
 				V.addElement(M);
 			}
 		}
 		for(int i=0;i<R.numItems();i++)
 		{
-			Item I=R.fetchItem(i);
+			final Item I=R.getItem(i);
 			if((I!=null)
 			&&(I.container()==null)
 			&&(getDisease(I)!=null))
 			{
-				if(V==null) V=new Vector();
+				if(V==null)
+					V=new Vector<Physical>();
 				V.addElement(I);
 			}
 		}
@@ -116,22 +113,22 @@ public class Prayer_SenseDisease extends Prayer
 		String dirs="";
 		for(int d=Directions.NUM_DIRECTIONS()-1;d>=0;d--)
 		{
-			Room R=mob.location().getRoomInDir(d);
-			Exit E=mob.location().getExitInDir(d);
+			final Room R=mob.location().getRoomInDir(d);
+			final Exit E=mob.location().getExitInDir(d);
 			if((R!=null)&&(E!=null)&&(diseased(mob,R).size()>0))
 			{
 				if(last.length()>0)
 					dirs+=", "+last;
-				last=Directions.getFromDirectionName(d);
+				last=CMLib.directions().getFromCompassDirectionName(d);
 			}
 		}
-		Vector V=diseased(mob,mob.location());
+		final Vector<Physical> V=diseased(mob,mob.location());
 		if(V.size()>0)
 		{
 			boolean didSomething=false;
 			for(int v=0;v<V.size();v++)
 			{
-				Environmental E=(Environmental)V.elementAt(v);
+				final Environmental E=V.elementAt(v);
 				if(CMLib.flags().canBeSeenBy(E,mob))
 				{
 					didSomething=true;
@@ -149,20 +146,20 @@ public class Prayer_SenseDisease extends Prayer
 		}
 
 		if((dirs.length()==0)&&(last.length()==0))
-			mob.tell("You do not sense any disease.");
+			mob.tell(L("You do not sense any disease."));
 		else
 		if(dirs.length()==0)
-			mob.tell("You sense disease coming from "+last+".");
+			mob.tell(L("You sense disease coming from @x1.",last));
 		else
-			mob.tell("You sense disease coming from "+dirs.substring(2)+", and "+last+".");
+			mob.tell(L("You sense disease coming from @x1, and @x2.",dirs.substring(2),last));
 	}
 
+	@Override
 	public boolean tick(Tickable ticking, int tickID)
 	{
 		if(!super.tick(ticking,tickID))
 			return false;
 		if((tickID==Tickable.TICKID_MOB)
-		   &&(affected!=null)
 		   &&(affected instanceof MOB)
 		   &&(((MOB)affected).location()!=null)
 		   &&((lastRoom==null)||(((MOB)affected).location()!=lastRoom)))
@@ -173,23 +170,21 @@ public class Prayer_SenseDisease extends Prayer
 		return true;
 	}
 
-	public boolean invoke(MOB mob, Vector commands, Environmental givenTarget, boolean auto, int asLevel)
+	@Override
+	public boolean invoke(MOB mob, List<String> commands, Physical givenTarget, boolean auto, int asLevel)
 	{
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
 			return false;
 
-		Environmental target=mob;
-		if((auto)&&(givenTarget!=null)) target=givenTarget;
+		Physical target=mob;
+		if((auto)&&(givenTarget!=null))
+			target=givenTarget;
 
-		boolean success=proficiencyCheck(mob,0,auto);
+		final boolean success=proficiencyCheck(mob,0,auto);
 
 		if(success)
 		{
-			// it worked, so build a copy of this ability,
-			// and add it to the affects list of the
-			// affected MOB.  Then tell everyone else
-			// what happened.
-			CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),auto?"<T-NAME> attain(s) disease senses!":"^S<S-NAME> listen(s) for a message from "+hisHerDiety(mob)+".^?");
+			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),auto?L("<T-NAME> attain(s) disease senses!"):L("^S<S-NAME> listen(s) for a message from @x1.^?",hisHerDiety(mob)));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);
@@ -197,7 +192,7 @@ public class Prayer_SenseDisease extends Prayer
 			}
 		}
 		else
-			return beneficialWordsFizzle(mob,null,"<S-NAME> listen(s) to "+hisHerDiety(mob)+" for a message, but there is no answer.");
+			return beneficialWordsFizzle(mob,null,L("<S-NAME> listen(s) to @x1 for a message, but there is no answer.",hisHerDiety(mob)));
 
 
 		// return whether it worked

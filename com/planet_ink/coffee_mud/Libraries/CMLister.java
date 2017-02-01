@@ -1,7 +1,9 @@
 package com.planet_ink.coffee_mud.Libraries;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.ListingLibrary.ListStringer;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -17,14 +19,14 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2004-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,278 +34,392 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
 public class CMLister extends StdLibrary implements ListingLibrary
 {
-    public String ID(){return "CMLister";}
-    public String itemSeenString(MOB viewer, 
-                                 Environmental item, 
-                                 boolean useName, 
-                                 boolean longLook,
-                                 boolean sysmsgs)
-    {
-        if(useName)
-            return CMStrings.capitalizeFirstLetter(item.name())+(sysmsgs?" ("+item.ID()+")":"");
-        else
-        if((longLook)&&(item instanceof Item)&&(((Item)item).container()!=null))
-            return CMStrings.capitalizeFirstLetter("     "+item.name())+(sysmsgs?" ("+item.ID()+")":"");
-        else
-        if(!item.name().equals(item.Name()))
-            return CMStrings.capitalizeFirstLetter(item.name()+" is here.")+(sysmsgs?" ("+item.ID()+")":"");
-        else
-        if(item instanceof MOB)
-            return CMStrings.capitalizeFirstLetter(((MOB)item).displayText(viewer))+(sysmsgs?" ("+item.ID()+")":"");
-        else
-        if(item.displayText().length()>0)
-            return CMStrings.capitalizeFirstLetter(item.displayText())+(sysmsgs?" ("+item.ID()+")":"");
-        else
-            return CMStrings.capitalizeFirstLetter(item.name())+(sysmsgs?" ("+item.ID()+")":"");
-    }
-    
-    public int getReps(Environmental item, 
-                       Vector theRest, 
-                       MOB mob, 
-                       boolean useName, 
-                       boolean longLook)
-    {
-        String str=itemSeenString(mob,item,useName,longLook,false);
-        String str2=null;
-        int reps=0;
-        int here=0;
-        Environmental item2=null;
-        while(here<theRest.size())
-        {
-            item2=(Environmental)theRest.elementAt(here);
-            str2=itemSeenString(mob,item2,useName,longLook,false);
-            if(str2.length()==0)
-                theRest.removeElement(item2);
-            else
-            if((str.equals(str2))
-            &&(CMLib.flags().seenTheSameWay(mob,item,item2)))
-            {
-                reps++;
-                theRest.removeElement(item2);
-            }
-            else
-                here++;
-        }
-        return reps;
-    }
-    
-    public void appendReps(int reps, StringBuilder say, boolean compress)
-    {
-        if(compress)
-        {
-            if(reps>0) 
-                say.append("("+(reps+1)+") ");
-        }
-        else
-        if(reps==0) say.append("      ");
-        else
-        if(reps>=99)
-            say.append("("+CMStrings.padLeftPreserve(""+(reps+1),3)+") ");
-        else
-        if(reps>0)
-            say.append(" ("+CMStrings.padLeftPreserve(""+(reps+1),2)+") ");
-    }
-    
-    public String summarizeTheRest(MOB mob, Vector things, boolean compress) 
-    {
-        Vector restV=new Vector();
-        Item I=null;
-        String name="";
-        boolean otherItemsHere=false;
-        for(int v=0;v<things.size();v++)
-        {
-            I=(Item)things.elementAt(v);
-            if(CMLib.flags().canBeSeenBy(I,mob)&&(I.displayText().length()>0))
-            {
-                name=CMLib.materials().genericType(I).toLowerCase();
-                if(name.startsWith("item"))
-                {
-                    if(!otherItemsHere)
-                    	otherItemsHere=true;
-                }
-                else
-                if(!restV.contains(name))
-                	restV.addElement(name);
-            }
-        }
-        if((restV.size()==0)&&(!otherItemsHere)) return "";
-        if(otherItemsHere) restV.addElement("other");
-        StringBuilder theRest=new StringBuilder("");
-        for(int o=0;o<restV.size();o++)
-        {
-            theRest.append(restV.elementAt(o));
-            if(o<restV.size()-1)
-                theRest.append(", ");
-            if((restV.size()>1)&&(o==(restV.size()-2)))
-                theRest.append("and ");
-        }
-        return "^IThere are also "+theRest.toString()+" items here.^N"+(compress?"":"\n\r");
-    }
-    
-    public StringBuilder lister(MOB mob, 
-                               Vector things,
-                               boolean useName, 
-                               String tag,
-                               String tagParm,
-                               boolean longLook,
-                               boolean compress)
+	@Override
+	public String ID()
 	{
-	    boolean nameTagParm=((tagParm!=null)&&(tagParm.indexOf("*")>=0));
-		StringBuilder say=new StringBuilder("");
-        Environmental item=null;
-        boolean sysmsgs=(mob!=null)?CMath.bset(mob.getBitmap(),MOB.ATT_SYSOPMSGS):false;
-        int numShown=0;
-        int maxToShow=CMProps.getIntVar(CMProps.SYSTEMI_MAXITEMSHOWN);
-		while(things.size()>0)
+		return "CMLister";
+	}
+
+	@SuppressWarnings("unchecked")
+	protected static final Filterer<Object>[]	NO_FILTER	= new Filterer[0];
+
+	protected static final ListStringer stringer=new ListStringer()
+	{
+		@Override
+		public String stringify(Object o)
 		{
-            if((maxToShow>0)&&(!longLook)&&(!sysmsgs)&&(!useName)&&(numShown>=maxToShow))
-            {
-                say.append(summarizeTheRest(mob,things,compress));
-                things.clear();
-                break;
-            }
-			item=(Environmental)things.elementAt(0);
-            things.removeElement(item);
-            int reps=getReps(item,things,mob,useName,longLook);
-			if(CMLib.flags().canBeSeenBy(item,mob)
-			&&((item.displayText().length()>0)
-			    ||sysmsgs
+			if(o instanceof String)
+				return (String)o;
+			else
+			if(o instanceof Ability)
+				return ((Ability)o).ID()+(((Ability)o).isGeneric()?"*":"");
+			else
+			if(o instanceof CharClass)
+				return ((CharClass)o).ID()+(((CharClass)o).isGeneric()?"*":"");
+			else
+			if(o instanceof Race)
+				return ((Race)o).ID()+(((Race)o).isGeneric()?"*":"");
+			else
+				return CMClass.classID(o);
+		}
+	};
+
+	protected static class LikeRoomFilter implements Filterer<Object>
+	{
+		private final Room likeRoom;
+		public LikeRoomFilter(Room R)
+		{
+			likeRoom=R;
+		}
+		@Override
+		public boolean passesFilter(Object obj)
+		{
+			if((likeRoom!=null)&&(obj instanceof Room))
+			{
+				if((((Room)obj).roomID().length()>0)&&(!((Room)obj).getArea().Name().equals(likeRoom.getArea().Name())))
+					return false;
+			}
+			return true;
+		}
+	}
+
+	protected static class AbilityTypeFilter implements Filterer<Object>
+	{
+		private final int ofType;
+		private final int ofDomain;
+		public AbilityTypeFilter(int typ)
+		{
+			ofType=typ&Ability.ALL_ACODES;
+			ofDomain=typ&Ability.ALL_DOMAINS;
+		}
+		@Override
+		public boolean passesFilter(Object obj)
+		{
+			if((ofType>=0)&&(ofType!=Ability.ALL_ACODES))
+			{
+				if(obj instanceof Ability)
+				{
+					if((((Ability)obj).classificationCode()&Ability.ALL_ACODES)!=ofType)
+						return false;
+				}
+			}
+			if(ofDomain>0)
+			{
+				if(obj instanceof Ability)
+				{
+					if((((Ability)obj).classificationCode()&Ability.ALL_DOMAINS)!=ofDomain)
+						return false;
+				}
+			}
+			return true;
+		}
+	}
+
+	@Override
+	public ListStringer getListStringer()
+	{
+		return CMLister.stringer;
+	}
+
+	
+	@Override
+	public String itemSeenString(MOB viewerM, Environmental item, boolean useName, boolean longLook, boolean sysmsgs)
+	{
+		if(useName)
+		{
+			if(item instanceof Physical)
+				return CMStrings.capitalizeFirstLetter(((Physical)item).name(viewerM))+(sysmsgs?" ^H("+CMClass.classID(item)+")^N":"");
+			else
+				return CMStrings.capitalizeFirstLetter(item.name())+(sysmsgs?" ^H("+CMClass.classID(item)+")^N":"");
+		}
+		else
+		if((longLook)&&(item instanceof Item)&&(((Item)item).container()!=null))
+			return CMStrings.capitalizeFirstLetter("     "+((Item)item).name(viewerM))+(sysmsgs?" ^H("+CMClass.classID(item)+")^N":"");
+		else
+		if(!item.name().equals(item.Name()))
+		{
+			if(item instanceof Physical)
+				return CMStrings.capitalizeFirstLetter(L("@x1 is here.",((Physical)item).name(viewerM)))+(sysmsgs?" ^H("+CMClass.classID(item)+")^N":"");
+			else
+				return CMStrings.capitalizeFirstLetter(L("@x1 is here.",item.name()))+(sysmsgs?" ^H("+CMClass.classID(item)+")^N":"");
+		}
+		else
+		if(item.displayText().length()>0)
+		{
+			if(item instanceof Physical)
+				return CMStrings.capitalizeFirstLetter(((Physical)item).displayText(viewerM))+(sysmsgs?" ^H("+CMClass.classID(item)+")^N":"");
+			else
+				return CMStrings.capitalizeFirstLetter(item.displayText())+(sysmsgs?" ^H("+CMClass.classID(item)+")^N":"");
+		}
+		else
+			return CMStrings.capitalizeFirstLetter(item.name())+(sysmsgs?" ^H("+CMClass.classID(item)+")^N":"");
+	}
+
+	@Override
+	public int getReps(MOB viewerM,
+					   Environmental item,
+					   List<? extends Environmental> theRest,
+					   boolean useName,
+					   boolean longLook)
+	{
+		final String str=itemSeenString(viewerM,item,useName,longLook,false);
+		String str2=null;
+		int reps=0;
+		int here=0;
+		Environmental item2=null;
+		while(here<theRest.size())
+		{
+			item2=theRest.get(here);
+			str2=itemSeenString(viewerM,item2,useName,longLook,false);
+			if(str2.length()==0)
+				theRest.remove(item2);
+			else
+			if((str.equals(str2))
+			&&(item instanceof Physical)
+			&&(item2 instanceof Physical)
+			&&(CMLib.flags().isSeenTheSameWay(viewerM,(Physical)item,(Physical)item2)))
+			{
+				reps++;
+				theRest.remove(item2);
+			}
+			else
+				here++;
+		}
+		return reps;
+	}
+
+	@Override
+	public void appendReps(int reps, StringBuilder say, boolean compress)
+	{
+		if(compress)
+		{
+			if(reps>0)
+				say.append("("+(reps+1)+") ");
+		}
+		else
+		if(reps==0)
+			say.append("      ");
+		else
+		if(reps>=99)
+			say.append("("+CMStrings.padLeftPreserve(""+(reps+1),3)+") ");
+		else
+		if(reps>0)
+			say.append(" ("+CMStrings.padLeftPreserve(""+(reps+1),2)+") ");
+	}
+
+	public String summarizeTheRest(MOB viewerM, List<? extends Environmental> things, boolean compress)
+	{
+		final Vector<String> restV=new Vector<String>();
+		Item I=null;
+		String name="";
+		boolean otherItemsHere=false;
+		for(int v=0;v<things.size();v++)
+		{
+			I=(Item)things.get(v);
+			if(CMLib.flags().canBeSeenBy(I,viewerM)&&(I.displayText(viewerM).length()>0))
+			{
+				name=CMLib.materials().genericType(I).toLowerCase();
+				if(name.startsWith("item"))
+				{
+					if(!otherItemsHere)
+						otherItemsHere=true;
+				}
+				else
+				if(!restV.contains(name))
+					restV.addElement(name);
+			}
+		}
+		if((restV.size()==0)&&(!otherItemsHere))
+			return "";
+		if(otherItemsHere)
+			restV.addElement("other");
+		final StringBuilder theRest=new StringBuilder("");
+		for(int o=0;o<restV.size();o++)
+		{
+			theRest.append(restV.elementAt(o));
+			if(o<restV.size()-1)
+				theRest.append(", ");
+			if((restV.size()>1)&&(o==(restV.size()-2)))
+				theRest.append("and ");
+		}
+		return "^IThere are also "+theRest.toString()+" items here.^N"+(compress?"":"\n\r");
+	}
+
+	@Override
+	public StringBuilder lister(MOB viewerM,
+								List<? extends Environmental> items,
+								boolean useName,
+								String tag,
+								String tagParm,
+								boolean longLook,
+								boolean compress)
+	{
+		final boolean nameTagParm=((tagParm!=null)&&(tagParm.indexOf('*')>=0));
+		final StringBuilder say=new StringBuilder("");
+		Environmental item=null;
+		final boolean sysmsgs=(viewerM!=null)?viewerM.isAttributeSet(MOB.Attrib.SYSOPMSGS):false;
+		int numShown=0;
+		final int maxToShow=CMProps.getIntVar(CMProps.Int.MAXITEMSHOWN);
+		while(items.size()>0)
+		{
+			if((maxToShow>0)&&(!longLook)&&(!sysmsgs)&&(!useName)&&(numShown>=maxToShow))
+			{
+				say.append(summarizeTheRest(viewerM,items,compress));
+				items.clear();
+				break;
+			}
+			item=items.get(0);
+			items.remove(item);
+			final int reps=getReps(viewerM,item,items,useName,longLook);
+			final String displayText=(item instanceof Physical)?((Physical)item).displayText(viewerM):item.displayText();
+			if(CMLib.flags().canBeSeenBy(item,viewerM)
+			&&((displayText.length()>0)
+				||sysmsgs
 				||useName))
 			{
-                numShown++;
-                appendReps(reps,say,compress);
-				if(sysmsgs)
-					say.append("^H("+CMClass.classID(item)+")^N ");
-                if((!compress)&&(mob!=null)&&(!mob.isMonster())&&(mob.session().clientTelnetMode(Session.TELNET_MXP)))
-                    say.append(CMProps.mxpImage(item," H=10 W=10",""," "));
+				numShown++;
+				appendReps(reps,say,compress);
+				if((!compress)&&(viewerM!=null)&&(!viewerM.isMonster())&&(viewerM.session().getClientTelnetMode(Session.TELNET_MXP)))
+					say.append(CMLib.protocol().mxpImage(item," H=10 W=10",""," "));
 				say.append("^I");
-				
+
 				if(tag!=null)
 				{
-				    if(nameTagParm)
-					    say.append("^<"+tag+CMStrings.replaceAll(tagParm,"*",item.name())+"^>");
-				    else
-				        say.append("^<"+tag+tagParm+"^>");
+					if(nameTagParm)
+						say.append("^<"+tag+CMStrings.replaceAll(tagParm,"*",CMStrings.removeColors(item.name()))+"^>");
+					else
+						say.append("^<"+tag+tagParm+"^>");
 				}
-                if(compress) say.append(CMLib.flags().colorCodes(item,mob)+"^I");
-                say.append(CMStrings.endWithAPeriod(itemSeenString(mob,item,useName,longLook,sysmsgs)));
+				if((compress)&&(item instanceof Physical))
+					say.append(CMLib.flags().getDispositionBlurbs((Physical)item,viewerM)+"^I");
+				say.append(itemSeenString(viewerM,item,useName,longLook,sysmsgs));
 				if(tag!=null)
-				    say.append("^</"+tag+"^>");
-				if(!compress) 
-                    say.append(CMLib.flags().colorCodes(item,mob)+"^N\n\r");
-                else 
-                    say.append("^N");
-                
-                if((longLook)
-                &&(item instanceof Container)
-                &&(((Container)item).container()==null)
-                &&(((Container)item).isOpen())
-                &&(!((Container)item).hasALid())
-                &&(!CMLib.flags().canBarelyBeSeenBy(item,mob)))
-                {
-                    Vector V=((Container)item).getContents();
-                    Item item2=null;
-                    if(compress&&V.size()>0) say.append("{");
-                    while(V.size()>0)
-                    {
-                        item2=(Item)V.firstElement();
-                        V.removeElementAt(0);
-                        int reps2=getReps(item2,V,mob,useName,false);
-                        if(CMLib.flags().canBeSeenBy(item2,mob)
-                        &&((item2.displayText().length()>0)
-                            ||sysmsgs
-                            ||(useName)))
-                        {
-                            if(!compress) say.append("      ");
-                            appendReps(reps2,say,compress);
-                            if((!compress)&&(mob!=null)&&(!mob.isMonster())&&(mob.session().clientTelnetMode(Session.TELNET_MXP)))
-                                say.append(CMProps.mxpImage(item," H=10 W=10",""," "));
-                            say.append("^I");
-                            if(compress)say.append(CMLib.flags().colorCodes(item2,mob)+"^I");
-                            say.append(CMStrings.endWithAPeriod(itemSeenString(mob,item2,useName,longLook,sysmsgs)));
-                            if(!compress) 
-                                say.append(CMLib.flags().colorCodes(item2,mob)+"^N\n\r");
-                            else
-                                say.append("^N");
-                        }
-                        if(compress&&(V.size()==0)) say.append("} ");
-                    }
-                }
+					say.append("^</"+tag+"^>");
+				if((!compress)&&(item instanceof Physical))
+					say.append(CMLib.flags().getDispositionBlurbs((Physical)item,viewerM)+"^N\n\r");
+				else
+					say.append("^N");
+
+				if((longLook)
+				&&(item instanceof Container)
+				&&(((Container)item).container()==null)
+				&&(((Container)item).isOpen())
+				&&(!((Container)item).hasADoor())
+				&&(!CMLib.flags().canBarelyBeSeenBy(item,viewerM)))
+				{
+					final List<Item> V=new Vector<Item>();
+					V.addAll(((Container)item).getContents());
+					Item item2=null;
+					if(compress&&V.size()>0) 
+						say.append("{");
+					while(V.size()>0)
+					{
+						item2=V.get(0);
+						V.remove(0);
+						final int reps2=getReps(viewerM,item2,V,useName,false);
+						if(CMLib.flags().canBeSeenBy(item2,viewerM)
+						&&((item2.displayText(viewerM).length()>0)
+							||sysmsgs
+							||(useName)))
+						{
+							if(!compress) 
+								say.append("      ");
+							appendReps(reps2,say,compress);
+							if((!compress)&&(viewerM!=null)&&(!viewerM.isMonster())&&(viewerM.session().getClientTelnetMode(Session.TELNET_MXP)))
+								say.append(CMLib.protocol().mxpImage(item," H=10 W=10",""," "));
+							say.append("^I");
+							if(compress)
+								say.append(CMLib.flags().getDispositionBlurbs(item2,viewerM)+"^I");
+							say.append(CMStrings.endWithAPeriod(itemSeenString(viewerM,item2,useName,longLook,sysmsgs)));
+							if(!compress)
+								say.append(CMLib.flags().getDispositionBlurbs(item2,viewerM)+"^N\n\r");
+							else
+								say.append("^N");
+						}
+						if(compress&&(V.size()==0))
+							say.append("} ");
+					}
+				}
 			}
 		}
 		return say;
 	}
-	
-	public StringBuilder reallyList(Hashtable these, int ofType)
+
+	@SuppressWarnings("unchecked")
+	protected Filterer<Object>[] buildOfTypeFilter(int ofType)
 	{
-		return reallyList(these,ofType,null);
+		return new Filterer[]{new AbilityTypeFilter(ofType)};
 	}
-	public StringBuilder reallyList(Hashtable these)
+
+	@SuppressWarnings("unchecked")
+	protected Filterer<Object>[] buildLikeRoomFilter(Room R)
 	{
-		return reallyList(these,-1,null);
+		return new Filterer[]{new LikeRoomFilter(R)};
 	}
-	public StringBuilder reallyList(Hashtable these, Room likeRoom)
+
+	@Override
+	public StringBuilder reallyList(MOB viewerM, Map<String,? extends Object> these, int ofType)
 	{
-		return reallyList(these,-1,likeRoom);
+		return reallyList(viewerM,these,buildOfTypeFilter(ofType),stringer);
 	}
-	public StringBuilder reallyList(Vector these, int ofType)
+	@Override
+	public StringBuilder reallyList(MOB viewerM, Map<String,? extends Object> these)
 	{
-		return reallyList(these.elements(),ofType,null);
+		return reallyList(viewerM,these,NO_FILTER,stringer);
 	}
-	public StringBuilder reallyList(Enumeration these, int ofType)
+	@Override
+	public StringBuilder reallyList(MOB viewerM, Map<String,? extends Object> these, Room likeRoom)
 	{
-		return reallyList(these,ofType,null);
+		return reallyList(viewerM,these,buildLikeRoomFilter(likeRoom),stringer);
 	}
-	public StringBuilder reallyList(Vector these)
+	@Override
+	public StringBuilder reallyList(MOB viewerM, Vector<? extends Object> these, int ofType)
 	{
-		return reallyList(these.elements(),-1,null);
+		return reallyList(viewerM,these.elements(),buildOfTypeFilter(ofType),stringer);
 	}
-	public StringBuilder reallyList(Enumeration these)
+	@Override
+	public StringBuilder reallyList(MOB viewerM, Enumeration<? extends Object> these, int ofType)
 	{
-		return reallyList(these,-1,null);
+		return reallyList(viewerM,these,buildOfTypeFilter(ofType),stringer);
 	}
-	public StringBuilder reallyList(Vector these, Room likeRoom)
+	@Override
+	public StringBuilder reallyList(MOB viewerM, Vector<? extends Object> these)
 	{
-		return reallyList(these.elements(),-1,likeRoom);
+		return reallyList(viewerM,these.elements(),NO_FILTER,stringer);
 	}
-	public StringBuilder reallyList(Hashtable these, int ofType, Room likeRoom)
+	@Override
+	public StringBuilder reallyList(MOB viewerM, Enumeration<? extends Object> these)
 	{
-		StringBuilder lines=new StringBuilder("");
-		if(these.size()==0) return lines;
+		return reallyList(viewerM,these,NO_FILTER,stringer);
+	}
+	@Override
+	public StringBuilder reallyList(MOB viewerM, Vector<? extends Object> these, Room likeRoom)
+	{
+		return reallyList(viewerM,these.elements(),buildLikeRoomFilter(likeRoom),stringer);
+	}
+	@Override
+	public StringBuilder reallyList(MOB viewerM, Map<String,? extends Object> these, Filterer<Object>[] filters, ListStringer stringer)
+	{
+		if(stringer==null)
+			stringer=CMLister.stringer;
+		final StringBuilder lines=new StringBuilder("");
+		if(these.size()==0)
+			return lines;
 		int column=0;
-		for(Enumeration e=these.keys();e.hasMoreElements();)
+		final int COL_LEN=fixColWidth(24.0, viewerM);
+		for(final String key : these.keySet())
 		{
-			String thisOne=(String)e.nextElement();
-			Object thisThang=these.get(thisOne);
-			String list=null;
-			if(thisThang instanceof String)
-				list=(String)thisThang;
-			else
-			if(thisThang instanceof Ability)
-				list=((Ability)thisThang).ID()+(((Ability)thisThang).isGeneric()?"*":"");
-			else
-            if(thisThang instanceof CharClass)
-                list=((CharClass)thisThang).ID()+(((CharClass)thisThang).isGeneric()?"*":"");
-            else
-            if(thisThang instanceof Race)
-                list=((Race)thisThang).ID()+(((Race)thisThang).isGeneric()?"*":"");
-            else
-				list=CMClass.classID(thisThang);
-			if(ofType>=0)
+			final Object thisThang=these.get(key);
+			String list=stringer.stringify(thisThang);
+			if(filters!=null)
 			{
-				if((thisThang!=null)&&(thisThang instanceof Ability))
+				for(final Filterer<Object> F : filters)
 				{
-					if((((Ability)thisThang).classificationCode()&Ability.ALL_ACODES)!=ofType)
+					if(!F.passesFilter(thisThang))
 						list=null;
 				}
-			}
-			if((likeRoom!=null)&&(thisThang instanceof Room))
-			{
-				if((((Room)thisThang).roomID().length()>0)&&(!((Room)thisThang).getArea().Name().equals(likeRoom.getArea().Name())))
-				   list=null;
 			}
 			if(list!=null)
 			{
@@ -312,51 +428,45 @@ public class CMLister extends StdLibrary implements ListingLibrary
 					lines.append("\n\r");
 					column=1;
 				}
-				lines.append(CMStrings.padRight(list,24)+" ");
+				lines.append(CMStrings.padRight(list,COL_LEN)+" ");
 			}
 		}
 		lines.append("\n\r");
 		return lines;
 	}
 
-	public StringBuilder reallyList(Vector these, int ofType, Room likeRoom)
-	{ return reallyList(these.elements(),ofType,likeRoom);}
-	public StringBuilder reallyList(Enumeration these, Room likeRoom)
-	{ return reallyList(these,-1,likeRoom);}
-	public StringBuilder reallyList(Enumeration these, int ofType, Room likeRoom)
+	@Override
+	public StringBuilder reallyList(MOB viewerM, Vector<? extends Object> these, Filterer<Object>[] filters, ListStringer stringer)
 	{
-		StringBuilder lines=new StringBuilder("");
-		if(!these.hasMoreElements()) return lines;
+		return reallyList(viewerM,these.elements(),filters,stringer);
+	}
+	@Override
+	public StringBuilder reallyList(MOB viewerM, Enumeration<? extends Object> these, Room likeRoom)
+	{
+		return reallyList(viewerM,these,buildLikeRoomFilter(likeRoom),stringer);
+	}
+	
+	@Override
+	public StringBuilder reallyList(MOB viewerM, Enumeration<? extends Object> these, Filterer<Object>[] filters, ListStringer stringer)
+	{
+		if(stringer==null)
+			stringer=CMLister.stringer;
+		final StringBuilder lines=new StringBuilder("");
+		if(!these.hasMoreElements())
+			return lines;
 		int column=0;
-		for(Enumeration e=these;e.hasMoreElements();)
+		final int COL_LEN=fixColWidth(24.0, viewerM);
+		for(final Enumeration<? extends Object> e=these;e.hasMoreElements();)
 		{
-			Object thisThang=e.nextElement();
-			String list=null;
-			if(thisThang instanceof String)
-				list=(String)thisThang;
-            else
-			if(thisThang instanceof Ability)
-				list=((Ability)thisThang).ID()+(((Ability)thisThang).isGeneric()?"*":"");
-			else
-            if(thisThang instanceof CharClass)
-                list=((CharClass)thisThang).ID()+(((CharClass)thisThang).isGeneric()?"*":"");
-            else
-            if(thisThang instanceof Race)
-                list=((Race)thisThang).ID()+(((Race)thisThang).isGeneric()?"*":"");
-            else
-                list=CMClass.classID(thisThang);
-			if(ofType>=0)
+			final Object thisThang=e.nextElement();
+			String list=stringer.stringify(thisThang);
+			if(filters!=null)
 			{
-				if((thisThang!=null)&&(thisThang instanceof Ability))
+				for(final Filterer<Object> F : filters)
 				{
-					if((((Ability)thisThang).classificationCode()&Ability.ALL_ACODES)!=ofType)
+					if(!F.passesFilter(thisThang))
 						list=null;
 				}
-			}
-			if((likeRoom!=null)&&(thisThang instanceof Room))
-			{
-				if((((Room)thisThang).roomID().length()>0)&&(!((Room)thisThang).getArea().Name().equals(likeRoom.getArea().Name())))
-				   list=null;
 			}
 			if(list!=null)
 			{
@@ -365,46 +475,76 @@ public class CMLister extends StdLibrary implements ListingLibrary
 					lines.append("\n\r");
 					column=1;
 				}
-				lines.append(CMStrings.padRight(list,24)+" ");
+				lines.append(CMStrings.padRight(list,COL_LEN)+" ");
 			}
 		}
 		lines.append("\n\r");
 		return lines;
 	}
-	public StringBuilder reallyList2Cols(Enumeration these, int ofType, Room likeRoom)
+
+	@Override
+	public StringBuilder reallyWikiList(MOB viewerM, Enumeration<? extends Object> these, int ofType)
 	{
-		StringBuilder lines=new StringBuilder("");
-		if(!these.hasMoreElements()) return lines;
-		int column=0;
-		for(Enumeration e=these;e.hasMoreElements();)
+		return reallyWikiList(viewerM,these,buildOfTypeFilter(ofType));
+	}
+	
+	@Override
+	public StringBuilder reallyWikiList(MOB viewerM, Enumeration<? extends Object> these, Filterer<Object>[] filters)
+	{
+		final StringBuilder lines=new StringBuilder("");
+		if(!these.hasMoreElements())
+			return lines;
+		for(final Enumeration<? extends Object> e=these;e.hasMoreElements();)
 		{
-			Object thisThang=e.nextElement();
-			String list=null;
-			if(thisThang instanceof String)
-				list=(String)thisThang;
-            else
-			if(thisThang instanceof Ability)
-				list=((Ability)thisThang).ID()+(((Ability)thisThang).isGeneric()?"*":"");
-			else
-            if(thisThang instanceof CharClass)
-                list=((CharClass)thisThang).ID()+(((CharClass)thisThang).isGeneric()?"*":"");
-            else
-            if(thisThang instanceof Race)
-                list=((Race)thisThang).ID()+(((Race)thisThang).isGeneric()?"*":"");
-            else
-                list=CMClass.classID(thisThang);
-			if(ofType>=0)
+			final Object thisObj=e.nextElement();
+			if(thisObj instanceof CMObject)
 			{
-				if((thisThang!=null)&&(thisThang instanceof Ability))
+				final CMObject thisThang = (CMObject)thisObj;
+				if(filters!=null)
 				{
-					if((((Ability)thisThang).classificationCode()&Ability.ALL_ACODES)!=ofType)
+					boolean passes=true;
+					for(final Filterer<Object> F : filters)
+					{
+						if(!F.passesFilter(thisThang))
+							passes=false;
+					}
+					if(!passes)
+						continue;
+				}
+				lines.append("*[["+thisThang.ID()+"|"+thisThang.name()+"]]\n\r");
+			}
+		}
+		return lines;
+	}
+	
+	
+	@Override
+	public StringBuilder reallyList2Cols(MOB viewerM, Enumeration<? extends Object> these)
+	{
+		return reallyList2Cols(viewerM, these, NO_FILTER, stringer);
+	}
+
+	@Override
+	public StringBuilder reallyList2Cols(MOB viewerM, Enumeration<? extends Object> these, Filterer<Object>[] filters, ListStringer stringer)
+	{
+		if(stringer==null)
+			stringer=CMLister.stringer;
+		final StringBuilder lines=new StringBuilder("");
+		if(!these.hasMoreElements())
+			return lines;
+		int column=0;
+		final int COL_LEN=fixColWidth(37.0, viewerM);
+		for(final Enumeration<? extends Object> e=these;e.hasMoreElements();)
+		{
+			final Object thisThang=e.nextElement();
+			String list=stringer.stringify(thisThang);
+			if(filters!=null)
+			{
+				for(final Filterer<Object> F : filters)
+				{
+					if(!F.passesFilter(thisThang))
 						list=null;
 				}
-			}
-			if((likeRoom!=null)&&(thisThang instanceof Room))
-			{
-				if((((Room)thisThang).roomID().length()>0)&&(!((Room)thisThang).getArea().Name().equals(likeRoom.getArea().Name())))
-				   list=null;
 			}
 			if(list!=null)
 			{
@@ -413,37 +553,87 @@ public class CMLister extends StdLibrary implements ListingLibrary
 					lines.append("\n\r");
 					column=1;
 				}
-				lines.append(CMStrings.padRight(list,37)+" ");
+				lines.append(CMStrings.padRight(list,COL_LEN)+" ");
 			}
 		}
 		lines.append("\n\r");
 		return lines;
 	}
-	
-	public StringBuilder fourColumns(Vector reverseList)
-	{ return fourColumns(reverseList,null);}
-	public StringBuilder fourColumns(Vector reverseList, String tag)
+
+	@Override
+	public StringBuilder fourColumns(MOB viewerM, List<String> reverseList)
 	{
-		StringBuilder topicBuffer=new StringBuilder("");
+		return fourColumns(viewerM,reverseList,null);
+	}
+
+	@Override
+	public StringBuilder fourColumns(MOB viewerM, List<String> reverseList, String tag)
+	{
+		return makeColumns(viewerM,reverseList,tag,4);
+	}
+
+	@Override
+	public StringBuilder threeColumns(MOB viewerM, List<String> reverseList)
+	{
+		return threeColumns(viewerM,reverseList,null);
+	}
+
+	@Override
+	public StringBuilder threeColumns(MOB viewerM, List<String> reverseList, String tag)
+	{
+		return makeColumns(viewerM,reverseList,tag,3);
+	}
+
+	@Override
+	public int fixColWidth(final double colWidth, final MOB mob)
+	{
+		return fixColWidth(colWidth,(mob==null)?null:mob.session());
+	}
+
+	@Override
+	public int fixColWidth(final double colWidth, final Session session)
+	{
+		double totalWidth=(session==null)?78.0:(double)session.getWrap();
+		if(totalWidth==0.0)
+			totalWidth=1024.0;
+		return (int)Math.round((colWidth/78.0)*totalWidth);
+	}
+
+	@Override
+	public int fixColWidth(final double colWidth, final double totalWidth)
+	{
+		return (int)Math.round((colWidth/78.0)*totalWidth);
+	}
+	
+	@Override
+	public StringBuilder makeColumns(MOB viewerM, List<String> reverseList, String tag, int numCols)
+	{
+		final StringBuilder topicBuffer=new StringBuilder("");
 		int col=0;
 		String s=null;
+		final int colSize = fixColWidth(72.0,viewerM) / numCols;
 		for(int i=0;i<reverseList.size();i++)
 		{
-			if((++col)>4)
+			if((++col)>numCols)
 			{
 				topicBuffer.append("\n\r");
 				col=1;
 			}
-			s=(String)reverseList.elementAt(i);
-		    if((tag!=null)&&(tag.length()>0))
-		        s="^<"+tag+"^>"+s+"^</"+tag+"^>";
-			if(s.length()>18)
+			s=reverseList.get(i);
+			if((tag!=null)&&(tag.length()>0))
+				s="^<"+tag+"^>"+s+"^</"+tag+"^>";
+			if(s!=null)
 			{
-				topicBuffer.append(CMStrings.padRight(s,(18*2)+1)+" ");
-				++col;
+				if(s.length()>colSize)
+				{
+					if(col == numCols)
+						topicBuffer.append("\n\r");
+					topicBuffer.append(CMStrings.padRight(s,(colSize*2)+1)+" ");
+					++col;
+				}
+				else
+					topicBuffer.append(CMStrings.padRight(s,colSize)+" ");
 			}
-			else
-				topicBuffer.append(CMStrings.padRight(s,18)+" ");
 		}
 		return topicBuffer;
 	}

@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Prayers;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,21 +10,21 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
-
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2004-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,52 +33,70 @@ import java.util.*;
    limitations under the License.
 */
 
-@SuppressWarnings("unchecked")
+
 public class Prayer_Absorption extends Prayer
 {
-	public String ID() { return "Prayer_Absorption"; }
-	public String name(){ return "Absorption";}
-	public String displayText(){ return "(Absorption)";}
-	public int classificationCode(){return Ability.ACODE_PRAYER|Ability.DOMAIN_VEXING;}
-	protected int canAffectCode(){return Ability.CAN_MOBS;}
-	protected int canTargetCode(){return 0;}
-	public int abstractQuality(){ return Ability.QUALITY_BENEFICIAL_SELF;}
-	public long flags(){return Ability.FLAG_UNHOLY;}
+	@Override public String ID() { return "Prayer_Absorption"; }
+	private final static String localizedName = CMLib.lang().L("Absorption");
+	@Override public String name() { return localizedName; }
+	private final static String localizedStaticDisplay = CMLib.lang().L("(Absorption)");
+	@Override public String displayText() { return localizedStaticDisplay; }
+	@Override public int classificationCode(){return Ability.ACODE_PRAYER|Ability.DOMAIN_VEXING;}
+	@Override protected int canAffectCode(){return Ability.CAN_MOBS;}
+	@Override protected int canTargetCode(){return 0;}
+	@Override public int abstractQuality(){ return Ability.QUALITY_BENEFICIAL_SELF;}
+	@Override public long flags(){return Ability.FLAG_UNHOLY;}
 	protected Ability absorbed=null;
 
+	@Override
 	public void unInvoke()
 	{
 		// undo the affects of this spell
-		if((affected==null)||(!(affected instanceof MOB)))
+		if(!(affected instanceof MOB))
 			return;
-		MOB M=(MOB)affected;
+		final MOB M=(MOB)affected;
 
 		super.unInvoke();
 
 		if((canBeUninvoked())&&(absorbed!=null)&&(M!=null))
 		{
 			M.delAbility(absorbed);
-			M.tell("You forget all about "+absorbed.name()+".");
+			M.tell(L("You forget all about @x1.",absorbed.name()));
 			absorbed=null;
 		}
 	}
 
-	public boolean invoke(MOB mob, Vector commands, Environmental givenTarget, boolean auto, int asLevel)
+	@Override
+	public void executeMsg(final Environmental myHost, final CMMsg msg)
 	{
-		MOB target=getTarget(mob,commands,givenTarget);
-		if(target==null) return false;
+		super.executeMsg(myHost,msg);
+		if((affected!=null)
+		&&(affected instanceof MOB)
+		&&(msg.amISource((MOB)affected)||msg.amISource(((MOB)affected).amFollowing())||(msg.source()==invoker()))
+		&&(msg.sourceMinor()==CMMsg.TYP_QUIT))
+		{
+			unInvoke();
+		}
+	}
+
+	@Override
+	public boolean invoke(MOB mob, List<String> commands, Physical givenTarget, boolean auto, int asLevel)
+	{
+		final MOB target=getTarget(mob,commands,givenTarget);
+		if(target==null)
+			return false;
 		if(target==mob)
 		{
-			mob.tell("Umm.. ok. Done.");
+			mob.tell(L("Umm.. ok. Done."));
 			return false;
 		}
-		Prayer_Absorption old=(Prayer_Absorption)mob.fetchEffect(ID());
+		final Prayer_Absorption old=(Prayer_Absorption)mob.fetchEffect(ID());
 		if(old!=null)
 		{
 			if(old.absorbed!=null)
-				mob.tell("You have already absorbed "+old.absorbed.name()+" from someone.");
+				mob.tell(L("You have already absorbed @x1 from someone.",old.absorbed.name()));
 			else
-				mob.tell("You have already absorbed a skill from someone.");
+				mob.tell(L("You have already absorbed a skill from someone."));
 			return false;
 		}
 
@@ -85,7 +104,9 @@ public class Prayer_Absorption extends Prayer
 		int tries=0;
 		while((absorbed==null)&&((++tries)<100))
 		{
-			absorbed=target.fetchAbility(CMLib.dice().roll(1,target.numAbilities(),-1));
+			absorbed=target.fetchRandomAbility();
+			if(absorbed==null)
+				break;
 			if(mob.fetchAbility(absorbed.ID())!=null)
 				absorbed=null;
 			else
@@ -99,15 +120,11 @@ public class Prayer_Absorption extends Prayer
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
 			return false;
 
-		boolean success=proficiencyCheck(mob,0,auto);
+		final boolean success=proficiencyCheck(mob,0,auto);
 
 		if((success)&&(absorbed!=null))
 		{
-			// it worked, so build a copy of this ability,
-			// and add it to the affects list of the
-			// affected MOB.  Then tell everyone else
-			// what happened.
-			CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),auto?"":"^S<S-NAME> "+prayWord(mob)+" for some of <T-YOUPOSS> knowledge!^?");
+			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),auto?"":L("^S<S-NAME> @x1 for some of <T-YOUPOSS> knowledge!^?",prayWord(mob)));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);
@@ -115,12 +132,12 @@ public class Prayer_Absorption extends Prayer
 				absorbed=(Ability)absorbed.copyOf();
 				absorbed.setSavable(false);
 				mob.addAbility(absorbed);
-				mob.tell("You have absorbed "+absorbed.name()+"!");
-				beneficialAffect(mob,mob,asLevel,0);
+				mob.tell(L("You have absorbed @x1!",absorbed.name()));
+				beneficialAffect(mob,mob,asLevel,15);
 			}
 		}
 		else
-			return beneficialWordsFizzle(mob,target,"<S-NAME> "+prayWord(mob)+" for some of <T-YOUPOSS> knowledge, but <S-HIS-HER> plea is not answered.");
+			return beneficialWordsFizzle(mob,target,L("<S-NAME> @x1 for some of <T-YOUPOSS> knowledge, but <S-HIS-HER> plea is not answered.",prayWord(mob)));
 
 
 		// return whether it worked

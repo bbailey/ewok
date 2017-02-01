@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Druid;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,21 +10,21 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
-
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2003-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,37 +33,41 @@ import java.util.*;
    limitations under the License.
 */
 
-@SuppressWarnings("unchecked")
+
 public class Chant_MuddyGrounds extends Chant
 {
-	public String ID() { return "Chant_MuddyGrounds"; }
-	public String name(){return "Muddy Grounds";}
-	protected int canTargetCode(){return 0;}
-    public int classificationCode(){return Ability.ACODE_CHANT|Ability.DOMAIN_WEATHER_MASTERY;}
-	public int abstractQuality(){ return Ability.QUALITY_MALICIOUS;}
-	protected int canAffectCode(){return Ability.CAN_ROOMS;}
+	@Override public String ID() { return "Chant_MuddyGrounds"; }
+	private final static String localizedName = CMLib.lang().L("Muddy Grounds");
+	@Override public String name() { return localizedName; }
+	@Override protected int canTargetCode(){return 0;}
+	@Override public int classificationCode(){return Ability.ACODE_CHANT|Ability.DOMAIN_WEATHER_MASTERY;}
+	@Override public int abstractQuality(){ return Ability.QUALITY_MALICIOUS;}
+	@Override protected int canAffectCode(){return Ability.CAN_ROOMS;}
 
+	@Override
 	public void unInvoke()
 	{
-		if((canBeUninvoked())&&(affected!=null)&&(affected instanceof Room))
-			((Room)affected).showHappens(CMMsg.MSG_OK_VISUAL,"The mud in '"+((Room)affected).displayText()+"' dries up.");
+		if((canBeUninvoked())&&(affected instanceof Room))
+			((Room)affected).showHappens(CMMsg.MSG_OK_VISUAL,L("The mud in '@x1' dries up.",((Room)affected).displayText()));
 		super.unInvoke();
 	}
 
-	public void affectEnvStats(Environmental affected, EnvStats affectableStats)
+	@Override
+	public void affectPhyStats(Physical affected, PhyStats affectableStats)
 	{
 		if((affected!=null)&&(affected instanceof Room))
 			affectableStats.setWeight((affectableStats.weight()*2)+1);
 	}
 
+	@Override
 	public boolean tick(Tickable ticking, int tickID)
 	{
 		if((affected!=null)&&(affected instanceof Room))
 		{
-			Room R=(Room)affected;
+			final Room R=(Room)affected;
 			for(int m=0;m<R.numInhabitants();m++)
 			{
-				MOB M=R.fetchInhabitant(m);
+				final MOB M=R.fetchInhabitant(m);
 				if((M!=null)&&(M.isInCombat()))
 				   M.curState().adjMovement(-1,M.maxState());
 			}
@@ -70,54 +75,56 @@ public class Chant_MuddyGrounds extends Chant
 		return super.tick(ticking,tickID);
 
 	}
-    
-    public int castingQuality(MOB mob, Environmental target)
-    {
-        if(mob!=null)
-        {
-            Room R=mob.location();
-            if(R!=null)
-            {
-                int type=R.domainType();
-                if(((type&Room.INDOORS)>0)
-                ||(type==Room.DOMAIN_OUTDOORS_AIR)
-                ||(type==Room.DOMAIN_OUTDOORS_CITY)
-                ||(type==Room.DOMAIN_OUTDOORS_SPACEPORT)
-                ||(type==Room.DOMAIN_OUTDOORS_UNDERWATER)
-                ||(type==Room.DOMAIN_OUTDOORS_WATERSURFACE))
-                    return Ability.QUALITY_INDIFFERENT;
-            }
-        }
-        return super.castingQuality(mob,target);
-    }
-    
-	public boolean invoke(MOB mob, Vector commands, Environmental givenTarget, boolean auto, int asLevel)
+
+	@Override
+	public int castingQuality(MOB mob, Physical target)
+	{
+		if(mob!=null)
+		{
+			final Room R=mob.location();
+			if(R!=null)
+			{
+				final int type=R.domainType();
+				if(((type&Room.INDOORS)>0)
+				||(type==Room.DOMAIN_OUTDOORS_AIR)
+				||(type==Room.DOMAIN_OUTDOORS_CITY)
+				||(type==Room.DOMAIN_OUTDOORS_SPACEPORT)
+				||(type==Room.DOMAIN_OUTDOORS_UNDERWATER)
+				||(type==Room.DOMAIN_OUTDOORS_WATERSURFACE))
+					return Ability.QUALITY_INDIFFERENT;
+			}
+		}
+		return super.castingQuality(mob,target);
+	}
+
+	@Override
+	public boolean invoke(MOB mob, List<String> commands, Physical givenTarget, boolean auto, int asLevel)
 	{
 
-		int type=mob.location().domainType();
+		final int type=mob.location().domainType();
 		if(((type&Room.INDOORS)>0)
 			||(type==Room.DOMAIN_OUTDOORS_AIR)
 			||(type==Room.DOMAIN_OUTDOORS_CITY)
-		    ||(type==Room.DOMAIN_OUTDOORS_SPACEPORT)
+			||(type==Room.DOMAIN_OUTDOORS_SPACEPORT)
 			||(type==Room.DOMAIN_OUTDOORS_UNDERWATER)
 			||(type==Room.DOMAIN_OUTDOORS_WATERSURFACE))
 		{
-			mob.tell("That magic won't work here.");
+			mob.tell(L("That magic won't work here."));
 			return false;
 		}
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
 			return false;
 
-		boolean success=proficiencyCheck(mob,0,auto);
+		final boolean success=proficiencyCheck(mob,0,auto);
 
 		if(success)
 		{
-			CMMsg msg=CMClass.getMsg(mob,mob.location(),this,verbalCastCode(mob,mob.location(),auto),auto?"":"^S<S-NAME> chant(s) to the ground.^?");
+			final CMMsg msg=CMClass.getMsg(mob,mob.location(),this,verbalCastCode(mob,mob.location(),auto),auto?"":L("^S<S-NAME> chant(s) to the ground.^?"));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);
-				mob.location().showHappens(CMMsg.MSG_OK_VISUAL,"The ground here turns to MUD!");
-				if(CMLib.law().doesOwnThisProperty(mob,mob.location()))
+				mob.location().showHappens(CMMsg.MSG_OK_VISUAL,L("The ground here turns to MUD!"));
+				if(CMLib.law().doesOwnThisLand(mob,mob.location()))
 				{
 					mob.location().addNonUninvokableEffect((Ability)copyOf());
 					CMLib.database().DBUpdateRoom(mob.location());
@@ -128,7 +135,7 @@ public class Chant_MuddyGrounds extends Chant
 
 		}
 		else
-			beneficialWordsFizzle(mob,null,"<S-NAME> chant(s) to the ground, but nothing happens.");
+			beneficialWordsFizzle(mob,null,L("<S-NAME> chant(s) to the ground, but nothing happens."));
 
 
 		// return whether it worked

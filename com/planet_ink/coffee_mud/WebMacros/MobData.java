@@ -1,29 +1,34 @@
 package com.planet_ink.coffee_mud.WebMacros;
+
+import com.planet_ink.coffee_web.interfaces.*;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
 import com.planet_ink.coffee_mud.CharClasses.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
+import com.planet_ink.coffee_mud.Common.interfaces.Faction.FRange;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
+import com.planet_ink.coffee_mud.WebMacros.grinder.GrinderMobs.MOBDataField;
+
 import java.util.*;
-
-
+import java.util.Map.Entry;
 
 /*
-   Copyright 2000-2010 Bo Zimmerman
+   Copyright 2002-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -31,50 +36,38 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
 public class MobData extends StdWebMacro
 {
-	public String name() {return this.getClass().getName().substring(this.getClass().getName().lastIndexOf('.')+1);}
-
-    private static final String[] okparms={
-      "NAME","CLASSES","DISPLAYTEXT","DESCRIPTION",
-      "LEVEL","ABILITY","REJUV","MISCTEXT",
-      "RACE","GENDER","HEIGHT","WEIGHT",
-      "SPEED","ATTACK","DAMAGE","ARMOR",
-      "ALIGNMENT","MONEY","ISRIDEABLE","RIDEABLETYPE",
-      "MOBSHELD","ISSHOPKEEPER","SHOPKEEPERTYPE","ISGENERIC",
-      "ISBANKER","COININT","ITEMINT","BANKNAME","SHOPPREJ",
-      "ISDEITY","CLEREQ","CLERIT","WORREQ","WORRIT",
-      "CLESIN","WORSIN","CLEPOW","CLANID","TATTOOS","EXPERTISES",
-      "BUDGET","DEVALRATE","INVRESETRATE","IMAGE",
-      "ISPOSTMAN","POSTCHAIN","POSTMIN","POSTLBS",
-      "POSTHOLD","POSTNEW","POSTHELD","IGNOREMASK",
-      "LOANINT","SVCRIT","AUCCHAIN","LIVELIST","TIMELIST",
-      "TIMELISTPCT","LIVECUT","TIMECUT","MAXDAYS",
-      "MINDAYS","ISAUCTION","DEITYID","VARMONEY"};
-    
-	public static int getShopCardinality(ShopKeeper E, Environmental O)
+	@Override
+	public String name()
 	{
-		Vector V=E.getShop().getStoreInventory();
-		for(int i=0;i<V.size();i++)
-			if(O==(V.elementAt(i)))
-				return i;
+		return "MobData";
+	}
+
+	public static int getShopCardinality(ShopKeeper SK, Environmental O)
+	{
+		int x=0;
+		for(final Iterator<Environmental> i=SK.getShop().getStoreInventory();i.hasNext();x++)
+		{
+			if(O==i.next())
+				return x;
+		}
 		return -1;
 	}
 
-	public static String senses(Environmental E,
+	public static String senses(Physical P,
 								boolean firstTime,
-								ExternalHTTPRequests httpReq,
-								Hashtable parms)
+								HTTPRequest httpReq,
+								java.util.Map<String,String> parms)
 	{
-		StringBuffer str=new StringBuffer("");
-		for(int d=0;d<EnvStats.CAN_SEE_CODES.length;d++)
+		final StringBuffer str=new StringBuffer("");
+		for(int d=0;d<PhyStats.CAN_SEE_CODES.length;d++)
 		{
-			if(parms.containsKey(EnvStats.CAN_SEE_CODES[d]))
+			if(parms.containsKey(PhyStats.CAN_SEE_CODES[d]))
 			{
-				String parm=httpReq.getRequestParameter(EnvStats.CAN_SEE_CODES[d]);
+				String parm=httpReq.getUrlParameter(PhyStats.CAN_SEE_CODES[d]);
 				if(firstTime)
-					parm=(((E.baseEnvStats().sensesMask()&(1<<d))>0)?"on":"");
+					parm=(((P.basePhyStats().sensesMask()&(1<<d))>0)?"on":"");
 				if((parm!=null)&&(parm.length()>0))
 					str.append("checked");
 			}
@@ -82,287 +75,355 @@ public class MobData extends StdWebMacro
 		return str.toString();
 	}
 
-	public static StringBuffer abilities(MOB E, ExternalHTTPRequests httpReq, Hashtable parms, int borderSize)
+	public static StringBuffer abilities(MOB E, HTTPRequest httpReq, java.util.Map<String,String> parms, int borderSize)
 	{
-		StringBuffer str=new StringBuffer("");
+		final StringBuffer str=new StringBuffer("");
 		if(parms.containsKey("ABILITIES"))
 		{
-            boolean player=E.playerStats()!=null;
-			Vector theclasses=new Vector();
-            Vector theprofs=new Vector();
-            Vector thetext=new Vector();
-			if(httpReq.isRequestParameter("ABLES1"))
+			final boolean player=E.playerStats()!=null;
+			final ArrayList<String> theclasses=new ArrayList<String>();
+			final ArrayList<String> theprofs=new ArrayList<String>();
+			final ArrayList<String> thetext=new ArrayList<String>();
+			if(httpReq.isUrlParameter("ABLES1"))
 			{
 				int num=1;
-				String behav=httpReq.getRequestParameter("ABLES"+num);
+				String behav=httpReq.getUrlParameter("ABLES"+num);
 				while(behav!=null)
 				{
 					if(behav.length()>0)
-                    {
-						theclasses.addElement(behav);
-                        if(player)
-                        {
-                            String prof=httpReq.getRequestParameter("ABPOF"+num);
-                            if(prof==null) prof="0";
-                            String text=httpReq.getRequestParameter("ABTXT"+num);
-                            if(text==null) text="";
-                            theprofs.addElement(prof);
-                            thetext.addElement(text);
-                        }
-                    }
+					{
+						theclasses.add(behav);
+						if(player)
+						{
+							String prof=httpReq.getUrlParameter("ABPOF"+num);
+							if(prof==null)
+								prof="0";
+							String text=httpReq.getUrlParameter("ABTXT"+num);
+							if(text==null)
+								text="";
+							theprofs.add(prof);
+							thetext.add(text);
+						}
+					}
 					num++;
-					behav=httpReq.getRequestParameter("ABLES"+num);
+					behav=httpReq.getUrlParameter("ABLES"+num);
 				}
 			}
 			else
-			for(int a=0;a<E.numLearnedAbilities();a++)
+			for(int a=0;a<E.numAbilities();a++)
 			{
-				Ability Able=E.fetchAbility(a);
-				if((Able!=null)&&(Able.savable()))
-                {
-					theclasses.addElement(CMClass.classID(Able));
-                    if(player)
-                    {
-                        theprofs.addElement(Able.proficiency()+"");
-                        thetext.addElement(Able.text());
-                    }
-                }
+				final Ability Able=E.fetchAbility(a);
+				if((Able!=null)&&(Able.isSavable()))
+				{
+					theclasses.add(CMClass.classID(Able));
+					if(player)
+					{
+						theprofs.add(Able.proficiency()+"");
+						thetext.add(Able.text());
+					}
+				}
 			}
 			str.append("<TABLE WIDTH=100% BORDER="+borderSize+" CELLSPACING=0 CELLPADDING=0>");
 			for(int i=0;i<theclasses.size();i++)
 			{
-				String theclass=(String)theclasses.elementAt(i);
+				final String theclass=theclasses.get(i);
 				str.append("<TR><TD WIDTH=35%>");
 				str.append("<SELECT ONCHANGE=\"EditAffect(this);\" NAME=ABLES"+(i+1)+">");
 				str.append("<OPTION VALUE=\"\">Delete!");
 				str.append("<OPTION VALUE=\""+theclass+"\" SELECTED>"+theclass);
 				str.append("</SELECT>");
 				str.append("</TD>");
-                if(player)
-                {
-                    str.append("<TD WIDTH=10%>");
-                    str.append("<INPUT TYPE=TEXT NAME=ABPOF"+(i+1)+" VALUE=\""+((String)theprofs.elementAt(i))+"\" SIZE=3 MAXLENGTH=3><FONT COLOR=WHITE><B>%</B></FONT>");
-                    str.append("</TD>");
-                    str.append("<TD WIDTH=50%>");
-                    str.append("<INPUT TYPE=TEXT NAME=ABTXT"+(i+1)+" VALUE=\""+((String)thetext.elementAt(i))+"\" SIZE=40>");
-                    str.append("</TD>");
-                }
-                else
-                    str.append("<TD WIDTH=65% COLSPAN=2><BR></TD>");
-                str.append("</TR>");
+				if(player)
+				{
+					str.append("<TD WIDTH=10%>");
+					str.append("<INPUT TYPE=TEXT NAME=ABPOF"+(i+1)+" VALUE=\""+theprofs.get(i)+"\" SIZE=3 MAXLENGTH=3><FONT COLOR=WHITE><B>%</B></FONT>");
+					str.append("</TD>");
+					str.append("<TD WIDTH=50%>");
+					str.append("<INPUT TYPE=TEXT NAME=ABTXT"+(i+1)+" VALUE=\""+thetext.get(i)+"\" SIZE=40>");
+					str.append("</TD>");
+				}
+				else
+					str.append("<TD WIDTH=65% COLSPAN=2><BR></TD>");
+				str.append("</TR>");
 			}
 			str.append("<TR><TD WIDTH=35%>");
 			str.append("<SELECT ONCHANGE=\"AddAffect(this);\" NAME=ABLES"+(theclasses.size()+1)+">");
 			str.append("<OPTION SELECTED VALUE=\"\">Select an Ability");
-			for(Enumeration a=CMClass.abilities();a.hasMoreElements();)
+			for(final Enumeration<Ability> a=CMClass.abilities();a.hasMoreElements();)
 			{
-				String cnam=((Ability)a.nextElement()).ID();
+				final String cnam=a.nextElement().ID();
 				str.append("<OPTION VALUE=\""+cnam+"\">"+cnam);
 			}
 			str.append("</SELECT>");
 			str.append("</TD>");
-            if(player)
-            {
-                str.append("<TD WIDTH=10%>");
-                str.append("<INPUT TYPE=TEXT NAME=ABPOF"+(theclasses.size()+1)+" VALUE=\"\" SIZE=3 MAXLENGTH=3><FONT COLOR=WHITE><B>%</B></FONT>");
-                str.append("</TD>");
-                str.append("<TD WIDTH=50%>");
-                str.append("<INPUT TYPE=TEXT NAME=ABTXT"+(theclasses.size()+1)+" VALUE=\"\" SIZE=40>");
-                str.append("</TD>");
-            }
-            else
-                str.append("<TD WIDTH=65% COLSPAN=2><BR></TD>");
-            str.append("</TR>");
+			if(player)
+			{
+				str.append("<TD WIDTH=10%>");
+				str.append("<INPUT TYPE=TEXT NAME=ABPOF"+(theclasses.size()+1)+" VALUE=\"\" SIZE=3 MAXLENGTH=3><FONT COLOR=WHITE><B>%</B></FONT>");
+				str.append("</TD>");
+				str.append("<TD WIDTH=50%>");
+				str.append("<INPUT TYPE=TEXT NAME=ABTXT"+(theclasses.size()+1)+" VALUE=\"\" SIZE=40>");
+				str.append("</TD>");
+			}
+			else
+				str.append("<TD WIDTH=65% COLSPAN=2><BR></TD>");
+			str.append("</TR>");
 			str.append("</TABLE>");
 		}
 		return str;
 	}
 
-	public static StringBuffer expertiseList(MOB E, ExternalHTTPRequests httpReq, Hashtable parms)
+	public static StringBuffer expertiseList(MOB E, HTTPRequest httpReq, java.util.Map<String,String> parms)
 	{
-		StringBuffer str=new StringBuffer("");
+		final StringBuffer str=new StringBuffer("");
 		if(parms.containsKey("EXPERTISELIST"))
 		{
-			Vector theclasses=new Vector();
-			if(httpReq.isRequestParameter("EXPER1"))
+			final ArrayList<String> theclasses=new ArrayList<String>();
+			if(httpReq.isUrlParameter("EXPER1"))
 			{
 				int num=1;
-				String behav=httpReq.getRequestParameter("EXPER"+num);
+				String behav=httpReq.getUrlParameter("EXPER"+num);
 				while(behav!=null)
 				{
 					if(behav.length()>0)
-						theclasses.addElement(behav);
+						theclasses.add(behav);
 					num++;
-					behav=httpReq.getRequestParameter("EXPER"+num);
+					behav=httpReq.getUrlParameter("EXPER"+num);
 				}
 			}
 			else
-			for(int e=0;e<E.numExpertises();e++)
+			for(final Enumeration<String> x=E.expertises();x.hasMoreElements();)
 			{
-				ExpertiseLibrary.ExpertiseDefinition X=CMLib.expertises().getDefinition(E.fetchExpertise(e));
-                if(X!=null)
-                    theclasses.addElement(X.ID);
+				final String ID=x.nextElement();
+				final ExpertiseLibrary.ExpertiseDefinition X=CMLib.expertises().getDefinition(ID);
+				if(X!=null)
+					theclasses.add(ID);
 			}
 			for(int i=0;i<theclasses.size();i++)
 			{
-				String theclass=(String)theclasses.elementAt(i);
+				final String theclass=theclasses.get(i);
 				str.append("<SELECT ONCHANGE=\"EditAffect(this);\" NAME=EXPER"+(i+1)+">");
 				str.append("<OPTION VALUE=\"\">Delete!");
-				ExpertiseLibrary.ExpertiseDefinition X=CMLib.expertises().getDefinition(theclass);
+				final ExpertiseLibrary.ExpertiseDefinition X=CMLib.expertises().getDefinition(theclass);
 				if(X==null)
 					str.append("<OPTION VALUE=\""+theclass+"\" SELECTED>"+theclass);
 				else
-					str.append("<OPTION VALUE=\""+X.ID+"\" SELECTED>"+X.name);
+					str.append("<OPTION VALUE=\""+X.ID()+"\" SELECTED>"+X.name());
 				str.append("</SELECT>,&nbsp; ");
 			}
 			str.append("<SELECT ONCHANGE=\"AddAffect(this);\" NAME=EXPER"+(theclasses.size()+1)+">");
 			str.append("<OPTION SELECTED VALUE=\"\">Select an Expertise");
-			for(Enumeration e=CMLib.expertises().definitions();e.hasMoreElements();)
+			for(final Enumeration<ExpertiseLibrary.ExpertiseDefinition> e=CMLib.expertises().definitions();e.hasMoreElements();)
 			{
-				ExpertiseLibrary.ExpertiseDefinition X=(ExpertiseLibrary.ExpertiseDefinition)e.nextElement();
-				str.append("<OPTION VALUE=\""+X.ID+"\">"+X.name);
+				final ExpertiseLibrary.ExpertiseDefinition X=e.nextElement();
+				str.append("<OPTION VALUE=\""+X.ID()+"\">"+X.name());
 			}
 			str.append("</SELECT>");
 		}
 		return str;
 	}
 
-	public static StringBuffer blessings(Deity E, ExternalHTTPRequests httpReq, Hashtable parms, int borderSize)
+	public static StringBuffer clans(MOB E, HTTPRequest httpReq, java.util.Map<String,String> parms, int borderSize)
 	{
-		StringBuffer str=new StringBuffer("");
-		if(parms.containsKey("BLESSINGS"))
+		final StringBuffer str=new StringBuffer("");
+		if(parms.containsKey("CLANS"))
 		{
-			Vector theclasses=new Vector();
-            Vector theclerics=new Vector();
-			if(httpReq.isRequestParameter("BLESS1"))
+			final ArrayList<Pair<Clan,Integer>> theclasses=new ArrayList<Pair<Clan,Integer>>();
+			if(httpReq.isUrlParameter("CLAN1"))
 			{
 				int num=1;
-				String behav=httpReq.getRequestParameter("BLESS"+num);
+				String behav=httpReq.getUrlParameter("CLAN"+num);
 				while(behav!=null)
 				{
-                    boolean clericOnly=(httpReq.isRequestParameter("BLONLY"+num))&&(httpReq.getRequestParameter("BLONLY"+num)).equalsIgnoreCase("on");
+					final int role=CMath.s_int(httpReq.getUrlParameter("CLANROLE"+num));
 					if(behav.length()>0)
-                    {
-						theclasses.addElement(behav);
-                        theclerics.addElement(Boolean.valueOf(clericOnly));
-                    }
+					{
+						final Clan C=CMLib.clans().getClan(behav);
+						if(C!=null)
+							theclasses.add(new Pair<Clan,Integer>(C,Integer.valueOf(role)));
+					}
 					num++;
-					behav=httpReq.getRequestParameter("BLESS"+num);
+					behav=httpReq.getUrlParameter("CLAN"+num);
+				}
+			}
+			else
+			for(final Pair<Clan,Integer> p : E.clans())
+				theclasses.add(p);
+			str.append("<TABLE WIDTH=100% BORDER=\""+borderSize+"\" CELLSPACING=0 CELLPADDING=0>");
+			for(int i=0;i<theclasses.size();i++)
+			{
+				final Pair<Clan,Integer> clanPair=theclasses.get(i);
+				str.append("<TR><TD WIDTH=100%>");
+				str.append("<SELECT ONCHANGE=\"EditAffect(this);\" NAME=CLAN"+(i+1)+">");
+				str.append("<OPTION VALUE=\"\">Delete!");
+				str.append("<OPTION VALUE=\""+clanPair.first.clanID()+"\" SELECTED>"+clanPair.first.getName());
+				str.append("</SELECT>");
+				str.append("<SELECT NAME=CLANROLE"+(i+1)+">");
+				for(int r=0;r<clanPair.first.getRolesList().length;r++)
+				{
+					str.append("<OPTION VALUE="+r+" ");
+					if(r==clanPair.second.intValue())
+						str.append("SELECTED");
+					str.append(">"+clanPair.first.getRolesList()[r]);
+				}
+				str.append("</SELECT>");
+				str.append("</TD></TR>");
+			}
+			str.append("<TR><TD WIDTH=100%>");
+			str.append("<SELECT ONCHANGE=\"AddAffect(this);\" NAME=CLAN"+(theclasses.size()+1)+">");
+			str.append("<OPTION SELECTED VALUE=\"\">Select a clan");
+			for(final Enumeration<Clan> e=CMLib.clans().clans();e.hasMoreElements();)
+			{
+				final Clan C=e.nextElement();
+				str.append("<OPTION VALUE=\""+C.clanID()+"\">"+C.getName());
+			}
+			str.append("</SELECT>");
+			str.append("<SELECT NAME=CLANROLE"+(theclasses.size()+1)+">");
+			str.append("</SELECT>");
+			str.append("</TD></TR>");
+			str.append("</TABLE>");
+		}
+		return str;
+	}
+
+	public static StringBuffer blessings(Deity E, HTTPRequest httpReq, java.util.Map<String,String> parms, int borderSize)
+	{
+		final StringBuffer str=new StringBuffer("");
+		if(parms.containsKey("BLESSINGS"))
+		{
+			final Vector<String> theclasses=new Vector<String>();
+			final Vector<Boolean> theclerics=new Vector<Boolean>();
+			if(httpReq.isUrlParameter("BLESS1"))
+			{
+				int num=1;
+				String behav=httpReq.getUrlParameter("BLESS"+num);
+				while(behav!=null)
+				{
+					final boolean clericOnly=(httpReq.isUrlParameter("BLONLY"+num))&&(httpReq.getUrlParameter("BLONLY"+num)).equalsIgnoreCase("on");
+					if(behav.length()>0)
+					{
+						theclasses.addElement(behav);
+						theclerics.addElement(Boolean.valueOf(clericOnly));
+					}
+					num++;
+					behav=httpReq.getUrlParameter("BLESS"+num);
 				}
 			}
 			else
 			for(int a=0;a<E.numBlessings();a++)
 			{
-				Ability Able=E.fetchBlessing(a);
+				final Ability Able=E.fetchBlessing(a);
 				if(Able!=null)
-                {
+				{
 					theclasses.addElement(CMClass.classID(Able));
-                    theclerics.addElement(Boolean.valueOf(E.fetchBlessingCleric(a)));
-                }
+					theclerics.addElement(Boolean.valueOf(E.fetchBlessingCleric(a)));
+				}
 			}
 			str.append("<TABLE WIDTH=100% BORDER=\""+borderSize+"\" CELLSPACING=0 CELLPADDING=0>");
 			for(int i=0;i<theclasses.size();i++)
 			{
-				String theclass=(String)theclasses.elementAt(i);
-                boolean clericOnly=((Boolean)theclerics.elementAt(i)).booleanValue();
+				final String theclass=theclasses.elementAt(i);
+				final boolean clericOnly=theclerics.elementAt(i).booleanValue();
 				str.append("<TR><TD WIDTH=100%>");
 				str.append("<SELECT ONCHANGE=\"EditAffect(this);\" NAME=BLESS"+(i+1)+">");
 				str.append("<OPTION VALUE=\"\">Delete!");
 				str.append("<OPTION VALUE=\""+theclass+"\" SELECTED>"+theclass);
 				str.append("</SELECT>");
-                str.append("<INPUT TYPE=CHECKBOX NAME=BLONLY"+(i+1)+" "+((clericOnly)?"CHECKED":"")+"><FONT COLOR=WHITE SIZE=-2>Clerics only</FONT>");
+				str.append("<INPUT TYPE=CHECKBOX NAME=BLONLY"+(i+1)+" "+((clericOnly)?"CHECKED":"")+"><FONT COLOR=WHITE SIZE=-2>Clerics only</FONT>");
 				str.append("</TD></TR>");
 			}
 			str.append("<TR><TD WIDTH=100%>");
 			str.append("<SELECT ONCHANGE=\"AddAffect(this);\" NAME=BLESS"+(theclasses.size()+1)+">");
 			str.append("<OPTION SELECTED VALUE=\"\">Select a Blessing");
-			for(Enumeration a=CMClass.abilities();a.hasMoreElements();)
+			for(final Enumeration<Ability> a=CMClass.abilities();a.hasMoreElements();)
 			{
-				String cnam=((Ability)a.nextElement()).ID();
+				final String cnam=a.nextElement().ID();
 				str.append("<OPTION VALUE=\""+cnam+"\">"+cnam);
 			}
 			str.append("</SELECT>");
-            str.append("<INPUT TYPE=CHECKBOX NAME=BLONLY"+(theclasses.size()+1)+"><FONT COLOR=WHITE SIZE=-2>Clerics only</FONT>");
-			str.append("</TD></TR>");
-			str.append("</TABLE>");
-		}
-		return str;
-	}
-	public static StringBuffer curses(Deity E, ExternalHTTPRequests httpReq, Hashtable parms, int borderSize)
-	{
-		StringBuffer str=new StringBuffer("");
-		if(parms.containsKey("CURSES"))
-		{
-			Vector theclasses=new Vector();
-            Vector theclerics=new Vector();
-			if(httpReq.isRequestParameter("CURSE1"))
-			{
-				int num=1;
-				String behav=httpReq.getRequestParameter("CURSE"+num);
-				while(behav!=null)
-				{
-                    boolean clericOnly=(httpReq.isRequestParameter("BLONLY"+num))&&(httpReq.getRequestParameter("BLONLY"+num)).equalsIgnoreCase("on");
-					if(behav.length()>0)
-                    {
-						theclasses.addElement(behav);
-                        theclerics.addElement(Boolean.valueOf(clericOnly));
-                    }
-					num++;
-					behav=httpReq.getRequestParameter("CURSE"+num);
-				}
-			}
-			else
-			for(int a=0;a<E.numCurses();a++)
-			{
-				Ability Able=E.fetchCurse(a);
-				if(Able!=null)
-                {
-					theclasses.addElement(CMClass.classID(Able));
-                    theclerics.addElement(Boolean.valueOf(E.fetchCurseCleric(a)));
-                }
-			}
-			str.append("<TABLE WIDTH=100% BORDER=\""+borderSize+"\" CELLSPACING=0 CELLPADDING=0>");
-			for(int i=0;i<theclasses.size();i++)
-			{
-				String theclass=(String)theclasses.elementAt(i);
-                boolean clericOnly=((Boolean)theclerics.elementAt(i)).booleanValue();
-				str.append("<TR><TD WIDTH=100%>");
-				str.append("<SELECT ONCHANGE=\"EditAffect(this);\" NAME=CURSE"+(i+1)+">");
-				str.append("<OPTION VALUE=\"\">Delete!");
-				str.append("<OPTION VALUE=\""+theclass+"\" SELECTED>"+theclass);
-				str.append("</SELECT>");
-                str.append("<INPUT TYPE=CHECKBOX NAME=CUONLY"+(i+1)+" "+((clericOnly)?"CHECKED":"")+"><FONT COLOR=WHITE SIZE=-2>Clerics only</FONT>");
-				str.append("</TD></TR>");
-			}
-			str.append("<TR><TD WIDTH=100%>");
-			str.append("<SELECT ONCHANGE=\"AddAffect(this);\" NAME=CURSE"+(theclasses.size()+1)+">");
-			str.append("<OPTION SELECTED VALUE=\"\">Select a Curse");
-			for(Enumeration a=CMClass.abilities();a.hasMoreElements();)
-			{
-				String cnam=((Ability)a.nextElement()).ID();
-				str.append("<OPTION VALUE=\""+cnam+"\">"+cnam);
-			}
-			str.append("</SELECT>");
-            str.append("<INPUT TYPE=CHECKBOX NAME=CUONLY"+(theclasses.size()+1)+"><FONT COLOR=WHITE SIZE=-2>Clerics only</FONT>");
+			str.append("<INPUT TYPE=CHECKBOX NAME=BLONLY"+(theclasses.size()+1)+"><FONT COLOR=WHITE SIZE=-2>Clerics only</FONT>");
 			str.append("</TD></TR>");
 			str.append("</TABLE>");
 		}
 		return str;
 	}
 
-	public static StringBuffer factions(MOB E, ExternalHTTPRequests httpReq, Hashtable parms, int borderSize)
+	public static StringBuffer curses(Deity E, HTTPRequest httpReq, java.util.Map<String,String> parms, int borderSize)
 	{
-		StringBuffer str=new StringBuffer("");
-		if(parms.containsKey("FACTIONS"))
+		final StringBuffer str=new StringBuffer("");
+		if(parms.containsKey("CURSES"))
 		{
-			Vector theclasses=new Vector();
-			Vector theparms=new Vector();
-			if(httpReq.isRequestParameter("FACTION1"))
+			final Vector<String> theclasses=new Vector<String>();
+			final Vector<Boolean> theclerics=new Vector<Boolean>();
+			if(httpReq.isUrlParameter("CURSE1"))
 			{
 				int num=1;
-				String facti=httpReq.getRequestParameter("FACTION"+num);
-				String theparm=httpReq.getRequestParameter("FACTDATA"+num);
-				if(theparm==null) theparm="";
+				String behav=httpReq.getUrlParameter("CURSE"+num);
+				while(behav!=null)
+				{
+					final boolean clericOnly=(httpReq.isUrlParameter("BLONLY"+num))&&(httpReq.getUrlParameter("BLONLY"+num)).equalsIgnoreCase("on");
+					if(behav.length()>0)
+					{
+						theclasses.addElement(behav);
+						theclerics.addElement(Boolean.valueOf(clericOnly));
+					}
+					num++;
+					behav=httpReq.getUrlParameter("CURSE"+num);
+				}
+			}
+			else
+			for(int a=0;a<E.numCurses();a++)
+			{
+				final Ability Able=E.fetchCurse(a);
+				if(Able!=null)
+				{
+					theclasses.addElement(CMClass.classID(Able));
+					theclerics.addElement(Boolean.valueOf(E.fetchCurseCleric(a)));
+				}
+			}
+			str.append("<TABLE WIDTH=100% BORDER=\""+borderSize+"\" CELLSPACING=0 CELLPADDING=0>");
+			for(int i=0;i<theclasses.size();i++)
+			{
+				final String theclass=theclasses.elementAt(i);
+				final boolean clericOnly=theclerics.elementAt(i).booleanValue();
+				str.append("<TR><TD WIDTH=100%>");
+				str.append("<SELECT ONCHANGE=\"EditAffect(this);\" NAME=CURSE"+(i+1)+">");
+				str.append("<OPTION VALUE=\"\">Delete!");
+				str.append("<OPTION VALUE=\""+theclass+"\" SELECTED>"+theclass);
+				str.append("</SELECT>");
+				str.append("<INPUT TYPE=CHECKBOX NAME=CUONLY"+(i+1)+" "+((clericOnly)?"CHECKED":"")+"><FONT COLOR=WHITE SIZE=-2>Clerics only</FONT>");
+				str.append("</TD></TR>");
+			}
+			str.append("<TR><TD WIDTH=100%>");
+			str.append("<SELECT ONCHANGE=\"AddAffect(this);\" NAME=CURSE"+(theclasses.size()+1)+">");
+			str.append("<OPTION SELECTED VALUE=\"\">Select a Curse");
+			for(final Enumeration<Ability> a=CMClass.abilities();a.hasMoreElements();)
+			{
+				final String cnam=a.nextElement().ID();
+				str.append("<OPTION VALUE=\""+cnam+"\">"+cnam);
+			}
+			str.append("</SELECT>");
+			str.append("<INPUT TYPE=CHECKBOX NAME=CUONLY"+(theclasses.size()+1)+"><FONT COLOR=WHITE SIZE=-2>Clerics only</FONT>");
+			str.append("</TD></TR>");
+			str.append("</TABLE>");
+		}
+		return str;
+	}
+
+	public static StringBuffer factions(MOB E, HTTPRequest httpReq, java.util.Map<String,String> parms, int borderSize)
+	{
+		final StringBuffer str=new StringBuffer("");
+		if(parms.containsKey("FACTIONS"))
+		{
+			final Vector<String> theclasses=new Vector<String>();
+			final Vector<String> theparms=new Vector<String>();
+			if(httpReq.isUrlParameter("FACTION1"))
+			{
+				int num=1;
+				String facti=httpReq.getUrlParameter("FACTION"+num);
+				String theparm=httpReq.getUrlParameter("FACTDATA"+num);
+				if(theparm==null)
+					theparm="";
 				while((facti!=null)&&(theparm!=null))
 				{
 					if(facti.length()>0)
@@ -373,27 +434,41 @@ public class MobData extends StdWebMacro
 						theparms.addElement(t);
 					}
 					num++;
-					facti=httpReq.getRequestParameter("FACTION"+num);
-					theparm=httpReq.getRequestParameter("FACTDATA"+num);
+					facti=httpReq.getUrlParameter("FACTION"+num);
+					theparm=httpReq.getUrlParameter("FACTDATA"+num);
 				}
 			}
 			else
-			for(Enumeration e=E.fetchFactions();e.hasMoreElements();)
 			{
-				Faction f=CMLib.factions().getFaction((String)e.nextElement());
-				if(f!=null)
+				for(Enumeration<Faction> f=CMLib.factions().factions();f.hasMoreElements();)
 				{
-					theclasses.addElement(f.factionID());
-					theparms.addElement(Integer.toString(E.fetchFaction(f.factionID())));
+					final Faction F=f.nextElement();
+					if(F.showInEditor() && (!E.hasFaction(F.factionID())))
+					{
+						int autoDefault = F.findAutoDefault(E);
+						if(autoDefault != Integer.MAX_VALUE)
+							E.addFaction(F.factionID(), autoDefault);
+					}
+				}
+				// the auto factions!
+				for(final Enumeration<String> e=E.factions();e.hasMoreElements();)
+				{
+					final Faction f=CMLib.factions().getFaction(e.nextElement());
+					if(f!=null)
+					{
+						theclasses.addElement(f.factionID());
+						theparms.addElement(Integer.toString(E.fetchFaction(f.factionID())));
+					}
 				}
 			}
 			str.append("<TABLE WIDTH=100% BORDER=\""+borderSize+"\" CELLSPACING=0 CELLPADDING=0>");
 			for(int i=0;i<theclasses.size();i++)
 			{
-				String theclass=(String)theclasses.elementAt(i);
-				Faction F=CMLib.factions().getFaction(theclass);
-				if(F==null) continue;
-				String theparm=(String)theparms.elementAt(i);
+				final String theclass=theclasses.elementAt(i);
+				final Faction F=CMLib.factions().getFaction(theclass);
+				if(F==null)
+					continue;
+				String theparm=theparms.elementAt(i);
 				str.append("<TR><TD WIDTH=50%>");
 				str.append("<SELECT ONCHANGE=\"EditFaction(this);\" NAME=FACTION"+(i+1)+">");
 				str.append("<OPTION VALUE=\"\">Delete!");
@@ -401,20 +476,35 @@ public class MobData extends StdWebMacro
 				str.append("</SELECT>");
 				str.append("</TD><TD WIDTH=50%>");
 				str.append("<SELECT NAME=FACTDATA"+(i+1)+">");
-				if(theparm.length()==0) theparm=""+F.findDefault(E);
-				Faction.FactionRange FR=CMLib.factions().getRange(F.factionID(),CMath.s_int(theparm));
+				if(theparm.length()==0)
+					theparm=""+F.findDefault(E);
+				final Faction.FRange FR=CMLib.factions().getRange(F.factionID(),CMath.s_int(theparm));
 				if(FR==null)
 					str.append("<OPTION VALUE=\""+CMath.s_int(theparm)+"\">"+CMath.s_int(theparm));
-                for(Enumeration e=F.ranges();e.hasMoreElements();)
-                {
-                    Faction.FactionRange FR2=(Faction.FactionRange)e.nextElement();
-				    int value=FR2.low()+(FR2.high()-FR2.low());
-				    if(FR2.low()==F.minimum()) value=FR2.low();
-				    if(FR2.high()==F.maximum()) value=FR2.high();
-				    if(FR2==FR) value=CMath.s_int(theparm);
+				List<Faction.FRange> sortedRanges = new XVector<Faction.FRange>(F.ranges());
+				Collections.sort(sortedRanges, new Comparator<Faction.FRange>()
+				{
+					@Override
+					public int compare(FRange o1, FRange o2)
+					{
+						return Integer.valueOf((o1.low()+o1.high())/2).compareTo(Integer.valueOf((o2.low()+o2.high())/2));
+					}
+				});
+				
+				for(final Iterator<Faction.FRange> e=sortedRanges.iterator();e.hasNext();)
+				{
+					final Faction.FRange FR2=e.next();
+					int value=(FR2.high()+FR2.low())/2;
+					if(FR2.low()==F.minimum())
+						value=FR2.low();
+					if(FR2.high()==F.maximum())
+						value=FR2.high();
+					if(FR2==FR)
+						value=CMath.s_int(theparm);
 					str.append("<OPTION VALUE=\""+value+"\"");
-					if(FR2==FR) str.append(" SELECTED");
-					str.append(">"+FR2.name());
+					if(FR2==FR)
+						str.append(" SELECTED");
+					str.append(">"+FR2.name()+" ("+FR2.low()+" to "+FR2.high()+")");
 				}
 				str.append("</SELECT>");
 				str.append("</TD></TR>");
@@ -424,18 +514,18 @@ public class MobData extends StdWebMacro
 			str.append("<OPTION SELECTED VALUE=\"\">Select a Faction");
 
 			Object[] sortedB=null;
-			Vector sortMeB=new Vector();
-			for(Enumeration<Faction> fID=CMLib.factions().factions();fID.hasMoreElements();)
+			final Vector<String> sortMeB=new Vector<String>();
+			for(final Enumeration<Faction> fID=CMLib.factions().factions();fID.hasMoreElements();)
 			{
-				Faction F=fID.nextElement();
+				final Faction F=fID.nextElement();
 				if((F!=null)&&(!theclasses.contains(F.factionID())))
 					sortMeB.addElement(F.factionID());
 			}
-			sortedB=(new TreeSet(sortMeB)).toArray();
-			for(int r=0;r<sortedB.length;r++)
+			sortedB=(new TreeSet<String>(sortMeB)).toArray();
+			for (final Object element : sortedB)
 			{
-				String cnam=(String)sortedB[r];
-				Faction F=CMLib.factions().getFaction(cnam);
+				final String cnam=(String)element;
+				final Faction F=CMLib.factions().getFaction(cnam);
 				if(F!=null)
 					str.append("<OPTION VALUE=\""+cnam+"\">"+F.name());
 			}
@@ -447,21 +537,22 @@ public class MobData extends StdWebMacro
 		return str;
 	}
 
-	public static StringBuffer classList(MOB E, ExternalHTTPRequests httpReq, Hashtable parms)
+	public static StringBuffer classList(MOB E, HTTPRequest httpReq, java.util.Map<String,String> parms)
 	{
-		StringBuffer str=new StringBuffer("");
+		final StringBuffer str=new StringBuffer("");
 		if(parms.containsKey("CLASSLIST"))
 		{
-			Vector theclasses=new Vector();
-			Vector theparms=new Vector();
-			if(httpReq.isRequestParameter("CHARCLASS1"))
+			final Vector<String> theclasses=new Vector<String>();
+			final Vector<String> theparms=new Vector<String>();
+			if(httpReq.isUrlParameter("CHARCLASS1"))
 			{
 				int num=1;
-				String facti=httpReq.getRequestParameter("CHARCLASS"+num);
-				String theparm=httpReq.getRequestParameter("CHARCLASSLVL"+num);
+				String facti=httpReq.getUrlParameter("CHARCLASS"+num);
+				String theparm=httpReq.getUrlParameter("CHARCLASSLVL"+num);
 				while(facti!=null)
 				{
-					if(theparm==null) theparm="0";
+					if(theparm==null)
+						theparm="0";
 					if(facti.length()>0)
 					{
 						theclasses.addElement(facti);
@@ -470,40 +561,41 @@ public class MobData extends StdWebMacro
 						theparms.addElement(t);
 					}
 					num++;
-					facti=httpReq.getRequestParameter("CHARCLASS"+num);
-					theparm=httpReq.getRequestParameter("CHARCLASSLVL"+num);
+					facti=httpReq.getUrlParameter("CHARCLASS"+num);
+					theparm=httpReq.getUrlParameter("CHARCLASSLVL"+num);
 				}
 			}
 			else
 			{
-			    CharStats baseStats = E.baseCharStats();
-			    if(baseStats!=null)
-			    for(int c=0;c<baseStats.numClasses();c++)
-			    {
-			        CharClass C=baseStats.getMyClass(c);
-			        if(C!=null)
-			        {
-                        int lvl=baseStats.getClassLevel(C);
-                        if(lvl>=0)
-                        {
-                            theclasses.addElement(C.ID());
-                            theparms.addElement(Integer.toString(lvl));
-                        }
-			        }
-			    }
+				final CharStats baseStats = E.baseCharStats();
+				if(baseStats!=null)
+				for(int c=0;c<baseStats.numClasses();c++)
+				{
+					final CharClass C=baseStats.getMyClass(c);
+					if(C!=null)
+					{
+						final int lvl=baseStats.getClassLevel(C);
+						if(lvl>=0)
+						{
+							theclasses.addElement(C.ID());
+							theparms.addElement(Integer.toString(lvl));
+						}
+					}
+				}
 			}
 			str.append("<TABLE WIDTH=100% BORDER=0 CELLSPACING=0 CELLPADDING=0>");
 			for(int i=0;i<theclasses.size();i++)
 			{
-				String theclass=(String)theclasses.elementAt(i);
-				CharClass C=CMClass.getCharClass(theclass);
-				if(C==null) continue;
-				String theparm=(String)theparms.elementAt(i);
+				final String theclass=theclasses.elementAt(i);
+				final CharClass C=CMClass.getCharClass(theclass);
+				if(C==null)
+					continue;
+				final String theparm=theparms.elementAt(i);
 				str.append("<TR><TD WIDTH=50%>");
 				str.append("<SELECT ONCHANGE=\"EditFaction(this);\" NAME=CHARCLASS"+(i+1)+">");
 				str.append("<OPTION VALUE=\"\">Delete!");
 				str.append("<OPTION VALUE=\""+theclass+"\" SELECTED>"+C.name()
-				                +((i==theclasses.size()-1)?" (Current)":""));
+								+((i==theclasses.size()-1)?" (Current)":""));
 				str.append("</SELECT>");
 				str.append("</TD><TD WIDTH=50%>");
 				str.append("<INPUT TYPE=TEXT SIZE=3 MAXLENGTH=3 NAME=CHARCLASSLVL"+(i+1)+" VALUE=\""+theparm+"\">");
@@ -513,9 +605,9 @@ public class MobData extends StdWebMacro
 			str.append("<SELECT ONCHANGE=\"AddFaction(this);\" NAME=CHARCLASS"+(theclasses.size()+1)+">");
 			str.append("<OPTION SELECTED VALUE=\"\">Select a Class");
 
-			for(Enumeration c=CMClass.charClasses();c.hasMoreElements();)
+			for(final Enumeration<CharClass> c=CMClass.charClasses();c.hasMoreElements();)
 			{
-				CharClass C=(CharClass)c.nextElement();
+				final CharClass C=c.nextElement();
 				str.append("<OPTION VALUE=\""+C.ID()+"\">"+C.name());
 			}
 			str.append("</SELECT>");
@@ -526,35 +618,35 @@ public class MobData extends StdWebMacro
 		return str;
 	}
 
-	public static StringBuffer powers(Deity E, ExternalHTTPRequests httpReq, Hashtable parms, int borderSize)
+	public static StringBuffer powers(Deity E, HTTPRequest httpReq, java.util.Map<String,String> parms, int borderSize)
 	{
-		StringBuffer str=new StringBuffer("");
+		final StringBuffer str=new StringBuffer("");
 		if(parms.containsKey("POWERS"))
 		{
-			Vector theclasses=new Vector();
-			if(httpReq.isRequestParameter("POWER1"))
+			final Vector<String> theclasses=new Vector<String>();
+			if(httpReq.isUrlParameter("POWER1"))
 			{
 				int num=1;
-				String behav=httpReq.getRequestParameter("POWER"+num);
+				String behav=httpReq.getUrlParameter("POWER"+num);
 				while(behav!=null)
 				{
 					if(behav.length()>0)
 						theclasses.addElement(behav);
 					num++;
-					behav=httpReq.getRequestParameter("POWER"+num);
+					behav=httpReq.getUrlParameter("POWER"+num);
 				}
 			}
 			else
 			for(int a=0;a<E.numPowers();a++)
 			{
-				Ability Able=E.fetchPower(a);
+				final Ability Able=E.fetchPower(a);
 				if(Able!=null)
 					theclasses.addElement(CMClass.classID(Able));
 			}
 			str.append("<TABLE WIDTH=100% BORDER=\""+borderSize+"\" CELLSPACING=0 CELLPADDING=0>");
 			for(int i=0;i<theclasses.size();i++)
 			{
-				String theclass=(String)theclasses.elementAt(i);
+				final String theclass=theclasses.elementAt(i);
 				str.append("<TR><TD WIDTH=100%>");
 				str.append("<SELECT ONCHANGE=\"EditAffect(this);\" NAME=POWER"+(i+1)+">");
 				str.append("<OPTION VALUE=\"\">Delete!");
@@ -565,9 +657,9 @@ public class MobData extends StdWebMacro
 			str.append("<TR><TD WIDTH=100%>");
 			str.append("<SELECT ONCHANGE=\"AddAffect(this);\" NAME=POWER"+(theclasses.size()+1)+">");
 			str.append("<OPTION SELECTED VALUE=\"\">Select a Granted Power");
-			for(Enumeration a=CMClass.abilities();a.hasMoreElements();)
+			for(final Enumeration<Ability> a=CMClass.abilities();a.hasMoreElements();)
 			{
-				String cnam=((Ability)a.nextElement()).ID();
+				final String cnam=a.nextElement().ID();
 				str.append("<OPTION VALUE=\""+cnam+"\">"+cnam);
 			}
 			str.append("</SELECT>");
@@ -577,161 +669,175 @@ public class MobData extends StdWebMacro
 		return str;
 	}
 
-    public static StringBuffer priceFactors(Economics E, ExternalHTTPRequests httpReq, Hashtable parms, int borderSize)
-    {
-        StringBuffer str=new StringBuffer("");
-        if(parms.containsKey("PRICEFACTORS"))
-        {
-            Vector theprices=new Vector();
-            Vector themasks=new Vector();
-            int num=1;
-            if(!httpReq.isRequestParameter("IPRIC"+num))
-            {
-                String[] prics=E.itemPricingAdjustments();
-                for(int p=0;p<prics.length;p++)
-                {
-                    int x=prics[p].indexOf(' ');
-                    if(x<0)
-                    {
-                        theprices.addElement(prics[p]);
-                        themasks.addElement("");
-                    }
-                    else
-                    {
-                        theprices.addElement(prics[p].substring(0,x));
-                        themasks.addElement(prics[p].substring(x+1));
-                    }
-                }
-            }
-            else
-            while(httpReq.isRequestParameter("IPRIC"+num))
-            {
-                String PRICE=httpReq.getRequestParameter("IPRIC"+num);
-                String MASK=httpReq.getRequestParameter("IPRICM"+num);
-                if((PRICE!=null)&&(PRICE.length()>0)&&(CMath.isNumber(PRICE)))
-                {
-                    theprices.addElement(PRICE);
-                    if(MASK!=null)
-                        themasks.addElement(MASK);
-                    else
-                        themasks.addElement("");
-                }
-                num++;
-            }
-            str.append("<TABLE WIDTH=100% BORDER=\""+borderSize+"\" CELLSPACING=0 CELLPADDING=0>");
-            str.append("<TR><TD WIDTH=20%>Price Factor</TD><TD>Item type Mask</TD></TR>");
-            for(int i=0;i<theprices.size();i++)
-            {
-                String PRICE=(String)theprices.elementAt(i);
-                String MASK=(String)themasks.elementAt(i);
-                str.append("<TR><TD>");
-                str.append("<INPUT TYPE=TEXT SIZE=5 NAME=IPRIC"+(i+1)+" VALUE=\""+PRICE+"\">");
-                str.append("</TD><TD>");
-                str.append("<INPUT TYPE=TEXT SIZE=50 NAME=IPRICM"+(i+1)+" VALUE=\""+MASK+"\">");
-                str.append("</TD>");
-                str.append("</TR>");
-            }
-            str.append("<TR><TD>");
-            str.append("<INPUT TYPE=TEXT SIZE=5 NAME=IPRIC"+(theprices.size()+1)+">");
-            str.append("</TD><TD>");
-            str.append("<INPUT TYPE=TEXT SIZE=50 NAME=IPRICM"+(theprices.size()+1)+">");
-            str.append("</TD></TR>");
-            str.append("</TABLE>");
-
-        }
-        return str;
-    }
-
-	public static StringBuffer shopkeeper(ShopKeeper E, ExternalHTTPRequests httpReq, Hashtable parms, int borderSize)
+	public static StringBuffer priceFactors(Economics E, HTTPRequest httpReq, java.util.Map<String,String> parms, int borderSize)
 	{
-        StringBuffer str=new StringBuffer("");
-        str.append(priceFactors(E,httpReq,parms,borderSize));
+		final StringBuffer str=new StringBuffer("");
+		if(parms.containsKey("PRICEFACTORS"))
+		{
+			final ArrayList<String> theprices=new ArrayList<String>();
+			final ArrayList<String> themasks=new ArrayList<String>();
+			int num=1;
+			if(!httpReq.isUrlParameter("IPRIC"+num))
+			{
+				final String[] prics=E.itemPricingAdjustments();
+				for (final String pric : prics)
+				{
+					final int x=pric.indexOf(' ');
+					if(x<0)
+					{
+						theprices.add(pric);
+						themasks.add("");
+					}
+					else
+					{
+						theprices.add(pric.substring(0,x));
+						themasks.add(pric.substring(x+1));
+					}
+				}
+			}
+			else
+			while(httpReq.isUrlParameter("IPRIC"+num))
+			{
+				final String PRICE=httpReq.getUrlParameter("IPRIC"+num);
+				final String MASK=httpReq.getUrlParameter("IPRICM"+num);
+				if((PRICE!=null)&&(PRICE.length()>0)&&(CMath.isNumber(PRICE)))
+				{
+					theprices.add(PRICE);
+					if(MASK!=null)
+						themasks.add(MASK);
+					else
+						themasks.add("");
+				}
+				num++;
+			}
+			str.append("<TABLE WIDTH=100% BORDER=\""+borderSize+"\" CELLSPACING=0 CELLPADDING=0>");
+			str.append("<TR><TD WIDTH=20%>Price Factor</TD><TD>Item type Mask</TD></TR>");
+			for(int i=0;i<theprices.size();i++)
+			{
+				final String PRICE=theprices.get(i);
+				final String MASK=themasks.get(i);
+				str.append("<TR><TD>");
+				str.append("<INPUT TYPE=TEXT SIZE=5 NAME=IPRIC"+(i+1)+" VALUE=\""+PRICE+"\">");
+				str.append("</TD><TD>");
+				str.append("<INPUT TYPE=TEXT SIZE=50 NAME=IPRICM"+(i+1)+" VALUE=\""+MASK+"\">");
+				str.append("</TD>");
+				str.append("</TR>");
+			}
+			str.append("<TR><TD>");
+			str.append("<INPUT TYPE=TEXT SIZE=5 NAME=IPRIC"+(theprices.size()+1)+">");
+			str.append("</TD><TD>");
+			str.append("<INPUT TYPE=TEXT SIZE=50 NAME=IPRICM"+(theprices.size()+1)+">");
+			str.append("</TD></TR>");
+			str.append("</TABLE>");
+
+		}
+		return str;
+	}
+
+	public static StringBuffer shopkeeper(Room R, ShopKeeper E, HTTPRequest httpReq, java.util.Map<String,String> parms, int borderSize)
+	{
+		final int theme = (R!=null) ? R.getArea().getTheme() : CMProps.getIntVar(CMProps.Int.MUDTHEME);
+		final StringBuffer str=new StringBuffer("");
+		str.append(priceFactors(E,httpReq,parms,borderSize));
 		if(parms.containsKey("SHOPINVENTORY"))
 		{
-			Vector theclasses=new Vector();
-			Vector theparms=new Vector();
-			Vector theprices=new Vector();
-			if(httpReq.isRequestParameter("SHP1"))
+			final ArrayList<Environmental> theclasses=new ArrayList<Environmental>();
+			final ArrayList<String> theparms=new ArrayList<String>();
+			final ArrayList<String> theprices=new ArrayList<String>();
+			if(httpReq.isUrlParameter("SHP1"))
 			{
 				int num=1;
-				String MATCHING=httpReq.getRequestParameter("SHP"+num);
-				String theparm=httpReq.getRequestParameter("SDATA"+num);
-				String theprice=httpReq.getRequestParameter("SPRIC"+num);
-				Vector inventory=E.getShop().getStoreInventory();
+				String MATCHING=httpReq.getUrlParameter("SHP"+num);
+				String theparm=httpReq.getUrlParameter("SDATA"+num);
+				String theprice=httpReq.getUrlParameter("SPRIC"+num);
+				final XVector<Environmental> inventory=new XVector<Environmental>(E.getShop().getStoreInventory());
 				while((MATCHING!=null)&&(theparm!=null))
 				{
 					if(CMath.isNumber(MATCHING))
 					{
-						Environmental O=(Environmental)inventory.elementAt(CMath.s_int(MATCHING)-1);
+						final Environmental O=inventory.elementAt(CMath.s_int(MATCHING)-1);
 						if(O!=null)
-							theclasses.addElement(O);
+							theclasses.add(O);
 					}
 					else
-			        if(MATCHING.startsWith("CATALOG-"))
-			        {
-			            Environmental O=RoomData.getMOBFromCatalog(MATCHING);
-			            if(O==null) O=RoomData.getItemFromAnywhere(null,MATCHING);
-                        if(O!=null)
-                            theclasses.addElement(O);
-			        }
-			        else
-					if(MATCHING.indexOf("@")>0)
+					if(MATCHING.startsWith("CATALOG-"))
+					{
+						Environmental O=RoomData.getMOBFromCatalog(MATCHING);
+						if(O==null)
+							O=RoomData.getItemFromAnywhere(null,MATCHING);
+						if(O!=null)
+							theclasses.add(O);
+					}
+					else
+					if(MATCHING.indexOf('@')>0)
 					{
 						Environmental O=null;
-						for(int m=0;m<RoomData.mobs.size();m++)
+						for (final MOB M2 : RoomData.getMOBCache())
 						{
-							MOB M2=(MOB)RoomData.mobs.elementAt(m);
 							if(MATCHING.equals(""+M2))
-							{	O=M2;	break;	}
+							{
+								O = M2;
+								break;
+							}
 						}
 						if(O==null)
 							O=RoomData.getItemFromAnywhere(null,MATCHING);
 						if(O!=null)
-							theclasses.addElement(O);
+							theclasses.add(O);
 					}
 					else
 					{
 						Environmental O=null;
-						for(Enumeration m=CMClass.mobTypes();m.hasMoreElements();)
+						for(final Enumeration<MOB> m=CMClass.mobTypes();m.hasMoreElements();)
 						{
-							MOB M2=(MOB)m.nextElement();
+							final MOB M2=m.nextElement();
 							if(CMClass.classID(M2).equals(MATCHING)&&(!M2.isGeneric()))
-							{	O=(MOB)M2.copyOf(); break;	}
+							{
+								O = (MOB) M2.copyOf();
+								break;
+							}
 						}
 						if(O==null)
-						for(Enumeration a=CMClass.abilities();a.hasMoreElements();)
 						{
-							Ability A2=(Ability)a.nextElement();
-							if(CMClass.classID(A2).equals(MATCHING))
-							{	O=(Ability)A2.copyOf(); break;	}
+							for(final Enumeration<Ability> a=CMClass.abilities();a.hasMoreElements();)
+							{
+								final Ability A2=a.nextElement();
+								if(CMClass.classID(A2).equals(MATCHING))
+								{
+									O = (Ability) A2.copyOf();
+									break;
+								}
+							}
 						}
 						if(O==null)
 							O=RoomData.getItemFromAnywhere(null,MATCHING);
 						if(O!=null)
-							theclasses.addElement(O);
+							theclasses.add(O);
 					}
-					theparms.addElement(theparm);
-					theprices.addElement(theprice);
+					theparms.add(theparm);
+					theprices.add(theprice);
 					num++;
-					MATCHING=httpReq.getRequestParameter("SHP"+num);
-					theparm=httpReq.getRequestParameter("SDATA"+num);
-					theprice=httpReq.getRequestParameter("SPRIC"+num);
+					MATCHING=httpReq.getUrlParameter("SHP"+num);
+					theparm=httpReq.getUrlParameter("SDATA"+num);
+					theprice=httpReq.getUrlParameter("SPRIC"+num);
 				}
 			}
 			else
 			{
-				Vector V=E.getShop().getStoreInventory();
-				Vector itemClasses=new Vector();
-				Vector mobClasses=new Vector();
-				for(int b=0;b<V.size();b++)
+				final ArrayList<Item> itemClasses=new ArrayList<Item>();
+				final ArrayList<MOB> mobClasses=new ArrayList<MOB>();
+				for(final Iterator<Environmental> i=E.getShop().getStoreInventory();i.hasNext();)
 				{
-					Environmental O=(Environmental)V.elementAt(b);
-					if(O instanceof Item) itemClasses.addElement(O);
-					if(O instanceof MOB) mobClasses.addElement(O);
-                    if(O!=null) CMLib.catalog().updateCatalogIntegrity(O);
-					theclasses.addElement(O);
-					theparms.addElement(""+E.getShop().numberInStock(O));
-					theprices.addElement(""+E.getShop().stockPrice(O));
+					final Environmental O=i.next();
+					if(O instanceof Item)
+						itemClasses.add((Item)O);
+					if(O instanceof MOB)
+						mobClasses.add((MOB)O);
+					if(O instanceof Physical)
+						CMLib.catalog().updateCatalogIntegrity((Physical)O);
+					theclasses.add(O);
+					theparms.add(""+E.getShop().numberInStock(O));
+					theprices.add(""+E.getShop().stockPrice(O));
 				}
 				RoomData.contributeItems(itemClasses);
 				RoomData.contributeMOBs(mobClasses);
@@ -739,194 +845,213 @@ public class MobData extends StdWebMacro
 			str.append("<TABLE WIDTH=100% BORDER=\""+borderSize+"\" CELLSPACING=0 CELLPADDING=0>");
 			for(int i=0;i<theclasses.size();i++)
 			{
-				Environmental O=(Environmental)theclasses.elementAt(i);
-				String theparm=(String)theparms.elementAt(i);
-				String theprice=(String)theprices.elementAt(i);
-				str.append("<TR><TD WIDTH=50%>");
+				final Environmental O=theclasses.get(i);
+				final String theparm=theparms.get(i);
+				String theprice=theprices.get(i);
+				str.append("<TR><TD WIDTH=90%>");
 				str.append("<SELECT ONCHANGE=\"EditAffect(this);\" NAME=SHP"+(i+1)+">");
 				str.append("<OPTION VALUE=\"\">Delete!");
-				if(E.getShop().getStoreInventory().contains(O))
-					str.append("<OPTION SELECTED VALUE=\""+(getShopCardinality(E,O)+1)+"\">"+O.Name()+" ("+O.ID()+")");
+				final int shopIndex=getShopCardinality(E,O);
+				if(shopIndex>=0)
+					str.append("<OPTION SELECTED VALUE=\""+(shopIndex+1)+"\">"+O.Name()+" ("+O.ID()+")");
 				else
-                if(CMLib.flags().isCataloged(O))
-                    str.append("<OPTION SELECTED VALUE=\"CATALOG-"+O.Name()+"\">"+O.Name()+" (Cataloged)");
-                else
-				if(RoomData.items.contains(O))
-					str.append("<OPTION SELECTED VALUE=\""+O+"\">"+O.Name()+" ("+O.ID()+")");
+				if(CMLib.flags().isCataloged(O))
+					str.append("<OPTION SELECTED VALUE=\"CATALOG-"+O.Name()+"\">"+O.Name()+" (Cataloged)");
 				else
-				if(RoomData.mobs.contains(O))
-					str.append("<OPTION SELECTED VALUE=\""+O+"\">"+O.Name()+" ("+O.ID()+")");
+				if(RoomData.getItemCache().contains(O))
+					str.append("<OPTION SELECTED VALUE=\""+O+"\">"+O.Name()+RoomData.getObjIDSuffix(O));
+				else
+				if(RoomData.getMOBCache().contains(O))
+					str.append("<OPTION SELECTED VALUE=\""+O+"\">"+O.Name()+RoomData.getObjIDSuffix(O));
 				else
 					str.append("<OPTION SELECTED VALUE=\""+O.ID()+"\">"+O.Name()+" ("+O.ID()+")");
 				str.append("</SELECT>");
-				str.append("</TD><TD WIDTH=50%><TABLE WIDTH=100% CELLPADDING=0 CELLSPACING=0><TR><TD WIDTH=50%>Stock:</TD>");
-				str.append("<TD WIDTH=50%><INPUT TYPE=TEXT SIZE=5 NAME=SDATA"+(i+1)+" VALUE=\""+theparm+"\"></TD></TR>");
+				str.append("<BR>");
+				str.append("Stock: ");
+				str.append("<INPUT TYPE=TEXT SIZE=5 NAME=SDATA"+(i+1)+" VALUE=\""+theparm+"\">");
 				if((theprice==null)||(theprice.equals("null")))
-			        theprice="-1";
-				str.append("<TR><TD WIDTH=50%>Price:</TD><TD WIDTH=50%><INPUT TYPE=TEXT SIZE=5 NAME=SPRIC"+(i+1)+" VALUE=\""+theprice+"\"></TD></TR></TABLE>");
+					theprice="-1";
+				str.append("&nbsp;&nbsp;&nbsp;");
+				str.append("Price: <INPUT TYPE=TEXT SIZE=5 NAME=SPRIC"+(i+1)+" VALUE=\""+theprice+"\">");
+				str.append("</TD><TD WIDTH=10%>");
+				if(!CMLib.flags().isCataloged(O))
+				{
+					//if(O instanceof MOB)
+						//str.append("<INPUT TYPE=BUTTON NAME=EDITSHOPMOB"+(i+1)+" VALUE=EDIT ONCLICK=\"EditShopMob('"+RoomData.getMOBCode(RoomData.getMOBCache(),(MOB)O)+"');\">");
+					//else
+					if(O instanceof Item)
+						str.append("<INPUT TYPE=BUTTON NAME=EDITSHOPITEM"+(i+1)+" VALUE=EDIT ONCLICK=\"EditShopItem('"+RoomData.getItemCode(RoomData.getItemCache(),(Item)O)+"');\">");
+				}
 				str.append("</TD></TR>");
 			}
-			str.append("<TR><TD WIDTH=50%>");
+			str.append("<TR><TD WIDTH=90%>");
 			str.append("<SELECT ONCHANGE=\"AddAffect(this);\" NAME=SHP"+(theclasses.size()+1)+">");
 			str.append("<OPTION SELECTED VALUE=\"\">Select an item");
-			for(int i=0;i<RoomData.items.size();i++)
+			for (final Item I : RoomData.getItemCache())
 			{
-				Item I=(Item)RoomData.items.elementAt(i);
-				str.append("<OPTION VALUE=\""+I+"\">"+I.Name()+" ("+I.ID()+")");
+				str.append("<OPTION VALUE=\""+I+"\">"+I.Name()+RoomData.getObjIDSuffix(I));
 			}
-			for(int i=0;i<RoomData.mobs.size();i++)
+			for (final MOB M : RoomData.getMOBCache())
 			{
-				MOB I=(MOB)RoomData.mobs.elementAt(i);
-				str.append("<OPTION VALUE=\""+I+"\">"+I.Name()+" ("+I.ID()+")");
+				str.append("<OPTION VALUE=\""+M+"\">"+M.Name()+RoomData.getObjIDSuffix(M));
 			}
-			StringBuffer bufA=(StringBuffer)Resources.getResource("MUDGRINDER-STORESTUFF");
+			StringBuffer bufA=(StringBuffer)Resources.getResource("MUDGRINDER-STORESTUFF"+theme);
 			if(bufA==null)
 			{
 				bufA=new StringBuffer("");
-				Vector sortMeA=new Vector();
-				for(Enumeration a=CMClass.abilities();a.hasMoreElements();)
-					sortMeA.addElement(CMClass.classID(a.nextElement()));
-				for(Enumeration m=CMClass.mobTypes();m.hasMoreElements();)
-					sortMeA.addElement(CMClass.classID(m.nextElement()));
-				CMClass.addAllItemClassNames(sortMeA,true,true,false);
-				Object[] sortedA=(new TreeSet(sortMeA)).toArray();
-				for(int r=0;r<sortedA.length;r++)
+				final List<String> sortMeA=new ArrayList<String>();
+				for(final Enumeration<Ability> a=CMClass.abilities();a.hasMoreElements();)
+					sortMeA.add(CMClass.classID(a.nextElement()));
+				for(final Enumeration<MOB> m=CMClass.mobTypes();m.hasMoreElements();)
+					sortMeA.add(CMClass.classID(m.nextElement()));
+				CMClass.addAllItemClassNames(sortMeA,true,true,false,theme);
+				Collections.sort(sortMeA);
+				for (final Object element : sortMeA)
 				{
-					String cnam=(String)sortedA[r];
+					final String cnam=(String)element;
 					bufA.append("<OPTION VALUE=\""+cnam+"\">"+cnam);
 				}
-				Resources.submitResource("MUDGRINDER-STORESTUFF",bufA);
+				Resources.submitResource("MUDGRINDER-STORESTUFF"+theme,bufA);
 			}
-            str.append(bufA);
-            str.append("<OPTION VALUE=\"\">------ CATALOGED -------");
-            String[] names;
-            names=CMLib.catalog().getCatalogMobNames();
-            for(int m=0;m<names.length;m++)
-                str.append("<OPTION VALUE=\"CATALOG-"+names[m]+"\">"+names[m]);
-            names=CMLib.catalog().getCatalogItemNames();
-            for(int i=0;i<names.length;i++)
-                str.append("<OPTION VALUE=\"CATALOG-"+names[i]+"\">"+names[i]);
-			str.append("</SELECT>");
-			str.append("</TD><TD WIDTH=50%>Stock:");
-			str.append("<INPUT TYPE=TEXT SIZE=5 NAME=SDATA"+(theclasses.size()+1)+" VALUE=\"1\">");
+			str.append(bufA);
+			str.append("<OPTION VALUE=\"\">------ CATALOGED -------");
+			String[] names;
+			names=CMLib.catalog().getCatalogMobNames();
+			for (final String name : names)
+				str.append("<OPTION VALUE=\"CATALOG-"+name+"\">"+name);
+			names=CMLib.catalog().getCatalogItemNames();
+			for (final String name : names)
+				str.append("<OPTION VALUE=\"CATALOG-"+name+"\">"+name);
+			str.append("</SELECT><BR>");
+			str.append("Stock: <INPUT TYPE=TEXT SIZE=5 NAME=SDATA"+(theclasses.size()+1)+" VALUE=\"1\">");
+			str.append("&nbsp;&nbsp;&nbsp;");
+			str.append("Price: <INPUT TYPE=TEXT SIZE=5 NAME=SPRIC"+(theclasses.size()+1)+" VALUE=\"-1\">");
+			str.append("</TD><TD WIDTH=10%>");
+			str.append("<INPUT TYPE=BUTTON NAME=ADDSHOPITEM VALUE=\"+Item\" ONCLICK=\"AddNewShopItem();\">");
+			//str.append("<INPUT TYPE=BUTTON NAME=ADDSHOPMOB VALUE=\"+MOB\" ONCLICK=\"AddNewShopMOB();\">");
 			str.append("</TD></TR>");
 			str.append("</TABLE>");
 		}
 		return str;
 	}
 
-	public static StringBuffer itemList(MOB oldM, MOB M, ExternalHTTPRequests httpReq, Hashtable parms, int borderSize)
+	public static StringBuffer itemList(Room R, MOB oldM, MOB M, HTTPRequest httpReq, java.util.Map<String,String> parms, int borderSize)
 	{
-		StringBuffer str=new StringBuffer("");
+		final int theme = (R!=null) ? R.getArea().getTheme() : CMProps.getIntVar(CMProps.Int.MUDTHEME);
+		final StringBuffer str=new StringBuffer("");
 		if(parms.containsKey("ITEMLIST"))
 		{
-			Vector classes=new Vector();
-			Vector containers=new Vector();
-            Vector beingWorn=new Vector();
-			Vector itemlist=null;
-			if(httpReq.isRequestParameter("ITEM1"))
+			final ArrayList<Item> classes=new ArrayList<Item>();
+			ArrayList<Object> containers=new ArrayList<Object>();
+			final ArrayList<Boolean> beingWorn=new ArrayList<Boolean>();
+			List<Item> itemlist=null;
+			if(httpReq.isUrlParameter("ITEM1"))
 			{
-                if(oldM!=M)
-                    for(int i=0;i<oldM.inventorySize();i++)
-                        M.addInventory(oldM.fetchInventory(i));
+				if(oldM!=M)
+				{
+					for(int i=0;i<oldM.numItems();i++)
+						M.addItem(oldM.getItem(i));
+				}
 
-                containers=new Vector();
-				itemlist=RoomData.items;
-				Vector cstrings=new Vector();
+				containers=new ArrayList<Object>();
+				itemlist=RoomData.getItemCache();
+				final Vector<String> cstrings=new Vector<String>();
 				for(int i=1;;i++)
 				{
-					String MATCHING=httpReq.getRequestParameter("ITEM"+i);
-                    String WORN=httpReq.getRequestParameter("ITEMWORN"+i);
-					if(MATCHING==null) break;
-					Item I2=RoomData.getItemFromAnywhere(M,MATCHING);
+					final String MATCHING=httpReq.getUrlParameter("ITEM"+i);
+					final String WORN=httpReq.getUrlParameter("ITEMWORN"+i);
+					if(MATCHING==null)
+						break;
+					final Item I2=RoomData.getItemFromAnywhere(M,MATCHING);
 					if(I2!=null)
 					{
-						classes.addElement(I2);
-                        beingWorn.addElement(Boolean.valueOf((WORN!=null)&&(WORN.equalsIgnoreCase("on"))));
-                        String CONTAINER=httpReq.getRequestParameter("ITEMCONT"+i);
-                        cstrings.addElement((CONTAINER==null)?"":CONTAINER);
+						classes.add(I2);
+						beingWorn.add(Boolean.valueOf((WORN!=null)&&(WORN.equalsIgnoreCase("on"))));
+						final String CONTAINER=httpReq.getUrlParameter("ITEMCONT"+i);
+						cstrings.addElement((CONTAINER==null)?"":CONTAINER);
 					}
 				}
-                for(int i=0;i<cstrings.size();i++)
-                {
-                    String CONTAINER=(String)cstrings.elementAt(i);
-                    Item C2=null;
-                    if(CONTAINER.length()>0)
-                        C2=(Item)CMLib.english().fetchEnvironmental(classes,CONTAINER,true);
-                    containers.addElement((C2!=null)?(Object)C2:"");
-                }
+				for(int i=0;i<cstrings.size();i++)
+				{
+					final String CONTAINER=cstrings.elementAt(i);
+					Item C2=null;
+					if(CONTAINER.length()>0)
+						C2=(Item)CMLib.english().fetchEnvironmental(classes,CONTAINER,true);
+					containers.add((C2!=null)?(Object)C2:"");
+				}
 			}
 			else
 			{
-				for(int m=0;m<M.inventorySize();m++)
+				for(int m=0;m<M.numItems();m++)
 				{
-					Item I2=M.fetchInventory(m);
-                    if(I2!=null)
-                    {
-                    	CMLib.catalog().updateCatalogIntegrity(I2);
-                        classes.addElement(I2);
-                        containers.addElement((I2.container()==null)?"":(Object)I2.container());
-                        beingWorn.addElement(Boolean.valueOf(!I2.amWearingAt(Wearable.IN_INVENTORY)));
-                    }
+					final Item I2=M.getItem(m);
+					if(I2!=null)
+					{
+						CMLib.catalog().updateCatalogIntegrity(I2);
+						classes.add(I2);
+						containers.add((I2.container()==null)?"":(Object)I2.container());
+						beingWorn.add(Boolean.valueOf(!I2.amWearingAt(Wearable.IN_INVENTORY)));
+					}
 				}
 				itemlist=RoomData.contributeItems(classes);
 			}
 			str.append("<TABLE WIDTH=100% BORDER=\""+borderSize+"\" CELLSPACING=0 CELLPADDING=0>");
 			for(int i=0;i<classes.size();i++)
 			{
-				Item I=(Item)classes.elementAt(i);
-                Item C=(classes.contains(containers.elementAt(i))?(Item)containers.elementAt(i):null);
-                Boolean W=(Boolean)beingWorn.elementAt(i);
+				final Item I=classes.get(i);
+				final Item C=(classes.contains(containers.get(i))?(Item)containers.get(i):null);
+				final Boolean W=beingWorn.get(i);
 				str.append("<TR>");
 				str.append("<TD WIDTH=90%>");
 				str.append("<SELECT ONCHANGE=\"DelItem(this);\" NAME=ITEM"+(i+1)+">");
 				str.append("<OPTION VALUE=\"\">Delete!");
-                String code=RoomData.getAppropriateCode(I,M,classes,itemlist);
+				final String code=RoomData.getAppropriateCode(I,M,classes,itemlist);
 				str.append("<OPTION SELECTED VALUE=\""+code+"\">"+I.Name()+" ("+I.ID()+")");
-                str.append("</SELECT><BR>");
-                str.append("<FONT COLOR=WHITE SIZE=-1>");
-                str.append("Container: ");
-                str.append("<SELECT NAME=ITEMCONT"+(i+1)+">");
-                str.append("<OPTION VALUE=\"\" "+((C==null)?"SELECTED":"")+">In Inventory");
-                for(int i2=0;i2<classes.size();i2++)
-                    if((classes.elementAt(i2) instanceof Container)&&(i2!=i))
-                    {
-                        Container C2=(Container)classes.elementAt(i2);
-                        String name=CMLib.english().getContextName(classes,C2);
-                        str.append("<OPTION "+((C2==C)?"SELECTED":"")+" VALUE=\""+name+"\">"+name+" ("+C2.ID()+")");
-                    }
-                str.append("</SELECT>&nbsp;&nbsp; ");
-                str.append("<INPUT TYPE=CHECKBOX NAME=ITEMWORN"+(i+1)+" "+(W.booleanValue()?"CHECKED":"")+">Worn/Wielded");
-                str.append("</FONT></TD>");
+				str.append("</SELECT><BR>");
+				str.append("<FONT COLOR=WHITE SIZE=-1>");
+				str.append("Container: ");
+				str.append("<SELECT NAME=ITEMCONT"+(i+1)+">");
+				str.append("<OPTION VALUE=\"\" "+((C==null)?"SELECTED":"")+">In Inventory");
+				for(int i2=0;i2<classes.size();i2++)
+				{
+					if((classes.get(i2) instanceof Container)&&(i2!=i))
+					{
+						final Container C2=(Container)classes.get(i2);
+						final String name=CMLib.english().getContextName(classes,C2);
+						str.append("<OPTION "+((C2==C)?"SELECTED":"")+" VALUE=\""+name+"\">"+name+" ("+C2.ID()+")");
+					}
+				}
+				str.append("</SELECT>&nbsp;&nbsp; ");
+				str.append("<INPUT TYPE=CHECKBOX NAME=ITEMWORN"+(i+1)+" "+(W.booleanValue()?"CHECKED":"")+">Worn/Wielded");
+				str.append("</FONT></TD>");
 				str.append("<TD WIDTH=10%>");
-                if(!CMLib.flags().isCataloged(I))
-    				str.append("<INPUT TYPE=BUTTON NAME=EDITITEM"+(i+1)+" VALUE=EDIT ONCLICK=\"EditItem('"+RoomData.getItemCode(classes,I)+"');\">");
+				if(!CMLib.flags().isCataloged(I))
+					str.append("<INPUT TYPE=BUTTON NAME=EDITITEM"+(i+1)+" VALUE=EDIT ONCLICK=\"EditItem('"+RoomData.getItemCode(classes,I)+"');\">");
 				str.append("</TD></TR>");
 			}
 			str.append("<TR><TD WIDTH=90% ALIGN=CENTER>");
 			str.append("<SELECT ONCHANGE=\"AddItem(this);\" NAME=ITEM"+(classes.size()+1)+">");
 			str.append("<OPTION SELECTED VALUE=\"\">Select a new Item");
-			for(int i=0;i<itemlist.size();i++)
+			for (final Item I : itemlist)
 			{
-				Item I=(Item)itemlist.elementAt(i);
-				str.append("<OPTION VALUE=\""+I+"\">"+I.Name()+" ("+I.ID()+")");
+				str.append("<OPTION VALUE=\""+I+"\">"+I.Name()+RoomData.getObjIDSuffix(I));
 			}
-			StringBuffer mposs=(StringBuffer)Resources.getResource("MUDGRINDER-MOBPOSS");
+			StringBuffer mposs=(StringBuffer)Resources.getResource("MUDGRINDER-MOBPOSS"+theme);
 			if(mposs==null)
 			{
 				mposs=new StringBuffer("");
-				Vector sortMe=new Vector();
-				CMClass.addAllItemClassNames(sortMe,true,true,false);
-				Object[] sorted=(new TreeSet(sortMe)).toArray();
-				for(int i=0;i<sorted.length;i++)
-					mposs.append("<OPTION VALUE=\""+(String)sorted[i]+"\">"+(String)sorted[i]);
-				Resources.submitResource("MUDGRINDER-MOBPOSS",mposs);
+				final List<String> sortMe=new ArrayList<String>();
+				CMClass.addAllItemClassNames(sortMe,true,true,false,theme);
+				Collections.sort(sortMe);
+				for (final Object element : sortMe)
+					mposs.append("<OPTION VALUE=\""+(String)element+"\">"+(String)element);
+				Resources.submitResource("MUDGRINDER-MOBPOSS"+theme,mposs);
 			}
-            str.append(mposs);
-            str.append("<OPTION VALUE=\"\">------ CATALOGED -------");
-            String[] names=CMLib.catalog().getCatalogItemNames();
-            for(int i=0;i<names.length;i++)
-                str.append("<OPTION VALUE=\"CATALOG-"+names[i]+"\">"+names[i]);
+			str.append(mposs);
+			str.append("<OPTION VALUE=\"\">------ CATALOGED -------");
+			final String[] names=CMLib.catalog().getCatalogItemNames();
+			for (final String name : names)
+				str.append("<OPTION VALUE=\"CATALOG-"+name+"\">"+name);
 			str.append("</SELECT>");
 			str.append("</TD>");
 			str.append("<TD WIDTH=10%>");
@@ -936,23 +1061,26 @@ public class MobData extends StdWebMacro
 		return str;
 	}
 
-	public String runMacro(ExternalHTTPRequests httpReq, String parm)
+	@Override
+	public String runMacro(HTTPRequest httpReq, String parm, HTTPResponse httpResp)
 	{
-		Hashtable parms=parseParms(parm);
-		String last=httpReq.getRequestParameter("ROOM");
-		if(last==null) return " @break@";
-		String mobCode=httpReq.getRequestParameter("MOB");
-		if(mobCode==null) return "@break@";
+		final java.util.Map<String,String> parms=parseParms(parm);
+		final String last=httpReq.getUrlParameter("ROOM");
+		if(last==null)
+			return " @break@";
+		final String mobCode=httpReq.getUrlParameter("MOB");
+		if(mobCode==null)
+			return "@break@";
 
-		if(!CMProps.getBoolVar(CMProps.SYSTEMB_MUDSTARTED))
-			return CMProps.getVar(CMProps.SYSTEM_MUDSTATUS);
+		if(!CMProps.getBoolVar(CMProps.Bool.MUDSTARTED))
+			return CMProps.getVar(CMProps.Str.MUDSTATUS);
 
 		Room R=(Room)httpReq.getRequestObjects().get(last);
 		if(R==null)
 		{
 			if(!last.equalsIgnoreCase("ANY"))
 			{
-			    R=CMLib.map().getRoom(last);
+				R=MUDGrinder.getRoomObject(httpReq, last);
 				if(R==null)
 					return "No Room?!";
 				CMLib.map().resetRoom(R);
@@ -960,559 +1088,632 @@ public class MobData extends StdWebMacro
 			}
 		}
 		MOB M=null;
-    	synchronized(("SYNC"+((R!=null)?R.roomID():"null")).intern())
-    	{
-    		if(R!=null) R=CMLib.map().getRoom(R);
-    		M=(MOB)httpReq.getRequestObjects().get(mobCode);
+		synchronized(("SYNC"+((R!=null)?R.roomID():"null")).intern())
+		{
+			if(R!=null)
+				R=CMLib.map().getRoom(R);
+			M=(MOB)httpReq.getRequestObjects().get(mobCode);
 			if(M==null)
 			{
-			    if(mobCode.startsWith("CATALOG-")||mobCode.startsWith("NEWCATA-"))
-			    {
-			    	M=CMLib.catalog().getCatalogMob(mobCode.substring(8));
-			    	if(M==null)
-	                    M=CMClass.getMOB("GenMob");
-			    	else
-			    		M=(MOB)M.copyOf();
-			    }
-			    else
+				if(mobCode.startsWith("CATALOG-")||mobCode.startsWith("NEWCATA-"))
+				{
+					M=CMLib.catalog().getCatalogMob(mobCode.substring(8));
+					if(M==null)
+						M=CMClass.getMOB("GenMob");
+					else
+						M=(MOB)M.copyOf();
+				}
+				else
 				if(mobCode.equals("NEW"))
 					M=CMClass.getMOB("GenMob");
 				else
-                if(mobCode.equals("NEWDEITY"))
-                {
-                    M=CMClass.getMOB("GenDeity");
-                    String deityName=httpReq.getRequestParameter("NEWMOBNAME");
-                    if((M!=null)&&(deityName!=null))
-                    {
-	                    M.setDisplayText(CMStrings.replaceAll(((Deity)M).displayText(),CMStrings.capitalizeFirstLetter(M.name()),deityName));
-	                    ((Deity)M).setClericRitual(CMStrings.replaceAll(((Deity)M).getClericRitual(),M.name(),deityName));
-	                    ((Deity)M).setWorshipRitual(CMStrings.replaceAll(((Deity)M).getWorshipRitual(),M.name(),deityName));
-                    }
-                }
-                else
+				if(mobCode.equals("NEWDEITY"))
+				{
+					M=CMClass.getMOB("GenDeity");
+					final String deityName=httpReq.getUrlParameter("NEWMOBNAME");
+					if((M!=null)&&(deityName!=null))
+					{
+						M.setDisplayText(CMStrings.replaceAll(((Deity)M).displayText(),CMStrings.capitalizeFirstLetter(M.name()),deityName));
+						((Deity)M).setClericRitual(CMStrings.replaceAll(((Deity)M).getClericRitual(),M.name(),deityName));
+						((Deity)M).setWorshipRitual(CMStrings.replaceAll(((Deity)M).getWorshipRitual(),M.name(),deityName));
+					}
+				}
+				else
 				if(R!=null)
 					M=RoomData.getMOBFromCode(R,mobCode);
 				else
-					M=RoomData.getMOBFromCode(RoomData.mobs,mobCode);
-				if((M==null)||(!M.savable()))
+					M=RoomData.getMOBFromCode(RoomData.getMOBCache(),mobCode);
+				if((M==null)||(!M.isSavable()))
 				{
-					StringBuffer str=new StringBuffer("No MOB?!");
+					final StringBuffer str=new StringBuffer("No MOB?!");
 					str.append(" Got: "+mobCode);
 					str.append(", Includes: ");
 					if(R!=null)
 					for(int m=0;m<R.numInhabitants();m++)
 					{
-						MOB M2=R.fetchInhabitant(m);
-						if((M2!=null)&&(M2.savable()))
-						   str.append(M2.Name()+"="+RoomData.getMOBCode(R,M2));
+						final MOB M2=R.fetchInhabitant(m);
+						if((M2!=null)&&(M2.isSavable()))
+							str.append(M2.Name()+"="+RoomData.getMOBCode(R,M2));
 					}
-	                return clearWebMacros(str);
+					return clearWebMacros(str);
 				}
 				httpReq.getRequestObjects().put(mobCode,M);
 			}
-    	}
-    	MOB oldM=M;
+		}
+		final MOB oldM=M;
 		// important generic<->non generic swap!
-		String newClassID=httpReq.getRequestParameter("CLASSES");
+		final String newClassID=httpReq.getUrlParameter("CLASSES");
 		if((newClassID!=null)
 		&&(!newClassID.equals(CMClass.classID(M)))
 		&&(CMClass.getMOB(newClassID)!=null))
 			M=CMClass.getMOB(newClassID);
 
-		boolean changedClass=((httpReq.isRequestParameter("CHANGEDCLASS"))
-		                     &&(httpReq.getRequestParameter("CHANGEDCLASS")).equals("true"));
+		boolean changedClass=((httpReq.isUrlParameter("CHANGEDCLASS"))
+							 &&(httpReq.getUrlParameter("CHANGEDCLASS")).equals("true"));
 		changedClass=changedClass
-		             &&(mobCode.equals("NEW")
-		                     ||mobCode.equalsIgnoreCase("NEWDEITY")
-		                     ||mobCode.startsWith("CATALOG-")
-		                     ||mobCode.startsWith("NEWCATA-"));
-		boolean changedLevel=((httpReq.isRequestParameter("CHANGEDLEVEL"))&&(httpReq.getRequestParameter("CHANGEDLEVEL")).equals("true"));
-		boolean firstTime=(!httpReq.isRequestParameter("ACTION"))
-				||(!(httpReq.getRequestParameter("ACTION")).equals("MODIFYMOB"))
+					 &&(mobCode.equals("NEW")
+							 ||mobCode.equalsIgnoreCase("NEWDEITY")
+							 ||mobCode.startsWith("CATALOG-")
+							 ||mobCode.startsWith("NEWCATA-"));
+		final boolean changedLevel=((httpReq.isUrlParameter("CHANGEDLEVEL"))&&(httpReq.getUrlParameter("CHANGEDLEVEL")).equals("true"));
+		final boolean firstTime=(!httpReq.isUrlParameter("ACTION"))
+				||(!(httpReq.getUrlParameter("ACTION")).equals("MODIFYMOB"))
 				||(changedClass);
 
 		if(((changedLevel)||(changedClass))&&(M.isGeneric()))
 		{
-			CMLib.leveler().fillOutMOB(M,CMath.s_int(firstTime?"0":httpReq.getRequestParameter("LEVEL")));
-			httpReq.addRequestParameters("REJUV",""+M.baseEnvStats().rejuv());
-			httpReq.addRequestParameters("ARMOR",""+M.baseEnvStats().armor());
-			httpReq.addRequestParameters("DAMAGE",""+M.baseEnvStats().damage());
-			httpReq.addRequestParameters("SPEED",""+M.baseEnvStats().speed());
-			httpReq.addRequestParameters("ATTACK",""+M.baseEnvStats().attackAdjustment());
-			httpReq.addRequestParameters("MONEY",""+CMLib.beanCounter().getMoney(M));
+			CMLib.leveler().fillOutMOB(M,CMath.s_int(firstTime?"0":httpReq.getUrlParameter("LEVEL")));
+			httpReq.addFakeUrlParameter("REJUV",""+M.basePhyStats().rejuv());
+			httpReq.addFakeUrlParameter("ARMOR",""+M.basePhyStats().armor());
+			httpReq.addFakeUrlParameter("DAMAGE",""+M.basePhyStats().damage());
+			httpReq.addFakeUrlParameter("SPEED",""+M.basePhyStats().speed());
+			httpReq.addFakeUrlParameter("ATTACK",""+M.basePhyStats().attackAdjustment());
+			httpReq.addFakeUrlParameter("MONEY",""+CMLib.beanCounter().getMoney(M));
 		}
 
-		StringBuffer str=new StringBuffer("");
-		for(int o=0;o<okparms.length;o++)
-		if(parms.containsKey(okparms[o]))
+		final StringBuffer str=new StringBuffer("");
+		for(MOBDataField o : MOBDataField.values())
 		{
-			String old=httpReq.getRequestParameter(okparms[o]);
-			if(old==null) old="";
-			switch(o)
+			final String parmName=o.name();
+			if(parms.containsKey(parmName))
 			{
-			case 0: // name
-				if(firstTime) {
-                    if((mobCode.equalsIgnoreCase("NEW")||mobCode.equalsIgnoreCase("NEWDEITY")||mobCode.startsWith("CATALOG-")||mobCode.startsWith("NEWCATA-"))
-                    &&(httpReq.isRequestParameter("NEWMOBNAME")))
-                        old=httpReq.getRequestParameter("NEWMOBNAME");
-                    else
-                        old=M.Name();
-                }
-				str.append(old);
-				break;
-			case 1: // classes
+				String old=httpReq.getUrlParameter(parmName);
+				if(old==null)
+					old="";
+				switch(o)
 				{
-					if(firstTime) old=CMClass.classID(M);
-					Object[] sorted=(Object[])Resources.getResource("MUDGRINDER-MOBS");
-					if(sorted==null)
+				case NAME: // name
+					if(firstTime)
 					{
-						Vector sortMe=new Vector();
-						for(Enumeration m=CMClass.mobTypes();m.hasMoreElements();)
-							sortMe.addElement(CMClass.classID(m.nextElement()));
-						sorted=(new TreeSet(sortMe)).toArray();
-						Resources.submitResource("MUDGRINDER-MOBS",sorted);
+						if((mobCode.equalsIgnoreCase("NEW")||mobCode.equalsIgnoreCase("NEWDEITY")||mobCode.startsWith("CATALOG-")||mobCode.startsWith("NEWCATA-"))
+						&&(httpReq.isUrlParameter("NEWMOBNAME")))
+							old=httpReq.getUrlParameter("NEWMOBNAME");
+						else
+							old=M.Name();
 					}
-                    if(parms.containsKey("CLASSESID"))
-                        str.append(old);
-                    else
-					for(int r=0;r<sorted.length;r++)
-					{
-						String cnam=(String)sorted[r];
-						str.append("<OPTION VALUE=\""+cnam+"\"");
-						if(old.equals(cnam))
-							str.append(" SELECTED");
-						str.append(">"+cnam);
-					}
-				}
-				break;
-			case 2: // displaytext
-				if(firstTime) old=M.displayText();
-				str.append(old);
-				break;
-			case 3: // description
-				if(firstTime) old=M.description();
-				str.append(old);
-				break;
-			case 4: // level
-				if(firstTime) old=""+M.baseEnvStats().level();
-				str.append(old);
-				break;
-			case 5: // ability;
-				if(firstTime) old=""+M.baseEnvStats().ability();
-				str.append(old);
-				break;
-			case 6: // rejuv;
-				if(firstTime) old=""+M.baseEnvStats().rejuv();
-				if(old.equals(""+Integer.MAX_VALUE))
-					str.append("0");
-				else
 					str.append(old);
-				break;
-			case 7: // misctext
-				if(firstTime) old=M.text();
-				str.append(old);
-				break;
-			case 8: // race
-				if(firstTime) old=""+M.baseCharStats().getMyRace().ID();
-				for(Enumeration r=CMClass.races();r.hasMoreElements();)
-				{
-					Race R2=(Race)r.nextElement();
-					str.append("<OPTION VALUE=\""+R2.ID()+"\"");
-					if(R2.ID().equals(old))
-						str.append(" SELECTED");
-					str.append(">"+R2.name());
-				}
-				if((changedClass)||(changedLevel))
-				{
-					Race R3=CMClass.getRace(old);
-					char G=(char)M.baseCharStats().getStat(CharStats.STAT_GENDER);
-					if((httpReq.isRequestParameter("GENDER"))&&((httpReq.getRequestParameter("GENDER")).length()>0))
-						G=(httpReq.getRequestParameter("GENDER")).charAt(0);
-					if(R3!=null)
+					break;
+				case CLASSES: // classes
 					{
-						R3.setHeightWeight(M.baseEnvStats(),G);
-						httpReq.addRequestParameters("WEIGHT",""+M.baseEnvStats().weight());
-						httpReq.addRequestParameters("HEIGHT",""+M.baseEnvStats().height());
+						if(firstTime)
+							old=CMClass.classID(M);
+						Object[] sorted=(Object[])Resources.getResource("MUDGRINDER-MOBS");
+						if(sorted==null)
+						{
+							final Vector<String> sortMe=new Vector<String>();
+							for(final Enumeration<MOB> m=CMClass.mobTypes();m.hasMoreElements();)
+								sortMe.addElement(CMClass.classID(m.nextElement()));
+							sorted=(new TreeSet<String>(sortMe)).toArray();
+							Resources.submitResource("MUDGRINDER-MOBS",sorted);
+						}
+						if(parms.containsKey("CLASSESID"))
+							str.append(old);
+						else
+						{
+							for (final Object element : sorted)
+							{
+								final String cnam=(String)element;
+								str.append("<OPTION VALUE=\""+cnam+"\"");
+								if(old.equals(cnam))
+									str.append(" SELECTED");
+								str.append(">"+cnam);
+							}
+						}
 					}
-				}
-				break;
-			case 9: // gender
-				if(firstTime) old=""+((char)M.baseCharStats().getStat(CharStats.STAT_GENDER));
-				if(old.toUpperCase().startsWith("M"))
-				{
-					str.append("<INPUT TYPE=RADIO NAME=GENDER CHECKED VALUE=M>Male");
-					str.append("&nbsp;&nbsp; <INPUT TYPE=RADIO NAME=GENDER VALUE=F>Female");
-					str.append("&nbsp;&nbsp; <INPUT TYPE=RADIO NAME=GENDER VALUE=N>Neuter");
-				}
-				else
-				if(old.toUpperCase().startsWith("F"))
-				{
-					str.append("<INPUT TYPE=RADIO NAME=GENDER VALUE=M>Male");
-					str.append("&nbsp;&nbsp; <INPUT TYPE=RADIO CHECKED NAME=GENDER VALUE=F>Female");
-					str.append("&nbsp;&nbsp; <INPUT TYPE=RADIO NAME=GENDER VALUE=N>Neuter");
-				}
-				else
-				{
-					str.append("<INPUT TYPE=RADIO NAME=GENDER VALUE=M>Male");
-					str.append("&nbsp;&nbsp; <INPUT TYPE=RADIO NAME=GENDER VALUE=F>Female");
-					str.append("&nbsp;&nbsp; <INPUT CHECKED TYPE=RADIO NAME=GENDER VALUE=N>Neuter");
-				}
-				break;
-			case 10: // height
-				if(firstTime) old=""+M.baseEnvStats().height();
-				str.append(old);
-				break;
-			case 11: // weight
-				if(firstTime) old=""+M.baseEnvStats().weight();
-				str.append(old);
-				break;
-			case 12: // speed
-				if(firstTime) old=""+M.baseEnvStats().speed();
-				str.append(old);
-				break;
-			case 13: // attack
-				if(firstTime) old=""+M.baseEnvStats().attackAdjustment();
-				str.append(old);
-				break;
-			case 14: // damage
-				if(firstTime) old=""+M.baseEnvStats().damage();
-				str.append(old);
-				break;
-			case 15: // armor
-				if(firstTime) old=""+M.baseEnvStats().armor();
-				str.append(old);
-				break;
-			case 16: // alignment
-			    if(CMLib.factions().getFaction(CMLib.factions().AlignID())!=null)
-			    {
-					if(firstTime) old=""+M.fetchFaction(CMLib.factions().AlignID());
-					for(int v=1;v<Faction.ALIGN_NAMES.length;v++)
+					break;
+				case DISPLAYTEXT: // displaytext
+					if(firstTime)
+						old=M.displayText();
+					str.append(old);
+					break;
+				case DESCRIPTION: // description
+					if(firstTime)
+						old=M.description();
+					str.append(old);
+					break;
+				case LEVEL: // level
+					if(firstTime)
+						old=""+M.basePhyStats().level();
+					str.append(old);
+					break;
+				case ABILITY: // ability;
+					if(firstTime)
+						old=""+M.basePhyStats().ability();
+					str.append(old);
+					break;
+				case REJUV: // rejuv;
+					if(firstTime)
+						old=""+M.basePhyStats().rejuv();
+					if(old.equals(""+Integer.MAX_VALUE))
+						str.append("0");
+					else
+						str.append(old);
+					break;
+				case MISCTEXT: // misctext
+					if(firstTime)
+						old=M.text();
+					str.append(old);
+					break;
+				case RACE: // race
+					if(firstTime)
+						old=""+M.baseCharStats().getMyRace().ID();
+					for(final Enumeration<Race> r=CMClass.races();r.hasMoreElements();)
 					{
-					    str.append("<OPTION VALUE="+Faction.ALIGN_NAMES[v]);
-					    if(old.equalsIgnoreCase(Faction.ALIGN_NAMES[v]))
-					        str.append(" SELECTED");
-					    str.append(">"+CMStrings.capitalizeAndLower(Faction.ALIGN_NAMES[v].toLowerCase()));
+						final Race R2=r.nextElement();
+						str.append("<OPTION VALUE=\""+R2.ID()+"\"");
+						if(R2.ID().equals(old))
+							str.append(" SELECTED");
+						str.append(">"+R2.name());
 					}
-			    }
-				break;
-			case 17: // money
-				if(firstTime)
-				{
-				    old=""+CMLib.beanCounter().getMoney(M);
-				    CMLib.beanCounter().clearInventoryMoney(M,null);
-				}
-				str.append(old);
-				break;
-			case 18: // is rideable
-				if(M instanceof Rideable) return "true";
-                return "false";
-			case 19: // rideable type
-				if((firstTime)&&(M instanceof Rideable))
-					old=""+((Rideable)M).rideBasis();
-				for(int r=0;r<Rideable.RIDEABLE_DESCS.length;r++)
-				{
-					str.append("<OPTION VALUE=\""+r+"\"");
-					if(r==CMath.s_int(old))
-						str.append(" SELECTED");
-					str.append(">"+Rideable.RIDEABLE_DESCS[r]);
-				}
-				break;
-			case 20: // rideable capacity
-				if((firstTime)&&(M instanceof Rideable))
-					old=""+((Rideable)M).riderCapacity();
-				str.append(old);
-				break;
-			case 21: // is shopkeeper
-				if(M instanceof ShopKeeper) return "true";
-                return "false";
-			case 22: // shopkeeper type
-			{
-				HashSet shopTypes=new HashSet();
-				if((firstTime)&&(M instanceof ShopKeeper))
-				{
-					for(int d=0;d<ShopKeeper.DEAL_DESCS.length;d++)
-						if(((ShopKeeper)M).isSold(d))
-							shopTypes.add(Integer.valueOf(d));
-				}
-				else
-				{
-					shopTypes.add(Integer.valueOf(CMath.s_int(old)));
-					int x=1;
-					while(httpReq.getRequestParameter(okparms[o]+x)!=null)
+					if((changedClass)||(changedLevel))
 					{
-						shopTypes.add(Integer.valueOf(CMath.s_int(httpReq.getRequestParameter(okparms[o]+x))));
-						x++;
+						final Race R3=CMClass.getRace(old);
+						char G=(char)M.baseCharStats().getStat(CharStats.STAT_GENDER);
+						if((httpReq.isUrlParameter("GENDER"))&&((httpReq.getUrlParameter("GENDER")).length()>0))
+							G=(httpReq.getUrlParameter("GENDER")).charAt(0);
+						if(R3!=null)
+						{
+							R3.setHeightWeight(M.basePhyStats(),G);
+							httpReq.addFakeUrlParameter("WEIGHT",""+M.basePhyStats().weight());
+							httpReq.addFakeUrlParameter("HEIGHT",""+M.basePhyStats().height());
+						}
 					}
-				}
-				if(M instanceof Banker)
-				{
-					int r=ShopKeeper.DEAL_BANKER;
-					str.append("<OPTION VALUE=\""+r+"\"");
-					if(shopTypes.contains(Integer.valueOf(r))) str.append(" SELECTED");
-					str.append(">"+ShopKeeper.DEAL_DESCS[r]);
-					r=ShopKeeper.DEAL_CLANBANKER;
-					str.append("<OPTION VALUE=\""+r+"\"");
-					if(shopTypes.contains(Integer.valueOf(r))) str.append(" SELECTED");
-					str.append(">"+ShopKeeper.DEAL_DESCS[r]);
-				}
-				else
-				if(M instanceof PostOffice)
-				{
-					int r=ShopKeeper.DEAL_POSTMAN;
-					str.append("<OPTION VALUE=\""+r+"\"");
-					if(shopTypes.contains(Integer.valueOf(r))) str.append(" SELECTED");
-					str.append(">"+ShopKeeper.DEAL_DESCS[r]);
-					r=ShopKeeper.DEAL_CLANPOSTMAN;
-					str.append("<OPTION VALUE=\""+r+"\"");
-					if(shopTypes.contains(Integer.valueOf(r))) str.append(" SELECTED");
-					str.append(">"+ShopKeeper.DEAL_DESCS[r]);
-				}
-				else
-				for(int r=0;r<ShopKeeper.DEAL_DESCS.length;r++)
-				{
-					if((r!=ShopKeeper.DEAL_CLANBANKER)
-					&&(r!=ShopKeeper.DEAL_BANKER)
-					&&(r!=ShopKeeper.DEAL_POSTMAN)
-					&&(r!=ShopKeeper.DEAL_CLANPOSTMAN))
+					break;
+				case GENDER: // gender
+					if(firstTime)
+						old=""+((char)M.baseCharStats().getStat(CharStats.STAT_GENDER));
+					if(old.toUpperCase().startsWith("M"))
+					{
+						str.append("<INPUT TYPE=RADIO NAME=GENDER CHECKED VALUE=M>Male");
+						str.append("&nbsp;&nbsp; <INPUT TYPE=RADIO NAME=GENDER VALUE=F>Female");
+						str.append("&nbsp;&nbsp; <INPUT TYPE=RADIO NAME=GENDER VALUE=N>Neuter");
+					}
+					else
+					if(old.toUpperCase().startsWith("F"))
+					{
+						str.append("<INPUT TYPE=RADIO NAME=GENDER VALUE=M>Male");
+						str.append("&nbsp;&nbsp; <INPUT TYPE=RADIO CHECKED NAME=GENDER VALUE=F>Female");
+						str.append("&nbsp;&nbsp; <INPUT TYPE=RADIO NAME=GENDER VALUE=N>Neuter");
+					}
+					else
+					{
+						str.append("<INPUT TYPE=RADIO NAME=GENDER VALUE=M>Male");
+						str.append("&nbsp;&nbsp; <INPUT TYPE=RADIO NAME=GENDER VALUE=F>Female");
+						str.append("&nbsp;&nbsp; <INPUT CHECKED TYPE=RADIO NAME=GENDER VALUE=N>Neuter");
+					}
+					break;
+				case HEIGHT: // height
+					if(firstTime)
+						old=""+M.basePhyStats().height();
+					str.append(old);
+					break;
+				case WEIGHT: // weight
+					if(firstTime)
+						old=""+M.basePhyStats().weight();
+					str.append(old);
+					break;
+				case SPEED: // speed
+					if(firstTime)
+						old=""+M.basePhyStats().speed();
+					str.append(old);
+					break;
+				case ATTACK: // attack
+					if(firstTime)
+						old=""+M.basePhyStats().attackAdjustment();
+					str.append(old);
+					break;
+				case DAMAGE: // damage
+					if(firstTime)
+						old=""+M.basePhyStats().damage();
+					str.append(old);
+					break;
+				case ARMOR: // armor
+					if(firstTime)
+						old=""+M.basePhyStats().armor();
+					str.append(old);
+					break;
+				case ALIGNMENT: // alignment
+					if(CMLib.factions().getFaction(CMLib.factions().AlignID())!=null)
+					{
+						if(firstTime)
+							old=""+M.fetchFaction(CMLib.factions().AlignID());
+						for(final Faction.Align v : Faction.Align.values())
+						{
+							if(v!=Faction.Align.INDIFF)
+							{
+								str.append("<OPTION VALUE="+v.toString());
+								if(old.equalsIgnoreCase(v.toString()))
+									str.append(" SELECTED");
+								str.append(">"+CMStrings.capitalizeAndLower(v.toString().toLowerCase()));
+							}
+						}
+					}
+					break;
+				case MONEY: // money
+					if(firstTime)
+					{
+						old=""+CMLib.beanCounter().getMoney(M);
+						CMLib.beanCounter().clearInventoryMoney(M,null);
+					}
+					str.append(old);
+					break;
+				case ISRIDEABLE: // is rideable
+					if(M instanceof Rideable)
+						return "true";
+					return "false";
+				case RIDEABLETYPE: // rideable type
+					if((firstTime)&&(M instanceof Rideable))
+						old=""+((Rideable)M).rideBasis();
+					for(int r=0;r<Rideable.RIDEABLE_DESCS.length;r++)
 					{
 						str.append("<OPTION VALUE=\""+r+"\"");
-						if(shopTypes.contains(Integer.valueOf(r))) str.append(" SELECTED");
+						if(r==CMath.s_int(old))
+							str.append(" SELECTED");
+						str.append(">"+Rideable.RIDEABLE_DESCS[r]);
+					}
+					break;
+				case MOBSHELD: // rideable capacity
+					if((firstTime)&&(M instanceof Rideable))
+						old=""+((Rideable)M).riderCapacity();
+					str.append(old);
+					break;
+				case ISSHOPKEEPER: // is shopkeeper
+					if(M instanceof ShopKeeper)
+						return "true";
+					return "false";
+				case SHOPKEEPERTYPE: // shopkeeper type
+				{
+					final HashSet<Integer> shopTypes=new HashSet<Integer>();
+					if((firstTime)&&(M instanceof ShopKeeper))
+					{
+						for(int d=0;d<ShopKeeper.DEAL_DESCS.length;d++)
+						{
+							if(((ShopKeeper)M).isSold(d))
+								shopTypes.add(Integer.valueOf(d));
+						}
+					}
+					else
+					{
+						shopTypes.add(Integer.valueOf(CMath.s_int(old)));
+						int x=1;
+						while(httpReq.getUrlParameter(parmName+x)!=null)
+						{
+							shopTypes.add(Integer.valueOf(CMath.s_int(httpReq.getUrlParameter(parmName+x))));
+							x++;
+						}
+					}
+					if(M instanceof Banker)
+					{
+						int r=ShopKeeper.DEAL_BANKER;
+						str.append("<OPTION VALUE=\""+r+"\"");
+						if(shopTypes.contains(Integer.valueOf(r)))
+							str.append(" SELECTED");
+						str.append(">"+ShopKeeper.DEAL_DESCS[r]);
+						r=ShopKeeper.DEAL_CLANBANKER;
+						str.append("<OPTION VALUE=\""+r+"\"");
+						if(shopTypes.contains(Integer.valueOf(r)))
+							str.append(" SELECTED");
 						str.append(">"+ShopKeeper.DEAL_DESCS[r]);
 					}
+					else
+					if(M instanceof PostOffice)
+					{
+						int r=ShopKeeper.DEAL_POSTMAN;
+						str.append("<OPTION VALUE=\""+r+"\"");
+						if(shopTypes.contains(Integer.valueOf(r)))
+							str.append(" SELECTED");
+						str.append(">"+ShopKeeper.DEAL_DESCS[r]);
+						r=ShopKeeper.DEAL_CLANPOSTMAN;
+						str.append("<OPTION VALUE=\""+r+"\"");
+						if(shopTypes.contains(Integer.valueOf(r)))
+							str.append(" SELECTED");
+						str.append(">"+ShopKeeper.DEAL_DESCS[r]);
+					}
+					else
+					for(int r=0;r<ShopKeeper.DEAL_DESCS.length;r++)
+					{
+						if((r!=ShopKeeper.DEAL_CLANBANKER)
+						&&(r!=ShopKeeper.DEAL_BANKER)
+						&&(r!=ShopKeeper.DEAL_POSTMAN)
+						&&(r!=ShopKeeper.DEAL_CLANPOSTMAN))
+						{
+							str.append("<OPTION VALUE=\""+r+"\"");
+							if(shopTypes.contains(Integer.valueOf(r)))
+								str.append(" SELECTED");
+							str.append(">"+ShopKeeper.DEAL_DESCS[r]);
+						}
+					}
+					break;
 				}
-				break;
-			}
-			case 23:
-				if(M.isGeneric()) return "true";
-                return "false";
-			case 24: // is banker
-				if(M instanceof Banker) return "true";
-                return "false";
-			case 25: // coin interest
-				if((firstTime)&&(M instanceof Banker))
-					old=""+((Banker)M).getCoinInterest();
-				str.append(old);
-				break;
-			case 26: // item interest
-				if((firstTime)&&(M instanceof Banker))
-					old=""+((Banker)M).getItemInterest();
-				str.append(old);
-				break;
-			case 27: // bank name
-				if((firstTime)&&(M instanceof Banker))
-					old=""+((Banker)M).bankChain();
-				str.append(old);
-				break;
-			case 28: // prejudice factors
-				if((firstTime)&&(M instanceof ShopKeeper))
-					old=((ShopKeeper)M).prejudiceFactors();
-				str.append(old);
-				break;
-			case 29: // is deity
-				if(M instanceof Deity) return "true";
-                return "false";
-			case 30: // cleric requirements
-				if((firstTime)&&(M instanceof Deity))
-					old=((Deity)M).getClericRequirements();
-				str.append(old);
-				break;
-			case 31: // cleric ritual
-				if((firstTime)&&(M instanceof Deity))
-					old=((Deity)M).getClericRitual();
-				str.append(old);
-				break;
-			case 32: // worship requirements
-				if((firstTime)&&(M instanceof Deity))
-					old=((Deity)M).getWorshipRequirements();
-				str.append(old);
-				break;
-			case 33: // worship ritual
-				if((firstTime)&&(M instanceof Deity))
-					old=((Deity)M).getWorshipRitual();
-				str.append(old);
-				break;
-			case 34: // cleric sin
-				if((firstTime)&&(M instanceof Deity))
-					old=((Deity)M).getClericSin();
-				str.append(old);
-				break;
-			case 35: // worshipper sin
-				if((firstTime)&&(M instanceof Deity))
-					old=((Deity)M).getWorshipSin();
-				str.append(old);
-				break;
-			case 36: // cleric power
-				if((firstTime)&&(M instanceof Deity))
-					old=((Deity)M).getClericPowerup();
-				str.append(old);
-				break;
-			case 37: // clanid
-				if(firstTime) old=M.getClanID();
-				str.append(old);
-				break;
-			case 38: // tattoos
-				if(firstTime)
+				case ISGENERIC:
+					if(M.isGeneric())
+						return "true";
+					return "false";
+				case ISBANKER: // is banker
+					if(M instanceof Banker)
+						return "true";
+					return "false";
+				case COININT: // coin interest
+					if((firstTime)&&(M instanceof Banker))
+						old=""+((Banker)M).getCoinInterest();
+					str.append(old);
+					break;
+				case ITEMINT: // item interest
+					if((firstTime)&&(M instanceof Banker))
+						old=""+((Banker)M).getItemInterest();
+					str.append(old);
+					break;
+				case BANKNAME: // bank name
+					if((firstTime)&&(M instanceof Banker))
+						old=""+((Banker)M).bankChain();
+					str.append(old);
+					break;
+				case SHOPPREJ: // prejudice factors
+					if((firstTime)&&(M instanceof ShopKeeper))
+						old=((ShopKeeper)M).prejudiceFactors();
+					str.append(old);
+					break;
+				case ISDEITY: // is deity
+					if(M instanceof Deity)
+						return "true";
+					return "false";
+				case CLEREQ: // cleric requirements
+					if((firstTime)&&(M instanceof Deity))
+						old=((Deity)M).getClericRequirements();
+					str.append(old);
+					break;
+				case CLERIT: // cleric ritual
+					if((firstTime)&&(M instanceof Deity))
+						old=((Deity)M).getClericRitual();
+					str.append(old);
+					break;
+				case WORREQ: // worship requirements
+					if((firstTime)&&(M instanceof Deity))
+						old=((Deity)M).getWorshipRequirements();
+					str.append(old);
+					break;
+				case WORRIT: // worship ritual
+					if((firstTime)&&(M instanceof Deity))
+						old=((Deity)M).getWorshipRitual();
+					str.append(old);
+					break;
+				case CLESIN: // cleric sin
+					if((firstTime)&&(M instanceof Deity))
+						old=((Deity)M).getClericSin();
+					str.append(old);
+					break;
+				case WORSIN: // worshipper sin
+					if((firstTime)&&(M instanceof Deity))
+						old=((Deity)M).getWorshipSin();
+					str.append(old);
+					break;
+				case CLEPOW: // cleric power
+					if((firstTime)&&(M instanceof Deity))
+						old=((Deity)M).getClericPowerup();
+					str.append(old);
+					break;
+				case CLANID: // clanid
+					if(firstTime)
+					{
+						final StringBuilder oldBuf=new StringBuilder("");
+						for(final Pair<Clan,Integer> p : M.clans())
+							oldBuf.append(p.first.getName()).append("(").append(p.second.toString()).append("), ");
+						old=oldBuf.toString();
+					}
+					str.append(old);
+					break;
+				case TATTOOS: // tattoos
+					if(firstTime)
+					{
+						old="";
+						for(final Enumeration<Tattoo> e=M.tattoos();e.hasMoreElements();)
+							str.append(e.nextElement().toString()).append(";");
+					}
+					else
+						str.append(old);
+					break;
+				case EXPERTISES: // expertises
+					if(firstTime)
+					{
+						old="";
+						for(final Enumeration<String> x=M.expertises();x.hasMoreElements();)
+							str.append(x.nextElement()).append(';');
+					}
+					else
+						str.append(old);
+					break;
+				case BUDGET: // budget
+					if((firstTime)&&(M instanceof ShopKeeper))
+						old=((ShopKeeper)M).budget();
+					str.append(old);
+					break;
+				case DEVALRATE: // devaluation rate
+					if((firstTime)&&(M instanceof ShopKeeper))
+						old=((ShopKeeper)M).devalueRate();
+					str.append(old);
+					break;
+				case INVRESETRATE: // inventory reset rate
+					if((firstTime)&&(M instanceof ShopKeeper))
+						old=""+((ShopKeeper)M).invResetRate();
+					str.append(old);
+					break;
+				case IMAGE: // image
+					if(firstTime)
+						old=M.rawImage();
+					str.append(old);
+					break;
+				case ISPOSTMAN: // ispostman
+					if(M instanceof PostOffice)
+						return "true";
+					return "false";
+				case POSTCHAIN: // postal chain
+					if((firstTime)&&(M instanceof PostOffice))
+						old=((PostOffice)M).postalChain();
+					str.append(old);
+					break;
+				case POSTMIN: // minimum postage
+					if((firstTime)&&(M instanceof PostOffice))
+						old=""+((PostOffice)M).minimumPostage();
+					str.append(old);
+					break;
+				case POSTLBS: // postage per pound
+					if((firstTime)&&(M instanceof PostOffice))
+						old=""+((PostOffice)M).postagePerPound();
+					str.append(old);
+					break;
+				case POSTHOLD: // holding fee per pound
+					if((firstTime)&&(M instanceof PostOffice))
+						old=""+((PostOffice)M).holdFeePerPound();
+					str.append(old);
+					break;
+				case POSTNEW: // new box fee
+					if((firstTime)&&(M instanceof PostOffice))
+						old=""+((PostOffice)M).feeForNewBox();
+					str.append(old);
+					break;
+				case POSTHELD: // max held months
+					if((firstTime)&&(M instanceof PostOffice))
+						old=""+((PostOffice)M).maxMudMonthsHeld();
+					str.append(old);
+					break;
+				case IGNOREMASK: // ignore mask
+					if((firstTime)&&(M instanceof ShopKeeper))
+						old=((ShopKeeper)M).ignoreMask();
+					str.append(old);
+					break;
+				case LOANINT: // loan interest
+					if((firstTime)&&(M instanceof Banker))
+						old=""+((Banker)M).getLoanInterest();
+					str.append(old);
+					break;
+				case SVCRIT: // service ritual
+					if((firstTime)&&(M instanceof Deity))
+						old=((Deity)M).getServiceRitual();
+					str.append(old);
+					break;
+				case AUCCHAIN: // auction chain
+					if((firstTime)&&(M instanceof Auctioneer))
+						old=((Auctioneer)M).auctionHouse();
+					str.append(old);
+					break;
+				case LIVELIST: // live list
+					//if((firstTime)&&(M instanceof Auctioneer))
+					//    old=""+((Auctioneer)M).liveListingPrice();
+					//if(CMath.s_double(old)<0.0) old="";
+					//str.append(old);
+					break;
+				case TIMELIST: // timed list
+					if((firstTime)&&(M instanceof Auctioneer))
+						old=""+((Auctioneer)M).timedListingPrice();
+					if(CMath.s_double(old)<0.0)
+						old="";
+					str.append(old);
+					break;
+				case TIMELISTPCT: // timed list pct
+					if((firstTime)&&(M instanceof Auctioneer))
+						old=""+(((Auctioneer)M).timedListingPct()*100.0)+"%";
+					if(CMath.s_pct(old)<0.0)
+						old="";
+					str.append(old);
+					break;
+				case LIVECUT: // live cut pct
+					//if((firstTime)&&(M instanceof Auctioneer))
+					//    old=""+(((Auctioneer)M).liveFinalCutPct()*100.0)+"%";
+					//if(CMath.s_pct(old)<0.0) old="";
+					str.append(old);
+					break;
+				case TIMECUT: // timed cut pct
+					if((firstTime)&&(M instanceof Auctioneer))
+						old=""+(((Auctioneer)M).timedFinalCutPct()*100.0)+"%";
+					if(CMath.s_pct(old)<0.0)
+						old="";
+					str.append(old);
+					break;
+				case MAXDAYS: // max days
+					if((firstTime)&&(M instanceof Auctioneer))
+						old=""+((Auctioneer)M).maxTimedAuctionDays();
+					if(CMath.s_double(old)<0.0)
+						old="";
+					str.append(old);
+					break;
+				case MINDAYS: // min days
+					if((firstTime)&&(M instanceof Auctioneer))
+						old=""+((Auctioneer)M).minTimedAuctionDays();
+					if(CMath.s_double(old)<0.0)
+						old="";
+					str.append(old);
+					break;
+				case ISAUCTION: // is auction
+					if(M instanceof Auctioneer)
+						return "true";
+					return "false";
+				case DEITYID: // deityid
 				{
-					old="";
-					for(int i=0;i<M.numTattoos();i++)
-						old+=M.fetchTattoo(i)+";";
+					if(firstTime)
+						old=M.getWorshipCharID();
+					for(final Enumeration<Deity> d=CMLib.map().deities();d.hasMoreElements();)
+					{
+						final Deity D=d.nextElement();
+						str.append("<OPTION VALUE=\""+D.Name()+"\"");
+						if(D.Name().equalsIgnoreCase(old))
+							str.append(" SELECTED");
+						str.append(">"+D.Name());
+					}
+					break;
 				}
-				str.append(old);
-				break;
-			case 39: // expertises
-				if(firstTime)
-				{
-					old="";
-					for(int i=0;i<M.numExpertises();i++)
-						old+=M.fetchExpertise(i)+";";
+				case VARMONEY: // varmoney
+					if(firstTime)
+						old=""+M.getMoneyVariation();
+					str.append(old);
+					break;
+				case CATACAT: // catacat
+					if((firstTime)&&(mobCode.startsWith("CATALOG-")||mobCode.startsWith("NEWCATA-")))
+					{
+						final String name=mobCode.substring(8);
+						final CatalogLibrary.CataData data=CMLib.catalog().getCatalogMobData(name);
+						if(data!=null)
+							old=data.category();
+					}
+					str.append(old+", ");
+					break;
+				case CURSES:
+					// moved to below
+					break;
+				case POWERS:
+					// moved to below
+					break;
 				}
-				str.append(old);
-				break;
-			case 40: // budget
-				if((firstTime)&&(M instanceof ShopKeeper))
-					old=((ShopKeeper)M).budget();
-				str.append(old);
-				break;
-			case 41: // devaluation rate
-				if((firstTime)&&(M instanceof ShopKeeper))
-					old=((ShopKeeper)M).devalueRate();
-				str.append(old);
-				break;
-			case 42: // inventory reset rate
-				if((firstTime)&&(M instanceof ShopKeeper))
-					old=""+((ShopKeeper)M).invResetRate();
-				str.append(old);
-				break;
-			case 43: // image
 				if(firstTime)
-					old=M.rawImage();
-				str.append(old);
-				break;
-            case 44: // ispostman
-                if(M instanceof PostOffice) return "true";
-                return "false";
-            case 45: // postal chain
-                if((firstTime)&&(M instanceof PostOffice))
-                    old=((PostOffice)M).postalChain();
-                str.append(old);
-                break;
-            case 46: // minimum postage
-                if((firstTime)&&(M instanceof PostOffice))
-                    old=""+((PostOffice)M).minimumPostage();
-                str.append(old);
-                break;
-            case 47: // postage per pound
-                if((firstTime)&&(M instanceof PostOffice))
-                    old=""+((PostOffice)M).postagePerPound();
-                str.append(old);
-                break;
-            case 48: // holding fee per pound
-                if((firstTime)&&(M instanceof PostOffice))
-                    old=""+((PostOffice)M).holdFeePerPound();
-                str.append(old);
-                break;
-            case 49: // new box fee
-                if((firstTime)&&(M instanceof PostOffice))
-                    old=""+((PostOffice)M).feeForNewBox();
-                str.append(old);
-                break;
-            case 50: // max held months
-                if((firstTime)&&(M instanceof PostOffice))
-                    old=""+((PostOffice)M).maxMudMonthsHeld();
-                str.append(old);
-                break;
-            case 51: // ignore mask
-                if((firstTime)&&(M instanceof ShopKeeper))
-                    old=((ShopKeeper)M).ignoreMask();
-                str.append(old);
-                break;
-			case 52: // loan interest
-				if((firstTime)&&(M instanceof Banker))
-					old=""+((Banker)M).getLoanInterest();
-				str.append(old);
-				break;
-            case 53: // service ritual
-                if((firstTime)&&(M instanceof Deity))
-                    old=((Deity)M).getServiceRitual();
-                str.append(old);
-                break;
-            case 54: // auction chain
-                if((firstTime)&&(M instanceof Auctioneer))
-                    old=((Auctioneer)M).auctionHouse();
-                str.append(old);
-                break;
-            case 55: // live list
-                //if((firstTime)&&(M instanceof Auctioneer))
-                //    old=""+((Auctioneer)M).liveListingPrice();
-                //if(CMath.s_double(old)<0.0) old="";
-                //str.append(old);
-                break;
-            case 56: // timed list
-                if((firstTime)&&(M instanceof Auctioneer))
-                    old=""+((Auctioneer)M).timedListingPrice();
-                if(CMath.s_double(old)<0.0) old="";
-                str.append(old);
-                break;
-            case 57: // timed list pct
-                if((firstTime)&&(M instanceof Auctioneer))
-                    old=""+(((Auctioneer)M).timedListingPct()*100.0)+"%";
-                if(CMath.s_pct(old)<0.0)
-                	old="";
-                str.append(old);
-                break;
-            case 58: // live cut pct
-                //if((firstTime)&&(M instanceof Auctioneer))
-                //    old=""+(((Auctioneer)M).liveFinalCutPct()*100.0)+"%";
-                //if(CMath.s_pct(old)<0.0) old="";
-                str.append(old);
-                break;
-            case 59: // timed cut pct
-                if((firstTime)&&(M instanceof Auctioneer))
-                    old=""+(((Auctioneer)M).timedFinalCutPct()*100.0)+"%";
-                if(CMath.s_pct(old)<0.0) old="";
-                str.append(old);
-                break;
-            case 60: // max days
-                if((firstTime)&&(M instanceof Auctioneer))
-                    old=""+((Auctioneer)M).maxTimedAuctionDays();
-                if(CMath.s_double(old)<0.0) old="";
-                str.append(old);
-                break;
-            case 61: // min days
-                if((firstTime)&&(M instanceof Auctioneer))
-                    old=""+((Auctioneer)M).minTimedAuctionDays();
-                if(CMath.s_double(old)<0.0) old="";
-                str.append(old);
-                break;
-            case 62: // is auction
-                if(M instanceof Auctioneer) return "true";
-                return "false";
-            case 63: // deityid
-            {
-                if(firstTime) old=M.getWorshipCharID();
-                for(Enumeration d=CMLib.map().deities();d.hasMoreElements();)
-                {
-                    Deity D=(Deity)d.nextElement();
-                    str.append("<OPTION VALUE=\""+D.Name()+"\"");
-                    if(D.Name().equalsIgnoreCase(old))
-                        str.append(" SELECTED");
-                    str.append(">"+D.Name());
-                }
-                break;
-            }
-            case 64: // varmoney
-                if(firstTime) old=""+M.getMoneyVariation();
-                str.append(old);
-                break;
+					httpReq.addFakeUrlParameter(parmName,old.equals("checked")?"on":old);
 			}
-			if(firstTime)
-				httpReq.addRequestParameters(okparms[o],old.equals("checked")?"on":old);
 		}
 		str.append(ExitData.dispositions(M,firstTime,httpReq,parms));
 		str.append(MobData.senses(M,firstTime,httpReq,parms));
-		str.append(AreaData.affectsNBehaves(M,httpReq,parms,1));
+		str.append(AreaData.affects(M,httpReq,parms,1));
+		str.append(AreaData.behaves(M,httpReq,parms,1));
 		str.append(factions(M,httpReq,parms,1));
 		str.append(MobData.abilities(M,httpReq,parms,1));
+		str.append(MobData.clans(M,httpReq,parms,1));
 		if(M instanceof Deity)
 		{
 			str.append(MobData.blessings((Deity)M,httpReq,parms,1));
@@ -1520,13 +1721,13 @@ public class MobData extends StdWebMacro
 			str.append(MobData.powers((Deity)M,httpReq,parms,1));
 		}
 		if(M instanceof ShopKeeper)
-			str.append(MobData.shopkeeper((ShopKeeper)M,httpReq,parms,1));
+			str.append(MobData.shopkeeper(R,(ShopKeeper)M,httpReq,parms,1));
 
-		str.append(itemList(oldM,M,httpReq,parms,1));
+		str.append(itemList(R,oldM,M,httpReq,parms,1));
 
 		String strstr=str.toString();
 		if(strstr.endsWith(", "))
 			strstr=strstr.substring(0,strstr.length()-2);
-        return clearWebMacros(strstr);
+		return clearWebMacros(strstr);
 	}
 }

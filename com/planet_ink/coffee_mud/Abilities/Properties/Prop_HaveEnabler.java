@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Properties;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,6 +10,7 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -17,14 +19,14 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2004-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,33 +34,66 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
+
 public class Prop_HaveEnabler extends Prop_SpellAdder
 {
-	public String ID() { return "Prop_HaveEnabler"; }
-	public String name(){ return "Granting skills when owned";}
-	protected int canAffectCode(){return Ability.CAN_ITEMS;}
-    protected Item myItem=null;
-    protected Vector lastMOBeffected=new Vector();
-    protected boolean processing2=false;
-    
-    public String accountForYourself()
-    { return spellAccountingsWithMask("Grants "," to the owner.");}
-
-    public void setMiscText(String newText)
-    {
-        super.setMiscText(newText);
-        lastMOBeffected=new Vector();
-    }
-	public boolean addMeIfNeccessary(Environmental source, Environmental target, boolean makeLongLasting)
+	@Override
+	public String ID()
 	{
-        if((!(target instanceof MOB))
-        ||((compiledMask!=null)&&(compiledMask.size()>0)&&(!CMLib.masking().maskCheck(compiledMask,target,true))))
-            return false;
-        MOB newMOB=(MOB)target;
-		Vector V=getMySpellsV();
+		return "Prop_HaveEnabler";
+	}
+
+	@Override
+	public String name()
+	{
+		return "Granting skills when owned";
+	}
+
+	@Override
+	protected int canAffectCode()
+	{
+		return Ability.CAN_ITEMS;
+	}
+
+	protected Item				myItem			= null;
+	protected List<String>		lastMOBeffects	= new Vector<String>();
+	protected boolean			processing2		= false;
+	protected volatile boolean	clearedYet		= false;
+
+	@Override
+	public long flags()
+	{
+		return Ability.FLAG_ENABLER;
+	}
+
+	@Override
+	public int triggerMask()
+	{
+		return TriggeredAffect.TRIGGER_GET;
+	}
+
+	@Override
+	public String accountForYourself()
+	{
+		return spellAccountingsWithMask("Grants ", " to the owner.");
+	}
+
+	@Override
+	public void setMiscText(String newText)
+	{
+		super.setMiscText(newText);
+		lastMOBeffects=new Vector<String>();
+	}
+
+	public boolean addMeIfNeccessary(Environmental source, Environmental target, short maxTicks)
+	{
+		if((!(target instanceof MOB))
+		||((compiledMask!=null)&&(!CMLib.masking().maskCheck(compiledMask,target,true))))
+			return false;
+		final MOB newMOB=(MOB)target;
+		final List<Ability> allAbles=getMySpellsV();
 		int proff=100;
-		int x=text().indexOf("%");
+		int x=text().indexOf('%');
 		if(x>0)
 		{
 			int mul=1;
@@ -73,91 +108,89 @@ public class Prop_HaveEnabler extends Prop_SpellAdder
 			}
 			proff=tot;
 		}
-        boolean clearedYet=false;
-		for(int v=0;v<V.size();v++)
+		for(int v=0;v<allAbles.size();v++)
 		{
-			Ability A=(Ability)V.elementAt(v);
+			final Ability A=allAbles.get(v);
 			if(newMOB.fetchAbility(A.ID())==null)
 			{
-				String t=A.text();
+				final String t=A.text();
 				if(t.length()>0)
 				{
-					x=t.indexOf("/");
+					x=t.indexOf('/');
 					if(x<0)
 						A.setMiscText("");
 					else
 						A.setMiscText(t.substring(x+1));
 				}
-                Ability A2=newMOB.fetchEffect(A.ID());
+				final Ability A2=newMOB.fetchEffect(A.ID());
 				A.setProficiency(proff);
 				newMOB.addAbility(A);
-				A.setSavable(makeLongLasting);
-                A.autoInvocation(newMOB);
-                if(!clearedYet)
-                {
-                    lastMOBeffected.clear();    
-                    clearedYet=true;
-                }
-                if((A2==null)&&(!lastMOBeffected.contains(A.ID()))) 
-                    lastMOBeffected.addElement(A.ID());
+				A.setSavable(false);
+				A.autoInvocation(newMOB, false);
+				if(!clearedYet)
+				{
+					lastMOBeffects.clear();
+					clearedYet=true;
+				}
+				if((A2==null)
+				&&(!lastMOBeffects.contains(A.ID())))
+					lastMOBeffects.add(A.ID());
 			}
 		}
 		lastMOB=newMOB;
-        return true;
+		return true;
 	}
 
-    public void removeMyAffectsFrom(Environmental E)
-    {
-        if(!(E instanceof MOB))
-            return;
-        Vector V=getMySpellsV();
-        for(int v=0;v<V.size();v++)
-        {
-            Ability A=(Ability)V.elementAt(v);
-            ((MOB)E).delAbility(A);
-        }
-        if(E==lastMOB)
-        {
-            for(Iterator e=lastMOBeffected.iterator();e.hasNext();)
-            {
-                String AID=(String)e.next();
-                Ability A2=lastMOB.fetchEffect(AID);
-                if(A2!=null)
-                {
-                    A2.unInvoke();
-                    A2.delEffect(A2);
-                }
-            }
-            lastMOBeffected.clear();
-        }
-    }
-    
+	@Override
+	public void removeMyAffectsFrom(Physical P)
+	{
+		if(!(P instanceof MOB))
+			return;
+		final List<Ability> V=getMySpellsV();
+		final Set<String> removedAbles = new HashSet<String>();
+		for(int v=0;v<V.size();v++)
+		{
+			final Ability A=V.get(v);
+			if(!A.isSavable())
+			{
+				removedAbles.add(A.ID());
+				((MOB)P).delAbility(A);
+			}
+		}
+		if(P==lastMOB)
+		{
+			for(final Iterator<String> e=lastMOBeffects.iterator();e.hasNext();)
+			{
+				final String AID=e.next();
+				final Ability A2=lastMOB.fetchEffect(AID);
+				if((A2!=null)&&(removedAbles.contains(A2.ID())))
+				{
+					A2.unInvoke();
+					lastMOB.delEffect(A2);
+				}
+			}
+			lastMOBeffects.clear();
+		}
+	}
+
 	public void removeMyAffectsFromLastMob()
 	{
-        if(!(lastMOB instanceof MOB))
-            return;
-        removeMyAffectsFrom(lastMOB);
+		if(!(lastMOB instanceof MOB))
+			return;
+		removeMyAffectsFrom(lastMOB);
 		lastMOB=null;
 	}
 
-    public void recoverEnvStats()
-    {
-        if(processing2) return;
-        processing2=true;
-        if((affected instanceof Item)
-        &&(lastMOB instanceof MOB)
-        &&((((Item)affected).owner()!=lastMOB)||(((Item)affected).amDestroyed()))
-        &&(((MOB)lastMOB).location()!=null))
-            removeMyAffectsFromLastMob();
-        processing2=false;
-    }
-    
-    public void executeMsg(Environmental host, CMMsg msg)
-    {}
-    
-	public void affectEnvStats(Environmental host, EnvStats affectableStats)
+	@Override
+	public void executeMsg(Environmental host, CMMsg msg)
 	{
-		if(processing) return;
+	}
+
+	@Override
+	public void affectPhyStats(Physical host, PhyStats affectableStats)
+	{
+		if(processing)
+			return;
 		processing=true;
 		if(host instanceof Item)
 		{
@@ -167,12 +200,12 @@ public class Prop_HaveEnabler extends Prop_SpellAdder
 			&&((myItem.owner()!=lastMOB)||(myItem.amDestroyed()))
 			&&(((MOB)lastMOB).location()!=null))
 				removeMyAffectsFromLastMob();
-			
+
 			if((lastMOB==null)
-            &&(myItem.owner()!=null)
+			&&(myItem.owner()!=null)
 			&&(myItem.owner() instanceof MOB)
-            &&(((MOB)myItem.owner()).location()!=null))
-				addMeIfNeccessary(myItem.owner(),myItem.owner(),false);
+			&&(((MOB)myItem.owner()).location()!=null))
+				addMeIfNeccessary(myItem.owner(),myItem.owner(),maxTicks);
 		}
 		processing=false;
 	}

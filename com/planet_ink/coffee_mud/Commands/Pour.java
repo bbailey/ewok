@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Commands;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,20 +10,21 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2004-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -30,69 +32,118 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
+
 public class Pour extends StdCommand
 {
 	public Pour(){}
 
-	private String[] access={"POUR"};
-	public String[] getAccessWords(){return access;}
-	public boolean execute(MOB mob, Vector commands, int metaFlags)
+	private final String[] access=I(new String[]{"POUR"});
+	@Override public String[] getAccessWords(){return access;}
+
+	enum PourVerb{DEFAULT,INTO,ONTO,OUT}
+
+	@Override
+	public boolean execute(MOB mob, List<String> commands, int metaFlags)
 		throws java.io.IOException
 	{
+		Vector<String> origCmds=new XVector<String>(commands);
 		if(commands.size()<2)
 		{
-			mob.tell("Pour what, into what?");
+			CMLib.commands().doCommandFail(mob,origCmds,L("Pour what, into/onto what?"));
 			return false;
 		}
-		commands.removeElementAt(0);
+		commands.remove(0);
+		PourVerb verb=PourVerb.DEFAULT;
+		if(((commands.get(0))).equalsIgnoreCase("out"))
+		{
+			commands.remove(0);
+			verb=PourVerb.OUT;
+			if(commands.size()==0)
+			{
+				CMLib.commands().doCommandFail(mob,origCmds,L("Pour out what?"));
+				return false;
+			}
+		}
 		Environmental fillFromThis=null;
-		String thingToFillFrom=(String)commands.elementAt(0);
-		fillFromThis=mob.fetchCarried(null,thingToFillFrom);
+		final String thingToFillFrom=commands.get(0);
+		fillFromThis=mob.fetchItem(null,Wearable.FILTER_UNWORNONLY,thingToFillFrom);
 		if((fillFromThis==null)||(!CMLib.flags().canBeSeenBy(fillFromThis,mob)))
 		{
-			mob.tell("You don't seem to have '"+thingToFillFrom+"'.");
+			CMLib.commands().doCommandFail(mob,origCmds,L("You don't seem to have '@x1'.",thingToFillFrom));
 			return false;
 		}
-		commands.removeElementAt(0);
+		commands.remove(0);
 
-		if((commands.size()>1)&&(((String)commands.firstElement())).equalsIgnoreCase("into"))
-			commands.removeElementAt(0);
-
-		if(commands.size()<1)
+		if(commands.size()==1)
 		{
-			mob.tell("Into what should I pour the "+thingToFillFrom+"?");
-			return false;
+			if(((commands.get(0))).equalsIgnoreCase("out"))
+			{
+				commands.remove(0);
+				verb=PourVerb.OUT;
+			}
+		}
+		else
+		if(commands.size()>1)
+		{
+			if(((commands.get(0))).equalsIgnoreCase("into"))
+				commands.remove(0);
+			else
+			if(((commands.get(0))).equalsIgnoreCase("onto"))
+			{
+				commands.remove(0);
+				verb=PourVerb.ONTO;
+			}
 		}
 
-		String thingToFill=CMParms.combine(commands,0);
-		Environmental fillThis=mob.location().fetchFromMOBRoomFavorsItems(mob,null,thingToFill,Wearable.FILTER_ANY);
-		Item out=null;
-		if((fillThis==null)&&(thingToFill.equalsIgnoreCase("out")))
+		Environmental fillThis;
+		String msgStr;
+		if(verb==PourVerb.OUT)
 		{
-			out=CMClass.getItem("StdDrink");
+			final Item out=CMClass.getItem("StdDrink");
 			((Drink)out).setLiquidHeld(999999);
 			((Drink)out).setLiquidRemaining(0);
 			out.setDisplayText("");
-			out.setName("out");
-			mob.location().addItemRefuse(out,CMProps.getIntVar(CMProps.SYSTEMI_EXPIRE_RESOURCE));
+			out.setName(L("out"));
+			msgStr=L("<S-NAME> pour(s) <O-NAME> <T-NAME>.");
+			mob.location().addItem(out,ItemPossessor.Expire.Resource);
 			fillThis=out;
 		}
-		if((fillThis==null)
-		||(!CMLib.flags().canBeSeenBy(fillThis,mob)))
-			mob.tell("I don't see '"+thingToFill+"' here.");
 		else
 		{
-			CMMsg fillMsg=CMClass.getMsg(mob,fillThis,fillFromThis,CMMsg.MSG_FILL,(out==null)?"<S-NAME> pour(s) <O-NAME> into <T-NAME>.":"<S-NAME> pour(s) <O-NAME> <T-NAME>.");
-			if(mob.location().okMessage(mob,fillMsg))
-				mob.location().send(mob,fillMsg);
+			if(commands.size()<1)
+			{
+				CMLib.commands().doCommandFail(mob,origCmds,L("@x1 what should I pour the @x2?",CMStrings.capitalizeAndLower(verb.name()),thingToFillFrom));
+				return false;
+			}
+			final String thingToFill=CMParms.combine(commands,0);
+			fillThis=mob.location().fetchFromMOBRoomFavorsItems(mob,null,thingToFill,Wearable.FILTER_ANY);
+			if((fillThis==null)||(!CMLib.flags().canBeSeenBy(fillThis,mob)))
+			{
+				CMLib.commands().doCommandFail(mob,origCmds,L("I don't see '@x1' here.",thingToFill));
+				return false;
+			}
+			if((verb==PourVerb.DEFAULT)&&(!(fillThis instanceof Drink)))
+				verb=PourVerb.ONTO;
+			else
+			if((verb==PourVerb.ONTO)&&(fillThis instanceof Drink))
+				verb=PourVerb.INTO;
+			if(verb==PourVerb.ONTO)
+				msgStr=L("<S-NAME> pour(s) <O-NAME> onto <T-NAME>.");
+			else
+				msgStr=L("<S-NAME> pour(s) <O-NAME> into <T-NAME>.");
 		}
-        if(out!=null) out.destroy();
+
+		final CMMsg fillMsg=CMClass.getMsg(mob,fillThis,fillFromThis,(verb==PourVerb.ONTO)?CMMsg.MSG_POUR:CMMsg.MSG_FILL,msgStr);
+		if(mob.location().okMessage(mob,fillMsg))
+			mob.location().send(mob,fillMsg);
+
+		if(verb==PourVerb.OUT)
+			fillThis.destroy();
 		return false;
 	}
-    public double combatActionsCost(MOB mob, Vector cmds){return CMath.div(CMProps.getIntVar(CMProps.SYSTEMI_DEFCOMCMDTIME),100.0);}
-    public double actionsCost(MOB mob, Vector cmds){return CMath.div(CMProps.getIntVar(CMProps.SYSTEMI_DEFCMDTIME),100.0);}
-	public boolean canBeOrdered(){return true;}
+	@Override public double combatActionsCost(final MOB mob, final List<String> cmds){return CMProps.getCommandCombatActionCost(ID());}
+	@Override public double actionsCost(final MOB mob, final List<String> cmds){return CMProps.getCommandActionCost(ID());}
+	@Override public boolean canBeOrdered(){return true;}
 
-	
+
 }

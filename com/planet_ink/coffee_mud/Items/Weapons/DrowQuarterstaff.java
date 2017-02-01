@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Items.Weapons;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,19 +10,20 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2001-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -31,7 +33,12 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 */
 public class DrowQuarterstaff extends Mace
 {
-	public String ID(){	return "DrowQuarterstaff";}
+	@Override
+	public String ID()
+	{
+		return "DrowQuarterstaff";
+	}
+
 	public DrowQuarterstaff()
 	{
 		super();
@@ -40,16 +47,16 @@ public class DrowQuarterstaff extends Mace
 		setDisplayText("a quarterstaff is on the ground.");
 		setDescription("A quarterstaff made out of a very dark material metal.");
 		secretIdentity="A Drow quarterstaff";
-		baseEnvStats().setAbility(CMLib.dice().roll(1,6,0));
-		baseEnvStats().setLevel(1);
-		baseEnvStats().setWeight(4);
-		baseEnvStats().setAttackAdjustment(0);
-		baseEnvStats().setDamage(6);
-		baseEnvStats().setDisposition(baseEnvStats().disposition()|EnvStats.IS_BONUS);
+		basePhyStats().setAbility(CMLib.dice().roll(1,6,0));
+		basePhyStats().setLevel(1);
+		basePhyStats().setWeight(4);
+		basePhyStats().setAttackAdjustment(0);
+		basePhyStats().setDamage(6);
+		basePhyStats().setDisposition(basePhyStats().disposition()|PhyStats.IS_BONUS);
 		baseGoldValue=2500;
-		recoverEnvStats();
+		recoverPhyStats();
 		material=RawMaterial.RESOURCE_STEEL;
-		weaponType=TYPE_BASHING;
+		weaponDamageType=TYPE_BASHING;
 	}
 
 

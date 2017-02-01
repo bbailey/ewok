@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Diseases;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,20 +10,21 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2004-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -33,23 +35,26 @@ import java.util.*;
 
 public class Disease_Blahs extends Disease
 {
-	public String ID() { return "Disease_Blahs"; }
-	public String name(){ return "Blahs";}
-	public String displayText(){ return "(The Blahs)";}
-	protected int canAffectCode(){return CAN_MOBS;}
-	protected int canTargetCode(){return CAN_MOBS;}
-	public int abstractQuality(){return Ability.QUALITY_MALICIOUS;}
-	public boolean putInCommandlist(){return false;}
-	public int difficultyLevel(){return 4;}
+	@Override public String ID() { return "Disease_Blahs"; }
+	private final static String localizedName = CMLib.lang().L("Blahs");
+	@Override public String name() { return localizedName; }
+	private final static String localizedStaticDisplay = CMLib.lang().L("(The Blahs)");
+	@Override public String displayText() { return localizedStaticDisplay; }
+	@Override protected int canAffectCode(){return CAN_MOBS;}
+	@Override protected int canTargetCode(){return CAN_MOBS;}
+	@Override public int abstractQuality(){return Ability.QUALITY_MALICIOUS;}
+	@Override public boolean putInCommandlist(){return false;}
+	@Override public int difficultyLevel(){return 4;}
 
-	protected int DISEASE_TICKS(){return 99999;}
-	protected int DISEASE_DELAY(){return 20;}
-	protected String DISEASE_DONE(){return "You feel a little better.";}
-	protected String DISEASE_START(){return "^G<S-NAME> get(s) the blahs.^?";}
-	protected String DISEASE_AFFECT(){return "<S-NAME> sigh(s).";}
-	public int abilityCode(){return DiseaseAffect.SPREAD_CONSUMPTION;}
+	@Override protected int DISEASE_TICKS(){return 99999;}
+	@Override protected int DISEASE_DELAY(){return 20;}
+	@Override protected String DISEASE_DONE(){return L("You feel a little better.");}
+	@Override protected String DISEASE_START(){return L("^G<S-NAME> get(s) the blahs.^?");}
+	@Override protected String DISEASE_AFFECT(){return L("<S-NAME> sigh(s).");}
+	@Override public int spreadBitmap(){return DiseaseAffect.SPREAD_CONSUMPTION;}
 
-	public boolean okMessage(Environmental myHost, CMMsg msg)
+	@Override
+	public boolean okMessage(final Environmental myHost, final CMMsg msg)
 	{
 		if(!super.okMessage(myHost,msg))
 			return false;
@@ -65,9 +70,9 @@ public class Disease_Blahs extends Disease
 			&&(msg.tool()==null)
 			&&((msg.sourceMinor()==CMMsg.TYP_SPEAK)
 			   ||(msg.sourceMinor()==CMMsg.TYP_TELL)
-			   ||(CMath.bset(msg.sourceCode(),CMMsg.MASK_CHANNEL))))
+			   ||(CMath.bset(msg.sourceMajor(),CMMsg.MASK_CHANNEL))))
 			{
-				Ability A=CMClass.getAbility("Blah");
+				final Ability A=CMClass.getAbility("Blah");
 				if(A!=null)
 				{
 					A.setProficiency(100);
@@ -84,15 +89,20 @@ public class Disease_Blahs extends Disease
 		}
 		return true;
 	}
-	
+
+	@Override
 	public boolean tick(Tickable ticking, int tickID)
 	{
-		if(!super.tick(ticking,tickID))	return false;
-		if(affected==null) return false;
-		if(!(affected instanceof MOB)) return true;
+		if(!super.tick(ticking,tickID))
+			return false;
+		if(affected==null)
+			return false;
+		if(!(affected instanceof MOB))
+			return true;
 
-		MOB mob=(MOB)affected;
-		if(mob.curState().getFatigue()<CharState.FATIGUED_MILLIS)
+		final MOB mob=(MOB)affected;
+		if((mob.curState().getFatigue()<CharState.FATIGUED_MILLIS)
+		&&(mob.maxState().getFatigue()>Long.MIN_VALUE/2))
 			mob.curState().setFatigue(CharState.FATIGUED_MILLIS);
 		return true;
 	}

@@ -2,6 +2,7 @@ package com.planet_ink.coffee_mud.Abilities.Ranger;
 import com.planet_ink.coffee_mud.Abilities.StdAbility;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -15,17 +16,16 @@ import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
-
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2003-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -33,86 +33,93 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
+
 public class Ranger_Sneak extends StdAbility
 {
-	public String ID() { return "Ranger_Sneak"; }
-	public String name(){ return "Woodland Sneak";}
-	protected int canAffectCode(){return 0;}
-	protected int canTargetCode(){return 0;}
-	public int abstractQuality(){return Ability.QUALITY_INDIFFERENT;}
-	private static final String[] triggerStrings = {"WSNEAK"};
-	public String[] triggerStrings(){return triggerStrings;}
-	public int classificationCode(){return Ability.ACODE_SKILL|Ability.DOMAIN_STEALTHY;}
-	public int usageType(){return USAGE_MOVEMENT;}
+	@Override public String ID() { return "Ranger_Sneak"; }
+	private final static String localizedName = CMLib.lang().L("Woodland Sneak");
+	@Override public String name() { return localizedName; }
+	@Override protected int canAffectCode(){return 0;}
+	@Override protected int canTargetCode(){return 0;}
+	@Override public int abstractQuality(){return Ability.QUALITY_INDIFFERENT;}
+	private static final String[] triggerStrings =I(new String[] {"WSNEAK"});
+	@Override public String[] triggerStrings(){return triggerStrings;}
+	@Override public int classificationCode(){return Ability.ACODE_SKILL|Ability.DOMAIN_STEALTHY;}
+	@Override public int usageType(){return USAGE_MOVEMENT;}
 
 	public int getMOBLevel(MOB meMOB)
 	{
-		if(meMOB==null) return 0;
-		return meMOB.envStats().level();
+		if(meMOB==null)
+			return 0;
+		return meMOB.phyStats().level();
 	}
-	public MOB getHighestLevelMOB(MOB meMOB, Vector not)
+	public MOB getHighestLevelMOB(MOB meMOB, Vector<MOB> not)
 	{
-		if(meMOB==null) return null;
-		Room R=meMOB.location();
-		if(R==null) return null;
+		if(meMOB==null)
+			return null;
+		final Room R=meMOB.location();
+		if(R==null)
+			return null;
 		int highestLevel=0;
 		MOB highestMOB=null;
-		HashSet H=meMOB.getGroupMembers(new HashSet());
-		if(not!=null) H.addAll(not);
+		final Set<MOB> H=meMOB.getGroupMembers(new HashSet<MOB>());
+		if(not!=null)
+			H.addAll(not);
 		for(int i=0;i<R.numInhabitants();i++)
 		{
-			MOB M=R.fetchInhabitant(i);
+			final MOB M=R.fetchInhabitant(i);
 			if((M!=null)
 			&&(M!=meMOB)
 			&&(!H.contains(M))
-			&&(highestLevel<M.envStats().level()))
+			&&(highestLevel<M.phyStats().level()))
 			{
-				highestLevel=M.envStats().level();
+				highestLevel=M.phyStats().level();
 				highestMOB=M;
 			}
 		}
 		return highestMOB;
 	}
-	
-	public boolean invoke(MOB mob, Vector commands, Environmental givenTarget, boolean auto, int asLevel)
+
+	@Override
+	public boolean invoke(MOB mob, List<String> commands, Physical givenTarget, boolean auto, int asLevel)
 	{
 		String dir=CMParms.combine(commands,0);
-		if(commands.size()>0) dir=(String)commands.lastElement();
-		int dirCode=Directions.getGoodDirectionCode(dir);
+		if(commands.size()>0)
+			dir=commands.get(commands.size()-1);
+		final int dirCode=CMLib.directions().getGoodDirectionCode(dir);
 		if(dirCode<0)
 		{
-			mob.tell("Sneak where?");
+			mob.tell(L("Sneak where?"));
 			return false;
 		}
 
-		if((((mob.location().domainType()&Room.INDOORS)>0))&&(!auto))
+		if((!CMLib.flags().isInWilderness(mob))&&(!auto))
 		{
-			mob.tell("You must be outdoors to do this.");
+			mob.tell(L("You must be in the wilderness to do this."));
 			return false;
 		}
 		if(((mob.location().domainType()==Room.DOMAIN_OUTDOORS_CITY)
 		   ||(mob.location().domainType()==Room.DOMAIN_OUTDOORS_SPACEPORT))
 		&&(!auto))
 		{
-			mob.tell("You don't know how to sneak around a place like this.");
+			mob.tell(L("You don't know how to sneak around a place like this."));
 			return false;
 		}
 
 		if((mob.location().getRoomInDir(dirCode)==null)||(mob.location().getExitInDir(dirCode)==null))
 		{
-			mob.tell("Sneak where?");
+			mob.tell(L("Sneak where?"));
 			return false;
 		}
 
-        MOB highestMOB=getHighestLevelMOB(mob,null);
-		int levelDiff=(mob.envStats().level()+(2*super.getXLEVELLevel(mob)))-getMOBLevel(highestMOB);
+		final MOB highestMOB=getHighestLevelMOB(mob,null);
+		int levelDiff=(mob.phyStats().level()+(2*getXLEVELLevel(mob)))-getMOBLevel(highestMOB);
 
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
 			return false;
 
 		boolean success=false;
-		CMMsg msg=CMClass.getMsg(mob,null,this,auto?CMMsg.MSG_OK_VISUAL:CMMsg.MSG_DELICATE_HANDS_ACT,"You quietly sneak "+Directions.getDirectionName(dirCode)+".",CMMsg.NO_EFFECT,null,CMMsg.NO_EFFECT,null);
+		final CMMsg msg=CMClass.getMsg(mob,null,this,auto?CMMsg.MSG_OK_VISUAL:CMMsg.MSG_DELICATE_HANDS_ACT,L("You quietly sneak @x1.",CMLib.directions().getDirectionName(dirCode)),CMMsg.NO_EFFECT,null,CMMsg.NO_EFFECT,null);
 		if(mob.location().okMessage(mob,msg))
 		{
 			mob.location().send(mob,msg);
@@ -124,18 +131,18 @@ public class Ranger_Sneak extends StdAbility
 
 			if(success)
 			{
-				mob.baseEnvStats().setDisposition(mob.baseEnvStats().disposition()|EnvStats.IS_SNEAKING);
-				mob.recoverEnvStats();
+				mob.basePhyStats().setDisposition(mob.basePhyStats().disposition()|PhyStats.IS_SNEAKING);
+				mob.recoverPhyStats();
 			}
-			CMLib.tracking().move(mob,dirCode,false,false);
+			CMLib.tracking().walk(mob,dirCode,false,false);
 			if(success)
 			{
 
-				int disposition=mob.baseEnvStats().disposition();
-				if((disposition&EnvStats.IS_SNEAKING)>0)
+				final int disposition=mob.basePhyStats().disposition();
+				if((disposition&PhyStats.IS_SNEAKING)>0)
 				{
-					mob.baseEnvStats().setDisposition(disposition-EnvStats.IS_SNEAKING);
-					mob.recoverEnvStats();
+					mob.basePhyStats().setDisposition(disposition-PhyStats.IS_SNEAKING);
+					mob.recoverPhyStats();
 				}
 			}
 		}

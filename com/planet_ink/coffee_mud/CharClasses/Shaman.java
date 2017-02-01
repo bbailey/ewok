@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.CharClasses;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,6 +10,7 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -16,14 +18,14 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2003-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -31,26 +33,59 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
 public class Shaman extends Cleric
 {
-	public String ID(){return "Shaman";}
-	public String name(){return "Shaman";}
-	public String baseClass(){return "Cleric";}
-	public int getAttackAttribute(){return CharStats.STAT_WISDOM;}
-	public int allowedWeaponLevel(){return CharClass.WEAPONS_NEUTRALCLERIC;}
-	private HashSet disallowedWeapons=buildDisallowedWeaponClasses();
-	protected HashSet disallowedWeaponClasses(MOB mob){return disallowedWeapons;}
-	
+	@Override
+	public String ID()
+	{
+		return "Shaman";
+	}
+
+	private final static String	localizedStaticName	= CMLib.lang().L("Shaman");
+
+	@Override
+	public String name()
+	{
+		return localizedStaticName;
+	}
+
+	@Override
+	public String baseClass()
+	{
+		return "Cleric";
+	}
+
+	@Override
+	public int getAttackAttribute()
+	{
+		return CharStats.STAT_WISDOM;
+	}
+
+	@Override
+	public int allowedWeaponLevel()
+	{
+		return CharClass.WEAPONS_NEUTRALCLERIC;
+	}
+
+	private final Set<Integer>	disallowedWeapons	= buildDisallowedWeaponClasses();
+
+	@Override
+	protected Set<Integer> disallowedWeaponClasses(MOB mob)
+	{
+		return disallowedWeapons;
+	}
+
 	public Shaman()
 	{
-        super();
+		super();
 		maxStatAdj[CharStats.STAT_WISDOM]=4;
 		maxStatAdj[CharStats.STAT_CONSTITUTION]=4;
-    }
-    public void initializeClass()
-    {
-        super.initializeClass();
+	}
+
+	@Override
+	public void initializeClass()
+	{
+		super.initializeClass();
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Skill_Recall",100,true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Skill_Swim",false);
 
@@ -71,7 +106,7 @@ public class Shaman extends Cleric
 		CMLib.ableMapper().addCharAbilityMapping(ID(),2,"Prayer_SenseLife",true);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),3,"Prayer_Bury",false);
-        CMLib.ableMapper().addCharAbilityMapping(ID(),3,"Prayer_MinorInfusion",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),3,"Prayer_MinorInfusion",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),4,"Prayer_FortifyFood",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),4,"Prayer_ProtEvil",false);
@@ -80,18 +115,20 @@ public class Shaman extends Cleric
 		CMLib.ableMapper().addCharAbilityMapping(ID(),5,"Prayer_CureDeafness",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),5,"Prayer_Deafness",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),5,"Prayer_CreateFood",true);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),5,"Alchemy",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),6,"Prayer_CreateWater",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),6,"Prayer_EarthMud",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),7,"Prayer_Curse",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),7,"Prayer_Bless",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),7,"Prayer_Adoption",true);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),8,"Prayer_Paralyze",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),8,"Prayer_ProtParalyzation",true);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),9,"Prayer_Earthshield",false);
-        CMLib.ableMapper().addCharAbilityMapping(ID(),9,"Prayer_ModerateInfusion",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),9,"Prayer_ModerateInfusion",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),10,"Prayer_RestoreVoice",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),10,"Prayer_SenseInvisible",false);
@@ -113,24 +150,27 @@ public class Shaman extends Cleric
 		CMLib.ableMapper().addCharAbilityMapping(ID(),15,"Prayer_GuardianHearth",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),16,"Prayer_Tremor",false);
-        CMLib.ableMapper().addCharAbilityMapping(ID(),16,"Prayer_InfuseBalance",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),16,"Prayer_InfuseBalance",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),16,"Prayer_SanctifyRoom",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),17,"Skill_AttackHalf",false);
-        CMLib.ableMapper().addCharAbilityMapping(ID(),17,"Prayer_MajorInfusion",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),17,"Prayer_MajorInfusion",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),17,"Prayer_CureBlindness",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),17,"Prayer_Blindsight",false);
 
-		CMLib.ableMapper().addCharAbilityMapping(ID(),18,"Prayer_BladeBarrier",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),18,"Prayer_Retribution",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),18,"Prayer_ProtectElements",true);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),19,"Prayer_RockFlesh",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),19,"Prayer_FleshRock",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),20,"Prayer_MassMobility",true,CMParms.parseSemicolons("Prayer_ProtParalyzation",true));
+		CMLib.ableMapper().addCharAbilityMapping(ID(),20,"Prayer_Refuge",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),21,"Prayer_DrunkenStupor",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),21,"Prayer_MoralBalance",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),21,"Prayer_Stasis",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),22,"Prayer_CurseItem",true,CMParms.parseSemicolons("Prayer_Curse",true));
 		CMLib.ableMapper().addCharAbilityMapping(ID(),22,"Prayer_Disenchant",false);
@@ -143,12 +183,17 @@ public class Shaman extends Cleric
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),25,"Prayer_SummonElemental",0,"EARTH",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),25,"Prayer_AcidHealing",false);
-		
+
 		CMLib.ableMapper().addCharAbilityMapping(ID(),30,"Prayer_HolyDay",true);
 	}
 
-	public int availabilityCode(){return Area.THEME_FANTASY;}
+	@Override
+	public int availabilityCode()
+	{
+		return Area.THEME_FANTASY;
+	}
 
+	@Override
 	public boolean tick(Tickable myChar, int tickID)
 	{
 		if(tickID==Tickable.TICKID_MOB)
@@ -157,31 +202,42 @@ public class Shaman extends Cleric
 		return true;
 	}
 
-	public String getStatQualDesc(){return "Wisdom 9+ Constitution 9+";}
-	public boolean qualifiesForThisClass(MOB mob, boolean quiet)
+	@Override
+	public String[] getRequiredRaceList()
 	{
-		if(mob.baseCharStats().getStat(CharStats.STAT_WISDOM)<=8)
-		{
-			if(!quiet)
-				mob.tell("You need at least a 9 Wisdom to become a Shaman.");
-			return false;
-		}
-		if(mob.baseCharStats().getStat(CharStats.STAT_CONSTITUTION)<=8)
-		{
-			if(!quiet)
-				mob.tell("You need at least a 9 Constitution to become a Shaman.");
-			return false;
-		}
-		return super.qualifiesForThisClass(mob,quiet);
+		return super.getRequiredRaceList();
 	}
 
-	public String getOtherBonusDesc(){return "Never fumbles neutral prayers, receives smallest prayer fumble chance, and receives 1pt/level of acid damage reduction.";}
-	public String getOtherLimitsDesc(){return "Using non-neutral prayers introduces small failure chance.  Vulnerable to electric attacks.";}
+	@SuppressWarnings("unchecked")
+	private final Pair<String,Integer>[] minimumStatRequirements=new Pair[]{
+		new Pair<String,Integer>("Wisdom",Integer.valueOf(9)),
+		new Pair<String,Integer>("Constitution",Integer.valueOf(9))
+	};
 
-	public boolean okMessage(Environmental myHost, CMMsg msg)
+	@Override
+	public Pair<String, Integer>[] getMinimumStatRequirements()
 	{
-		if(!(myHost instanceof MOB)) return super.okMessage(myHost,msg);
-		MOB myChar=(MOB)myHost;
+		return minimumStatRequirements;
+	}
+
+	@Override
+	public String getOtherBonusDesc()
+	{
+		return L("Never fumbles neutral prayers, receives smallest prayer fumble chance, and receives 1pt/level of acid damage reduction.");
+	}
+
+	@Override
+	public String getOtherLimitsDesc()
+	{
+		return L("Using non-neutral prayers introduces small failure chance.  Vulnerable to electric attacks.");
+	}
+
+	@Override
+	public boolean okMessage(final Environmental myHost, final CMMsg msg)
+	{
+		if(!(myHost instanceof MOB))
+			return super.okMessage(myHost,msg);
+		final MOB myChar=(MOB)myHost;
 		if(!super.okMessage(myChar, msg))
 			return false;
 
@@ -189,7 +245,7 @@ public class Shaman extends Cleric
 		&&(msg.targetMinor()==CMMsg.TYP_DAMAGE)
 		&&(msg.sourceMinor()==CMMsg.TYP_ACID))
 		{
-			int recovery=myChar.charStats().getClassLevel(this);
+			final int recovery=myChar.charStats().getClassLevel(this);
 			msg.setValue(msg.value()-recovery);
 		}
 		else
@@ -197,21 +253,24 @@ public class Shaman extends Cleric
 		&&(msg.targetMinor()==CMMsg.TYP_DAMAGE)
 		&&(msg.sourceMinor()==CMMsg.TYP_ELECTRIC))
 		{
-			int recovery=msg.value();
+			final int recovery=msg.value();
 			msg.setValue(msg.value()+recovery);
 		}
 		return true;
 	}
 
-	public Vector outfit(MOB myChar)
+	@Override
+	public List<Item> outfit(MOB myChar)
 	{
 		if(outfitChoices==null)
 		{
-			outfitChoices=new Vector();
-			Weapon w=CMClass.getWeapon("SmallMace");
-			outfitChoices.addElement(w);
+			final Weapon w=CMClass.getWeapon("SmallMace");
+			if(w == null)
+				return new Vector<Item>();
+			outfitChoices=new Vector<Item>();
+			outfitChoices.add(w);
 		}
 		return outfitChoices;
 	}
-	
+
 }

@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Items.Basic;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,21 +10,21 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
-
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2004-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -31,13 +32,17 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
+
 public class StdPerfume extends StdDrink implements Perfume
 {
-	public String ID(){	return "StdPerfume";}
+	@Override
+	public String ID()
+	{
+		return "StdPerfume";
+	}
 
-	Vector smellList=new Vector();
-	
+	List<String> smellList=new Vector<String>();
+
 	public StdPerfume()
 	{
 		super();
@@ -53,26 +58,36 @@ public class StdPerfume extends StdDrink implements Perfume
 		capacity=0;
 		baseGoldValue=100;
 		setRawProperLocationBitmap(Wearable.WORN_WIELD|Wearable.WORN_ABOUT_BODY|Wearable.WORN_FLOATING_NEARBY|Wearable.WORN_HELD|Wearable.WORN_ARMS|Wearable.WORN_BACK|Wearable.WORN_EARS|Wearable.WORN_EYES|Wearable.WORN_FEET|Wearable.WORN_HANDS|Wearable.WORN_HEAD|Wearable.WORN_LEFT_FINGER|Wearable.WORN_RIGHT_FINGER|Wearable.WORN_LEGS|Wearable.WORN_LEFT_WRIST|Wearable.WORN_MOUTH|Wearable.WORN_NECK|Wearable.WORN_RIGHT_WRIST|Wearable.WORN_TORSO|Wearable.WORN_WAIST);
-		recoverEnvStats();
+		recoverPhyStats();
 	}
 
-	public Vector getSmellEmotes(Perfume me)
-	{	return smellList;}
+	@Override
+	public List<String> getSmellEmotes()
+	{
+		return smellList;
+	}
+
+	@Override
 	public String getSmellList()
 	{
-		StringBuffer list=new StringBuffer("");
+		final StringBuffer list=new StringBuffer("");
 		for(int i=0;i<smellList.size();i++)
-			list.append(((String)smellList.elementAt(i))+";");
+			list.append((smellList.get(i))+";");
 		return list.toString();
 	}
+
+	@Override
 	public void setSmellList(String list)
-	{smellList=CMParms.parseSemicolons(list,true);}
-	
-	public void wearIfAble(MOB mob, Perfume me)
+	{
+		smellList = CMParms.parseSemicolons(list, true);
+	}
+
+	@Override
+	public void wearIfAble(MOB mob)
 	{
 		Ability E=mob.fetchEffect("Prop_MOBEmoter");
 		if(E!=null)
-			mob.tell("You can't put any perfume on right now.");
+			mob.tell(L("You can't put any perfume on right now."));
 		else
 		{
 			E=CMClass.getAbility("Prop_MOBEmoter");
@@ -87,8 +102,9 @@ public class StdPerfume extends StdDrink implements Perfume
 			E.setSavable(false);
 		}
 	}
-	
-	public boolean okMessage(Environmental myHost, CMMsg msg)
+
+	@Override
+	public boolean okMessage(final Environmental myHost, final CMMsg msg)
 	{
 		if(msg.target()==this)
 		{
@@ -96,17 +112,19 @@ public class StdPerfume extends StdDrink implements Perfume
 				return true;
 			if(!super.okMessage(myHost,msg))
 				return false;
-			if(msg.targetMinor()==CMMsg.TYP_DRINK)
+			if((msg.targetMinor()==CMMsg.TYP_DRINK)
+			&&(liquidType()!=RawMaterial.RESOURCE_FRESHWATER))
 			{
-				msg.source().tell("You don't want to be drinking that.");
+				msg.source().tell(L("You don't want to be drinking that."));
 				return false;
 			}
 			return true;
 		}
 		return super.okMessage(myHost,msg);
 	}
-	
-	public void executeMsg(Environmental myHost, CMMsg msg)
+
+	@Override
+	public void executeMsg(final Environmental myHost, final CMMsg msg)
 	{
 		if(msg.target()==this)
 		{
@@ -114,21 +132,23 @@ public class StdPerfume extends StdDrink implements Perfume
 			{
 				// the order that these things are checked in should
 				// be holy, and etched in stone.
-				for(int b=0;b<numBehaviors();b++)
+				if(behaviors != null)
 				{
-					Behavior B=fetchBehavior(b);
-					if(B!=null)
-						B.executeMsg(this,msg);
+					for(final Behavior B : behaviors)
+					{
+						if(B!=null)
+							B.executeMsg(this,msg);
+					}
 				}
 
-				for(int a=0;a<numEffects();a++)
+				for(final Enumeration<Ability> a=effects();a.hasMoreElements();)
 				{
-					Ability A=fetchEffect(a);
+					final Ability A=a.nextElement();
 					if(A!=null)
 						A.executeMsg(this,msg);
 				}
 				amountOfLiquidRemaining-=amountOfThirstQuenched;
-				wearIfAble(msg.source(),this);
+				wearIfAble(msg.source());
 				if(disappearsAfterDrinking)
 					destroy();
 				return;

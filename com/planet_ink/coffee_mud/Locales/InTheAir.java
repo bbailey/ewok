@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Locales;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,22 +10,21 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
-
-
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2001-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,69 +32,55 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
 public class InTheAir extends StdRoom
 {
-	public String ID(){return "InTheAir";}
+	@Override
+	public String ID()
+	{
+		return "InTheAir";
+	}
+
 	public InTheAir()
 	{
 		super();
-		baseEnvStats.setWeight(1);
+		basePhyStats.setWeight(1);
 		name="the sky";
-		recoverEnvStats();
+		recoverPhyStats();
 	}
-	public int domainType(){return Room.DOMAIN_OUTDOORS_AIR;}
-	public int domainConditions(){return Room.CONDITION_NORMAL;}
 
-
-	public boolean okMessage(Environmental myHost, CMMsg msg)
+	@Override
+	public int domainType()
 	{
-		if(!super.okMessage(myHost,msg)) return false;
+		return Room.DOMAIN_OUTDOORS_AIR;
+	}
+
+
+	@Override
+	public boolean okMessage(final Environmental myHost, final CMMsg msg)
+	{
+		if(!super.okMessage(myHost,msg))
+			return false;
 		return isOkAirAffect(this,msg);
-	}
-
-	public static void makeFall(Environmental E, Room room, int avg)
-	{
-		if((E==null)||(room==null)) return;
-
-		if((avg==0)&&(room.getRoomInDir(Directions.DOWN)==null)) return;
-		if((avg>0)&&(room.getRoomInDir(Directions.UP)==null)) return;
-
-		if(((E instanceof MOB)&&(!CMLib.flags().isInFlight(E)))
-		||((E instanceof Item)
-                &&(((Item)E).container()==null)
-                &&(!CMLib.flags().isFlying(((Item)E).ultimateContainer()))))
-		{
-			if(!CMLib.flags().isFalling(E))
-			{
-				Ability falling=CMClass.getAbility("Falling");
-				if(falling!=null)
-				{
-					falling.setProficiency(avg);
-					falling.setAffectedOne(room);
-					falling.invoke(null,null,E,true,0);
-				}
-			}
-		}
 	}
 
 	public static void airAffects(Room room, CMMsg msg)
 	{
-		if(CMLib.flags().isSleeping(room)) return;
+		if(CMLib.flags().isSleeping(room))
+			return;
 		boolean foundReversed=false;
 		boolean foundNormal=false;
-		Vector needToFall=new Vector();
-		Vector mightNeedAdjusting=new Vector();
+		final Vector<Physical> needToFall=new Vector<Physical>();
+		final Vector<Physical> mightNeedAdjusting=new Vector<Physical>();
 		for(int i=0;i<room.numInhabitants();i++)
 		{
-			MOB mob=room.fetchInhabitant(i);
+			final MOB mob=room.fetchInhabitant(i);
 			if((mob!=null)
 			&&((mob.getStartRoom()==null)||(mob.getStartRoom()!=room)))
 			{
-				Ability A=mob.fetchEffect("Falling");
+				final Ability A=mob.fetchEffect("Falling");
 				if(A!=null)
 				{
-					if(A.proficiency()>=100)
+					if(CMath.s_bool(A.getStat("REVERSED")))
 					{
 						foundReversed=true;
 						mightNeedAdjusting.addElement(mob);
@@ -107,13 +93,13 @@ public class InTheAir extends StdRoom
 		}
 		for(int i=0;i<room.numItems();i++)
 		{
-			Item item=room.fetchItem(i);
+			final Item item=room.getItem(i);
 			if(item!=null)
 			{
-				Ability A=item.fetchEffect("Falling");
+				final Ability A=item.fetchEffect("Falling");
 				if(A!=null)
 				{
-					if(A.proficiency()>=100)
+					if(CMath.s_bool(A.getStat("REVERSED")))
 					{
 						foundReversed=true;
 						mightNeedAdjusting.addElement(item);
@@ -121,22 +107,24 @@ public class InTheAir extends StdRoom
 					foundNormal=foundNormal||(A.proficiency()<=0);
 				}
 				else
-                if(item.container()==null)
+				if(item.container()==null)
 					needToFall.addElement(item);
 			}
 		}
-		int avg=((foundReversed)&&(!foundNormal))?100:0;
-		for(int i=0;i<mightNeedAdjusting.size();i++)
+		final boolean reversed=((foundReversed)&&(!foundNormal));
+		for(final Physical P : mightNeedAdjusting)
 		{
-			Environmental E=(Environmental)mightNeedAdjusting.elementAt(i);
-			Ability A=E.fetchEffect("Falling");
-			if(A!=null) A.setProficiency(avg);
+			final Ability A=P.fetchEffect("Falling");
+			if(A!=null)
+				A.setStat("REVERSED", reversed+"");
 		}
-		for(int i=0;i<needToFall.size();i++)
-			makeFall((Environmental)needToFall.elementAt(i),room,avg);
+		final TrackingLibrary tracker = CMLib.tracking();
+		for(final Physical P : needToFall)
+			tracker.makeFall(P,room,reversed);
 	}
 
-	public void executeMsg(Environmental myHost, CMMsg msg)
+	@Override
+	public void executeMsg(final Environmental myHost, final CMMsg msg)
 	{
 		super.executeMsg(myHost,msg);
 		InTheAir.airAffects(this,msg);
@@ -148,47 +136,49 @@ public class InTheAir extends StdRoom
 			return true;
 		if((msg.sourceMinor()==CMMsg.TYP_SIT)
 		&&(!(msg.target() instanceof Exit))
-		&&(!CMath.bset(msg.sourceMajor(),CMMsg.MASK_ALWAYS)))
+		&&(!msg.sourceMajor(CMMsg.MASK_ALWAYS)))
 		{
-		    msg.source().tell("You can't sit here.");
-		    return false;
+			msg.source().tell(CMLib.lang().L("You can't sit here."));
+			return false;
 		}
-		if((msg.sourceMinor()==CMMsg.TYP_SLEEP)&&(!CMath.bset(msg.sourceMajor(),CMMsg.MASK_ALWAYS)))
+		if((msg.sourceMinor()==CMMsg.TYP_SLEEP)&&(!msg.sourceMajor(CMMsg.MASK_ALWAYS)))
 		{
-		    msg.source().tell("You can't sleep here.");
-		    return false;
+			msg.source().tell(CMLib.lang().L("You can't sleep here."));
+			return false;
 		}
-		        
+
 		if((msg.targetMinor()==CMMsg.TYP_ENTER)
 		&&(msg.amITarget(room)))
 		{
-			MOB mob=msg.source();
+			final MOB mob=msg.source();
 			if((!CMLib.flags().isInFlight(mob))&&(!CMLib.flags().isFalling(mob)))
 			{
-				mob.tell("You can't fly.");
+				mob.tell(CMLib.lang().L("You can't fly."));
 				return false;
 			}
 			if(CMLib.dice().rollPercentage()>50)
-			switch(room.getArea().getClimateObj().weatherType(room))
 			{
-			case Climate.WEATHER_BLIZZARD:
-				room.show(mob,null,CMMsg.MSG_OK_VISUAL,"The swirling blizzard inhibits <S-YOUPOSS> progress.");
-				return false;
-			case Climate.WEATHER_HAIL:
-				room.show(mob,null,CMMsg.MSG_OK_VISUAL,"The hail storm inhibits <S-YOUPOSS> progress.");
-				return false;
-			case Climate.WEATHER_RAIN:
-				room.show(mob,null,CMMsg.MSG_OK_VISUAL,"The rain storm inhibits <S-YOUPOSS> progress.");
-				return false;
-			case Climate.WEATHER_SLEET:
-				room.show(mob,null,CMMsg.MSG_OK_VISUAL,"The biting sleet inhibits <S-YOUPOSS> progress.");
-				return false;
-			case Climate.WEATHER_THUNDERSTORM:
-				room.show(mob,null,CMMsg.MSG_OK_VISUAL,"The thunderstorm inhibits <S-YOUPOSS> progress.");
-				return false;
-			case Climate.WEATHER_WINDY:
-				room.show(mob,null,CMMsg.MSG_OK_VISUAL,"The hard winds inhibit <S-YOUPOSS> progress.");
-				return false;
+				switch(room.getArea().getClimateObj().weatherType(room))
+				{
+				case Climate.WEATHER_BLIZZARD:
+					room.show(mob,null,CMMsg.MSG_OK_VISUAL,CMLib.lang().L("The swirling blizzard inhibits <S-YOUPOSS> progress."));
+					return false;
+				case Climate.WEATHER_HAIL:
+					room.show(mob,null,CMMsg.MSG_OK_VISUAL,CMLib.lang().L("The hail storm inhibits <S-YOUPOSS> progress."));
+					return false;
+				case Climate.WEATHER_RAIN:
+					room.show(mob,null,CMMsg.MSG_OK_VISUAL,CMLib.lang().L("The rain storm inhibits <S-YOUPOSS> progress."));
+					return false;
+				case Climate.WEATHER_SLEET:
+					room.show(mob,null,CMMsg.MSG_OK_VISUAL,CMLib.lang().L("The biting sleet inhibits <S-YOUPOSS> progress."));
+					return false;
+				case Climate.WEATHER_THUNDERSTORM:
+					room.show(mob,null,CMMsg.MSG_OK_VISUAL,CMLib.lang().L("The thunderstorm inhibits <S-YOUPOSS> progress."));
+					return false;
+				case Climate.WEATHER_WINDY:
+					room.show(mob,null,CMMsg.MSG_OK_VISUAL,CMLib.lang().L("The hard winds inhibit <S-YOUPOSS> progress."));
+					return false;
+				}
 			}
 		}
 		InTheAir.airAffects(room,msg);

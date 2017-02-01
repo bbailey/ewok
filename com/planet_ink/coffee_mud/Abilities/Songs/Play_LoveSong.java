@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Songs;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,22 +10,22 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
-
 import java.util.*;
 
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2003-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,25 +33,29 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
+
 public class Play_LoveSong extends Play
 {
-	public String ID() { return "Play_LoveSong"; }
-	public String name(){ return "Love Song";}
-	public int abstractQuality(){ return Ability.QUALITY_BENEFICIAL_OTHERS;}
-	protected String songOf(){return "a "+name();}
+	@Override public String ID() { return "Play_LoveSong"; }
+	private final static String localizedName = CMLib.lang().L("Love Song");
+	@Override public String name() { return localizedName; }
+	@Override public int abstractQuality(){ return Ability.QUALITY_BENEFICIAL_OTHERS;}
+	@Override protected String songOf(){return CMLib.english().startWithAorAn(name());}
 
+	@Override
 	public boolean tick(Tickable ticking, int tickID)
 	{
-		if(!super.tick(ticking,tickID)) return false;
-		if(affected==null) return false;
+		if(!super.tick(ticking,tickID))
+			return false;
+		if(affected==null)
+			return false;
 		if(affected instanceof MOB)
 		{
-			MOB mob=(MOB)affected;
-			Vector choices=new Vector();
+			final MOB mob=(MOB)affected;
+			final Vector<MOB> choices=new Vector<MOB>();
 			for(int i=0;i<mob.location().numInhabitants();i++)
 			{
-				MOB M=mob.location().fetchInhabitant(i);
+				final MOB M=mob.location().fetchInhabitant(i);
 				if((M!=null)
 				&&(M!=mob)
 				&&(CMLib.flags().canBeSeenBy(M,mob))
@@ -61,52 +66,57 @@ public class Play_LoveSong extends Play
 			}
 			if(choices.size()>0)
 			{
-				MOB M=(MOB)choices.elementAt(CMLib.dice().roll(1,choices.size(),-1));
-				try{
+				final MOB M=choices.elementAt(CMLib.dice().roll(1,choices.size(),-1));
+				try
+				{
 				if(CMLib.dice().rollPercentage()<=1)
 				{
 					Item I=mob.fetchFirstWornItem(Wearable.WORN_WAIST);
-					if(I!=null)	CMLib.commands().postRemove(mob,I,false);
+					if(I!=null)
+						CMLib.commands().postRemove(mob,I,false);
 					I=mob.fetchFirstWornItem(Wearable.WORN_LEGS);
-					if(I!=null)	CMLib.commands().postRemove(mob,I,false);
-					mob.doCommand(CMParms.parse("MATE "+M.Name()),Command.METAFLAG_FORCED);
+					if(I!=null)
+						CMLib.commands().postRemove(mob,I,false);
+					mob.doCommand(CMParms.parse("MATE "+M.Name()),MUDCmdProcessor.METAFLAG_FORCED);
 				}
 				else
 				if(CMLib.dice().rollPercentage()>10)
 					switch(CMLib.dice().roll(1,5,0))
 					{
 					case 1:
-						mob.tell("You feel strange urgings towards "+M.displayName(mob)+".");
+						mob.tell(L("You feel strange urgings towards @x1.",M.name(mob)));
 						break;
 					case 2:
-						mob.tell("You have strong happy feelings towards "+M.displayName(mob)+".");
+						mob.tell(L("You have strong happy feelings towards @x1.",M.name(mob)));
 						break;
 					case 3:
-						mob.tell("You feel very appreciative of "+M.displayName(mob)+".");
+						mob.tell(L("You feel very appreciative of @x1.",M.name(mob)));
 						break;
 					case 4:
-						mob.tell("You feel very close to "+M.displayName(mob)+".");
+						mob.tell(L("You feel very close to @x1.",M.name(mob)));
 						break;
 					case 5:
-						mob.tell("You feel lovingly towards "+M.displayName(mob)+".");
+						mob.tell(L("You feel lovingly towards @x1.",M.name(mob)));
 						break;
 					}
-				}catch(Exception e){}
+				}catch(final Exception e){}
 			}
 		}
 		return true;
 	}
 
-    public int castingQuality(MOB mob, Environmental target)
-    {
-        if(mob!=null)
-        {
-            if(mob.isInCombat())
-                return Ability.QUALITY_INDIFFERENT;
-        }
-        return super.castingQuality(mob,target);
-    }
-    
+	@Override
+	public int castingQuality(MOB mob, Physical target)
+	{
+		if(mob!=null)
+		{
+			if(mob.isInCombat())
+				return Ability.QUALITY_INDIFFERENT;
+		}
+		return super.castingQuality(mob,target);
+	}
+
+	@Override
 	public void affectCharStats(MOB affected, CharStats affectableStats)
 	{
 		super.affectCharStats(affected,affectableStats);

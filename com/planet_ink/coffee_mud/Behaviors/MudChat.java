@@ -1,6 +1,8 @@
 package com.planet_ink.coffee_mud.Behaviors;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
+import com.planet_ink.coffee_mud.core.exceptions.ScriptParseException;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,20 +11,20 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.MaskingLibrary;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
-
 import java.util.*;
 /*
-   Copyright 2000-2010 Bo Zimmerman
+   Copyright 2001-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -30,11 +32,14 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
+
 public class MudChat extends StdBehavior implements ChattyBehavior
 {
-	public String ID(){return "MudChat";}
-
+	@Override
+	public String ID()
+	{
+		return "MudChat";
+	}
 
 	//----------------------------------------------
 	// format: first group is general mob (no other
@@ -42,174 +47,288 @@ public class MudChat extends StdBehavior implements ChattyBehavior
 	// each chat group includes a string describing
 	// qualifying mobs followed by one or more chat
 	// collections.
-	protected Vector myChatGroup=null;
-	protected String myOldName="";
-    protected Vector addedChatData=new Vector();
+	protected ChattyGroup	myChatGroup			= null;
+	protected String		myOldName			= "";
+	protected ChattyEntry[]	addedChatEntries	= new ChattyEntry[0];
 	// chat collection: first string is the pattern
 	// match string
 	// following strings are the proposed responses.
 	//----------------------------------------------
 
-	protected MOB lastReactedTo=null;
-	protected MOB lastRespondedTo=null;
-	protected String lastThingSaid=null;
-	protected Vector responseQue=new Vector();
-	protected int tickDown=3;
-	protected final static int TALK_WAIT_DELAY=8;
-	protected int talkDown=0;
+	protected MOB		lastReactedTo		= null;
+	protected MOB		lastRespondedTo		= null;
+	protected String	lastThingSaid		= null;
+	protected int		tickDown			= 3;
+	protected int		talkDown			= 0;
 	// responseQue is a qued set of commands to
 	// run through the standard command processor,
 	// on tick or more.
-	protected final static int RESPONSE_DELAY=2;
+	protected SLinkedList<ChattyResponse>	responseQue	= new SLinkedList<ChattyResponse>();
+	protected ScriptingEngine				scriptEngine= null;
+	
+	protected final static int	RESPONSE_DELAY		= 2;
+	protected final static int	TALK_WAIT_DELAY		= 8;
+	
 
-    public void setParms(String newParms)
-    {
-        if(newParms.startsWith("+"))
-        {
-            Vector V=CMParms.parseSemicolons(newParms.substring(1),false);
-            StringBuffer rsc=new StringBuffer("");
-            for(int v=0;v<V.size();v++)
-                rsc.append(((String)V.elementAt(v))+"\n\r");
-            Vector chatV=parseChatData(rsc,new Vector());
-            for(int v=0;v<chatV.size();v++)
-            {
-                Vector chatV2=(Vector)chatV.elementAt(v);
-                for(int v2=1;v2<chatV2.size();v2++)
-                    addedChatData.addElement(chatV2.elementAt(v2));
-            }
-        }
-        else
-        {
-            super.setParms(newParms);
-            addedChatData.clear();
-        }
-        responseQue=new Vector();
-        myChatGroup=null;
-    }
+	@Override
+	public String accountForYourself()
+	{
+		if(lastThingSaid!=null)
+			return "chattiness \""+lastThingSaid+"\"";
+		else
+			return "chattiness";
+	}
 
-	public String getLastThingSaid(){ return lastThingSaid;}
-	public MOB getLastRespondedTo(){return lastRespondedTo;}
-    
-	protected static synchronized Vector getChatGroups(String parms)
+	@Override
+	public void setParms(String newParms)
+	{
+		if(newParms.startsWith("+"))
+		{
+			final List<String> V=CMParms.parseSemicolons(newParms.substring(1),false);
+			final StringBuffer rsc=new StringBuffer("");
+			for(int v=0;v<V.size();v++)
+				rsc.append(V.get(v)+"\n\r");
+			final ChattyGroup[] addGroups=parseChatData(rsc);
+			final ArrayList<ChattyEntry> newList=new ArrayList<ChattyEntry>(addedChatEntries.length);
+			for(final ChattyEntry CE : addedChatEntries)
+				newList.add(CE);
+			for(final ChattyGroup CG : addGroups)
+			{
+				for(final ChattyEntry CE : CG.entries)
+					newList.add(CE);
+			}
+			addedChatEntries = newList.toArray(new ChattyEntry[0]);
+		}
+		else
+		{
+			super.setParms(newParms);
+			addedChatEntries=new ChattyEntry[0];
+		}
+		responseQue=new SLinkedList<ChattyResponse>();
+		myChatGroup=null;
+	}
+
+	@Override
+	public String getLastThingSaid()
+	{
+		return lastThingSaid;
+	}
+
+	@Override
+	public MOB getLastRespondedTo()
+	{
+		return lastRespondedTo;
+	}
+
+	protected static ChattyGroup newChattyGroup(String name)
+	{
+		final char[] n = name.toCharArray();
+		int last=0;
+		char lookFor=' ';
+		final ArrayList<String> names=new ArrayList<String>();
+		final ArrayList<MaskingLibrary.CompiledZMask> masks=new ArrayList<MaskingLibrary.CompiledZMask>();
+		for(int i=0;i<n.length;i++)
+		{
+			if(n[i]==lookFor)
+			{
+				final String s=name.substring(last,i).trim();
+				last=i;
+				if(s.length()>0)
+				{
+					if(lookFor=='/')
+						masks.add(CMLib.masking().maskCompile(s));
+					else
+						names.add(s.toUpperCase());
+				}
+				if(lookFor=='/')
+					lookFor=' ';
+			}
+			else
+			if(n[i]=='/')
+			{
+				lookFor='/';
+				last=i;
+			}
+		}
+		final String s=name.substring(last,name.length()).trim();
+		if(s.length()>0)
+		{
+			if(lookFor=='/')
+				masks.add(CMLib.masking().maskCompile(s));
+			else
+				names.add(s.toUpperCase());
+		}
+		if((names.size()==0)&&(masks.size()==0))
+			names.add("");
+		return new ChattyGroup(names.toArray(new String[0]),masks.toArray(new MaskingLibrary.CompiledZMask[0]));
+	}
+
+
+	protected static synchronized ChattyGroup[] getChatGroups(String parms)
 	{
 		unprotectedChatGroupLoad("chat.dat");
 		return unprotectedChatGroupLoad(parms);
 	}
 
-	protected static Vector unprotectedChatGroupLoad(String parms)
+	protected static ChattyGroup[] unprotectedChatGroupLoad(String parms)
 	{
-		Vector rsc=null;
+		ChattyGroup[] rsc=null;
 		String filename="chat.dat";
-		int x=parms.indexOf("=");
-		if(x>0)	filename=parms.substring(0,x);
-		rsc=(Vector)Resources.getResource("MUDCHAT GROUPS-"+filename.toLowerCase());
-		if(rsc!=null) return rsc;
+		final int x=parms.indexOf('=');
+		if(x>0)
+			filename=parms.substring(0,x);
+		rsc=(ChattyGroup[])Resources.getResource("MUDCHAT GROUPS-"+filename.toLowerCase());
+		if(rsc!=null)
+			return rsc;
 		synchronized(("MUDCHAT GROUPS-"+filename.toLowerCase()).intern())
 		{
-			rsc=(Vector)Resources.getResource("MUDCHAT GROUPS-"+filename.toLowerCase());
-			if(rsc!=null) return rsc;
-			rsc=loadChatData(filename,new Vector());
+			rsc=(ChattyGroup[])Resources.getResource("MUDCHAT GROUPS-"+filename.toLowerCase());
+			if(rsc!=null)
+				return rsc;
+			rsc=loadChatData(filename);
 			Resources.submitResource("MUDCHAT GROUPS-"+filename.toLowerCase(),rsc);
 			return rsc;
 		}
 	}
-	
-	public Vector externalFiles()
+
+	@Override
+	public List<String> externalFiles()
 	{
-		int x=parms.indexOf("=");
+		final int x=parms.indexOf('=');
 		if(x>0)
 		{
-		    Vector xmlfiles=new Vector();
-			String filename=parms.substring(0,x).trim();
+			final Vector<String> xmlfiles=new Vector<String>();
+			final String filename=parms.substring(0,x).trim();
 			if(filename.length()>0)
-			    xmlfiles.addElement(filename.trim());
+				xmlfiles.addElement(filename.trim());
 			return xmlfiles;
 		}
 		return null;
 	}
 
-	protected static Vector parseChatData(StringBuffer rsc, Vector chatGroups)
+	protected static ChattyGroup[] parseChatData(StringBuffer rsc)
 	{
-		Vector currentChatGroup=new Vector();
-		Vector otherChatGroup;
-		currentChatGroup.addElement("");
-		chatGroups.addElement(currentChatGroup);
+		final ArrayList<ChattyGroup> chatGroups = new ArrayList<ChattyGroup>();
+		ChattyGroup currentChatGroup=newChattyGroup("");
+		final ArrayList<ChattyEntry> currentChatEntries = new ArrayList<ChattyEntry>();
+		final ArrayList<ChattyEntry> tickyChatEntries = new ArrayList<ChattyEntry>();
+		ChattyEntry currentChatEntry=null;
+		final ArrayList<ChattyTestResponse> currentChatEntryResponses = new ArrayList<ChattyTestResponse>();
+
+		ChattyGroup otherChatGroup;
+		chatGroups.add(currentChatGroup);
 		String str=nextLine(rsc);
-		Vector currentChatPattern=null;
 		while(str!=null)
 		{
 			if(str.length()>0)
-			switch(str.charAt(0))
 			{
-			case '"':
-				Log.sysOut("MudChat",str.substring(1));
-				break;
-			case '*':
-				if((str.length()==1)||("([{".indexOf(str.charAt(1))<0))
+				char c=str.charAt(0);
+				switch(c)
+				{
+				case '"':
+					Log.sysOut("MudChat",str.substring(1));
 					break;
-			case '(':
-			case '[':
-			case '{':
-				if(currentChatPattern!=null)currentChatPattern.trimToSize();
-				currentChatPattern=new Vector();
-				currentChatPattern.addElement(str);
-				if(currentChatGroup!=null)
-					currentChatGroup.addElement(currentChatPattern);
-				break;
-			case '>':
-				if(currentChatGroup!=null)currentChatGroup.trimToSize();
-				currentChatGroup=new Vector();
-				currentChatGroup.addElement(str.substring(1).trim());
-				chatGroups.addElement(currentChatGroup);
-				currentChatPattern=null;
-				break;
-			case '@':
-				if(currentChatGroup!=null)
-				{
-					otherChatGroup=matchChatGroup(null,str.substring(1).trim(),chatGroups);
-					if(otherChatGroup==null)
-						otherChatGroup=(Vector)chatGroups.elementAt(0);
-					if(otherChatGroup != currentChatGroup)
-						for(int v1=1;v1<otherChatGroup.size();v1++)
-							currentChatGroup.addElement(otherChatGroup.elementAt(v1));
+				case '*':
+					if((str.length()==1)||("([{<".indexOf(str.charAt(1))<0))
+						break;
+					c=str.charAt(1);
+				//$FALL-THROUGH$
+				case '(':
+				case '[':
+				case '{':
+				case '<':
+					if(currentChatEntry!=null)
+						currentChatEntry.responses = currentChatEntryResponses.toArray(new ChattyTestResponse[0]);
+					currentChatEntryResponses.clear();
+					currentChatEntry=new ChattyEntry(str);
+					if(currentChatEntry.expression.length()>0)
+					{
+						if(c=='<')
+							tickyChatEntries.add(currentChatEntry);
+						else
+							currentChatEntries.add(currentChatEntry);
+					}
+					else
+						currentChatEntry=null;
+					break;
+				case '>':
+					if(currentChatEntry!=null)
+						currentChatEntry.responses = currentChatEntryResponses.toArray(new ChattyTestResponse[0]);
+					currentChatGroup.entries = currentChatEntries.toArray(new ChattyEntry[0]);
+					currentChatGroup.tickies = tickyChatEntries.toArray(new ChattyEntry[0]);
+					currentChatEntries.clear();
+					tickyChatEntries.clear();
+					currentChatGroup=newChattyGroup(str.substring(1).trim());
+					if(currentChatGroup == null)
+						return null;
+					chatGroups.add(currentChatGroup);
+					currentChatEntry=null;
+					break;
+				case '@':
+					{
+						otherChatGroup=matchChatGroup(null,str.substring(1).trim(),chatGroups.toArray(new ChattyGroup[0]));
+						if(otherChatGroup==null)
+							otherChatGroup=chatGroups.get(0);
+						if(otherChatGroup != currentChatGroup)
+						{
+							for(final ChattyEntry CE : otherChatGroup.entries)
+								currentChatEntries.add(CE);
+							for(final ChattyEntry CE : otherChatGroup.tickies)
+								tickyChatEntries.add(CE);
+						}
+						break;
+					}
+				case '%':
+					{
+						final StringBuffer rsc2=new StringBuffer(Resources.getFileResource(str.substring(1).trim(),true).toString());
+						if (rsc2.length() < 1)
+						{
+							Log.sysOut("MudChat", "Error reading resource " + str.substring(1).trim());
+						}
+						rsc.insert(0,rsc2.toString());
+						break;
+					}
+				case '0':
+				case '1':
+				case '2':
+				case '3':
+				case '4':
+				case '5':
+				case '6':
+				case '7':
+				case '8':
+				case '9':
+					if(currentChatEntry!=null)
+						currentChatEntryResponses.add(new ChattyTestResponse(str));
+					break;
 				}
-				break;
-			case '%':
-				{
-	  				StringBuffer rsc2=new StringBuffer(Resources.getFileResource(str.substring(1).trim(),true).toString());
-	  				if(rsc2.length()<1) { Log.sysOut("MudChat","Error reading resource "+str.substring(1).trim()); }
-	  				rsc.insert(0,rsc2.toString());
-				}
-				break;
-			case '0':
-			case '1':
-			case '2':
-			case '3':
-			case '4':
-			case '5':
-			case '6':
-			case '7':
-			case '8':
-			case '9':
-				if(currentChatPattern!=null)
-					currentChatPattern.addElement(str);
-				break;
 			}
 			str=nextLine(rsc);
 		}
-		if(currentChatGroup!=null)currentChatGroup.trimToSize();
-		if(currentChatPattern!=null)currentChatPattern.trimToSize();
-		for(int v=0;v<chatGroups.size();v++)
-			((Vector)chatGroups.elementAt(v)).trimToSize();
-		chatGroups.trimToSize();
-		return chatGroups;
+		if(currentChatEntry!=null)
+			currentChatEntry.responses = currentChatEntryResponses.toArray(new ChattyTestResponse[0]);
+		currentChatGroup.entries = currentChatEntries.toArray(new ChattyEntry[0]);
+		currentChatGroup.tickies = tickyChatEntries.toArray(new ChattyEntry[0]);
+		currentChatEntries.clear();
+		tickyChatEntries.clear();
+		return chatGroups.toArray(new ChattyGroup[0]);
 	}
 
-	protected static Vector loadChatData(String resourceName, Vector chatGroups)
+	protected static ChattyGroup[] loadChatData(String resourceName)
 	{
-		StringBuffer rsc=new CMFile(Resources.makeFileResourceName(resourceName),null,true).text();
-		chatGroups=parseChatData(rsc,chatGroups);
-		return chatGroups;
+		CMFile //F=new CMFile(Resources.makeFileResourceName("behavior/"+resourceName),null,0);
+		//if((!F.exists()) || (!F.canRead()))
+			F=new CMFile(Resources.makeFileResourceName(resourceName),null,0);
+		if(F.exists() && F.canRead())
+		{
+			final StringBuffer rsc=F.text();
+			return parseChatData(rsc);
+		}
+		else
+		{
+			Log.errOut("MudChat","Unable to load "+Resources.makeFileResourceName("behavior/"+resourceName)+" or "+Resources.makeFileResourceName(resourceName));
+			return new ChattyGroup[0];
+		}
 	}
 
 	public static String nextLine(StringBuffer tsc)
@@ -218,11 +337,13 @@ public class MudChat extends StdBehavior implements ChattyBehavior
 		if((tsc!=null)&&(tsc.length()>0))
 		{
 			int y=tsc.toString().indexOf("\n\r");
-			if(y<0) y=tsc.toString().indexOf("\r\n");
+			if(y<0)
+				y=tsc.toString().indexOf("\r\n");
 			if(y<0)
 			{
 				y=tsc.toString().indexOf("\n");
-				if(y<0) y=tsc.toString().indexOf("\r");
+				if(y<0)
+					y=tsc.toString().indexOf("\r");
 				if(y<0)
 				{
 					tsc.setLength(0);
@@ -245,114 +366,99 @@ public class MudChat extends StdBehavior implements ChattyBehavior
 	}
 
 
-	protected static Vector matchChatGroup(MOB meM, String myName, Vector chatGroups)
+	protected static ChattyGroup matchChatGroup(MOB meM, String myName, ChattyGroup[] chatGroups)
 	{
-		for(int i=1;i<chatGroups.size();i++)
+		myName=myName.toUpperCase();
+		if(myName.equals("DEFAULT"))
+			return chatGroups[0];
+		for(final ChattyGroup CG : chatGroups)
 		{
-			Vector V=(Vector)chatGroups.elementAt(i);
-			if(V.size()>0)
-				if(((String)V.elementAt(0)).length()>0)
+			if(CG.entries!=null)
+			{
+				for(final String name : CG.groupNames)
 				{
-					String names=((String)V.elementAt(0));
-                    int lastDex=0;
-                    for(int s=0;s<=names.length();s++)
+					if(name.equals(myName))
+						return CG;
+				}
+				if(meM != null)
+				{
+					for(final MaskingLibrary.CompiledZMask mask : CG.groupMasks)
 					{
-                        if((s>=names.length())||(names.charAt(s)==' '))
-                        {
-                            if(names.substring(lastDex,s).equalsIgnoreCase(myName))
-                                return V;
-                        }
-                        else
-                        if(names.charAt(s)=='/')
-                        {
-                            int nextSlash=names.indexOf('/',s+1);
-                            if(nextSlash<0) nextSlash=names.length();
-                            String mask=names.substring(s+1,nextSlash);
-                            if((meM!=null)&&(!CMLib.masking().maskCheck(mask,meM,true)))
-                                break;
-                            s=nextSlash+1;
-                        }
-                        else
-                            continue;
-                        
-                        lastDex=s;
-                        while(lastDex<names.length()&&Character.isWhitespace(names.charAt(lastDex)))
-                        {
-                            lastDex++;
-                            s=lastDex-1;
-                        }
+						if(CMLib.masking().maskCheck(mask, meM, true))
+							return CG;
 					}
 				}
+			}
 		}
 		return null;
 	}
 
-	protected Vector getMyBaseChatGroup(MOB forMe, Vector chatGroups)
+	protected ChattyGroup getMyBaseChatGroup(MOB forMe, ChattyGroup[] chatGroups)
 	{
 		if((myChatGroup!=null)&&(myOldName.equals(forMe.Name())))
 			return myChatGroup;
 		myOldName=forMe.Name();
-		Vector V=null;
-        if(getParms().length()>0)
-        {
-            int x=getParms().indexOf("=");
-            if(x<0)
-                V=matchChatGroup(forMe,getParms(),chatGroups);
-            else
-            if(getParms().substring(x+1).trim().length()>0)
-                V=matchChatGroup(forMe,getParms().substring(x+1),chatGroups);
-        }
-        if(V!=null) return V;
-        V=matchChatGroup(forMe,CMLib.english().cleanArticles(CMStrings.removeColors(myOldName.toUpperCase())),chatGroups);
-		if(V!=null) return V;
-		V=matchChatGroup(forMe,forMe.charStats().raceName(),chatGroups);
-        if(V!=null) return V;
-        V=matchChatGroup(forMe,forMe.charStats().getCurrentClass().name(),chatGroups);
-		if(V!=null) return V;
-		return (Vector)chatGroups.elementAt(0);
+		ChattyGroup matchedCG=null;
+		if(getParms().length()>0)
+		{
+			final int x=getParms().indexOf('=');
+			if(x<0)
+				matchedCG=matchChatGroup(forMe,getParms(),chatGroups);
+			else
+				matchedCG=matchChatGroup(forMe,getParms().substring(x+1).trim(),chatGroups);
+		}
+		if(matchedCG!=null)
+			return matchedCG;
+		matchedCG=matchChatGroup(forMe,CMLib.english().cleanArticles(CMStrings.removeColors(myOldName.toUpperCase())),chatGroups);
+		if(matchedCG!=null)
+			return matchedCG;
+		matchedCG=matchChatGroup(forMe,forMe.charStats().raceName(),chatGroups);
+		if(matchedCG!=null)
+			return matchedCG;
+		matchedCG=matchChatGroup(forMe,forMe.charStats().getCurrentClass().name(),chatGroups);
+		if(matchedCG!=null)
+			return matchedCG;
+		return chatGroups[0];
 	}
 
-    protected Vector getMyChatGroup(MOB forMe, Vector chatGroups)
-    {
-        if((myChatGroup!=null)&&(myOldName.equals(forMe.Name())))
-            return myChatGroup;
-        Vector chatGrp=getMyBaseChatGroup(forMe,chatGroups);
-        if((addedChatData==null)||(addedChatData.size()==0)) return chatGrp;
-        chatGrp=(Vector)chatGrp.clone();
-        for(int v=0;v<addedChatData.size();v++)
-            if(chatGrp.size()==(v+1))
-                chatGrp.addElement(addedChatData.elementAt(v));
-            else
-                chatGrp.insertElementAt(addedChatData.elementAt(v),v+1);
-        chatGrp.trimToSize();
-        return chatGrp;
-    }
+	protected ChattyGroup getMyChatGroup(MOB forMe, ChattyGroup[] chatGroups)
+	{
+		if((myChatGroup!=null)&&(myOldName.equals(forMe.Name())))
+			return myChatGroup;
+		ChattyGroup chatGrp=getMyBaseChatGroup(forMe,chatGroups);
+		if((addedChatEntries==null)||(addedChatEntries.length==0))
+			return chatGrp;
+		final List<ChattyEntry> newEntries = new ArrayList<ChattyEntry>();
+		newEntries.addAll(Arrays.asList(addedChatEntries));
+		newEntries.addAll(Arrays.asList(chatGrp.entries));
+		chatGrp=chatGrp.clone();
+		chatGrp.entries = newEntries.toArray(new ChattyEntry[0]);
+		return chatGrp;
+	}
 
-
-	protected void queResponse(Vector responses, MOB source, MOB target, String rest)
+	protected void queResponse(ArrayList<ChattyTestResponse> responses, MOB source, MOB target, String rest)
 	{
 		int total=0;
-		for(int x=1;x<responses.size();x++)
-			total+=CMath.s_int(((String)responses.elementAt(x)).substring(0,1));
-
-		String selection=null;
+		for(final ChattyTestResponse CR : responses)
+			total+=CR.weight;
+		if(total == 0)
+			return;
+		ChattyTestResponse selection=null;
 		int select=CMLib.dice().roll(1,total,0);
-		for(int x=1;x<responses.size();x++)
+		for(final ChattyTestResponse CR : responses)
 		{
-			select-=CMath.s_int(((String)responses.elementAt(x)).substring(0,1));
+			select-=CR.weight;
 			if(select<=0)
 			{
-				selection=(String)responses.elementAt(x);
+				selection=CR;
 				break;
 			}
 		}
 
 		if(selection!=null)
 		{
-			Vector selections=CMParms.parseSquiggleDelimited(selection.substring(1).trim(),true);
-			for(int v=0;v<selections.size();v++)
+			for(String finalCommand : selection.responses)
 			{
-				String finalCommand=(String)selections.elementAt(v);
 				if(finalCommand.trim().length()==0)
 					return;
 				else
@@ -372,28 +478,34 @@ public class MudChat extends StdBehavior implements ChattyBehavior
 				if(target!=null)
 					finalCommand="sayto \""+target.name()+"\" "+finalCommand.trim();
 
-				if(finalCommand.indexOf("$r")>=0)
-					finalCommand=CMStrings.replaceAll(finalCommand,"$r",rest);
-				if((target!=null)&&(finalCommand.indexOf("$t")>=0))
+				finalCommand=CMStrings.replaceAll(finalCommand,"$r",rest);
+				if(target!=null)
 					finalCommand=CMStrings.replaceAll(finalCommand,"$t",target.name());
-				if((source!=null)&&(finalCommand.indexOf("$n")>=0))
+				if(source!=null)
 					finalCommand=CMStrings.replaceAll(finalCommand,"$n",source.name());
-				if(finalCommand.indexOf("$$")>=0)
-					finalCommand=CMStrings.replaceAll(finalCommand,"$$","$");
-
-				Vector V=CMParms.parse(finalCommand);
-				V.insertElementAt(Integer.valueOf(RESPONSE_DELAY),0);
-				for(int f=0;f<responseQue.size();f++)
+				if(finalCommand.indexOf("$%")>=0)
 				{
-					Vector V1=(Vector)responseQue.elementAt(f);
-					if(CMParms.combine(V1,1).equalsIgnoreCase(finalCommand))
+					if(scriptEngine == null)
+					{
+						scriptEngine=(ScriptingEngine)CMClass.getCommon("DefaultScriptingEngine");
+						scriptEngine.setSavable(false);
+						scriptEngine.setVarScope("*");
+					}
+					final Object[] tmp = new Object[ScriptingEngine.SPECIAL_NUM_OBJECTS];
+					finalCommand = scriptEngine.varify(source, target, source, source, null, null, "", tmp, finalCommand);
+				}
+				finalCommand=CMStrings.replaceAll(finalCommand,"$$","$");
+				Vector<String> V=CMParms.parse(finalCommand);
+				for(final ChattyResponse R : responseQue)
+				{
+					if(CMParms.combine(R.parsedCommand,1).equalsIgnoreCase(finalCommand))
 					{
 						V=null;
 						break;
 					}
 				}
 				if(V!=null)
-					responseQue.addElement(V);
+					responseQue.add(new ChattyResponse(V,RESPONSE_DELAY));
 			}
 		}
 	}
@@ -401,14 +513,17 @@ public class MudChat extends StdBehavior implements ChattyBehavior
 
 	protected boolean match(MOB speaker, String expression, String message, String[] rest)
 	{
-		int l=expression.length();
-		if(l==0) return true;
+		final int l=expression.length();
+		if(l==0)
+			return true;
 		if((expression.charAt(0)=='(')
 		&&(expression.charAt(l-1)==')'))
 			expression=expression.substring(1,expression.length()-1).trim();
 
 		int end=0;
-		for(;((end<expression.length())&&(("(&|~").indexOf(expression.charAt(end))<0));end++){/*loop*/}
+		for (; ((end < expression.length()) && (("(&|~").indexOf(expression.charAt(end)) < 0)); end++)
+		{/* loop */
+		}
 		String check=null;
 		if(end<expression.length())
 		{
@@ -435,18 +550,20 @@ public class MudChat extends StdBehavior implements ChattyBehavior
 				rest[0]=message.substring(check.substring(1).trim().length());
 		}
 		else
-        if(check.startsWith("/"))
-        {
-            int expEnd=0;
-            while((++expEnd)<check.length())
-                if(check.charAt(expEnd)=='/')
-                    break;
-            response=CMLib.masking().maskCheck(check.substring(1,expEnd).trim(),speaker,false);
-        }
-        else
+		if(check.startsWith("/"))
+		{
+			int expEnd=0;
+			while((++expEnd)<check.length())
+			{
+				if(check.charAt(expEnd)=='/')
+					break;
+			}
+			response=CMLib.masking().maskCheck(check.substring(1,expEnd).trim(),speaker,false);
+		}
+		else
 		if(check.length()>0)
 		{
-			int x=message.toUpperCase().indexOf(check.toUpperCase().trim());
+			final int x=message.toUpperCase().indexOf(check.toUpperCase().trim());
 			response=(x>=0);
 			if(response)
 				rest[0]=message.substring(x+check.length());
@@ -464,14 +581,17 @@ public class MudChat extends StdBehavior implements ChattyBehavior
 				int expEnd=0;
 				int parenCount=1;
 				while(((++expEnd)<expression.length())&&(parenCount>0))
+				{
 					if(expression.charAt(expEnd)=='(')
 						parenCount++;
 					else
 					if(expression.charAt(expEnd)==')')
 					{
 						parenCount--;
-						if(parenCount<=0) break;
+						if(parenCount<=0)
+							break;
 					}
+				}
 				if(expEnd<expression.length()&&(parenCount<=0))
 				{
 					return response && match(speaker,expression.substring(1,expEnd).trim(),message,rest);
@@ -491,38 +611,39 @@ public class MudChat extends StdBehavior implements ChattyBehavior
 		return response;
 	}
 
+	@Override
 	public void executeMsg(Environmental affecting, CMMsg msg)
 	{
 		super.executeMsg(affecting,msg);
 
 		if((!canActAtAll(affecting))
-		||(CMSecurity.isDisabled("MUDCHAT")))
+		||(CMSecurity.isDisabled(CMSecurity.DisFlag.MUDCHAT)))
 			return;
-		MOB mob=msg.source();
-		MOB monster=(MOB)affecting;
+		final MOB mob=msg.source();
+		final MOB monster=(MOB)affecting;
 		if((msg.source()==monster)
 		&&(msg.sourceMinor()==CMMsg.TYP_SPEAK)
 		&&(msg.othersMessage()!=null))
 			lastThingSaid=CMStrings.getSayFromMessage(msg.othersMessage());
 		else
 		if((!mob.isMonster())
-		&&(CMLib.flags().canBeHeardBy(mob,monster))
+		&&(CMLib.flags().canBeHeardSpeakingBy(mob,monster))
 		&&(CMLib.flags().canBeSeenBy(mob,monster))
 		&&(CMLib.flags().canBeSeenBy(monster,mob)))
 		{
-			Vector myResponses=null;
+			ArrayList<ChattyTestResponse> myResponses=null;
 			myChatGroup=getMyChatGroup(monster,getChatGroups(getParms()));
-			String rest[]=new String[1];
-			boolean combat=((monster.isInCombat()))||(mob.isInCombat());
+			final String rest[]=new String[1];
+			final boolean combat=((monster.isInCombat()))||(mob.isInCombat());
 
 			String str;
 			if((msg.targetMinor()==CMMsg.TYP_SPEAK)
 			&&(msg.amITarget(monster)
 			   ||((msg.target()==null)
-			      &&(mob.location()==monster.location())
+				  &&(mob.location()==monster.location())
 				  &&(talkDown<=0)
 				  &&(mob.location().numPCInhabitants()<3)))
-			&&(CMLib.flags().canBeHeardBy(mob,monster))
+			&&(CMLib.flags().canBeHeardSpeakingBy(mob,monster))
 			&&(myChatGroup!=null)
 			&&(lastReactedTo!=msg.source())
 			&&(msg.sourceMessage()!=null)
@@ -530,41 +651,38 @@ public class MudChat extends StdBehavior implements ChattyBehavior
 			&&((str=CMStrings.getSayFromMessage(msg.sourceMessage()))!=null))
 			{
 				str=" "+CMLib.english().stripPunctuation(str)+" ";
-				int l=0;
-				for(int i=1;i<myChatGroup.size();i++)
+				for(final ChattyEntry entry : myChatGroup.entries)
 				{
-					Vector possResponses=(Vector)myChatGroup.elementAt(i);
-					String expression=((String)possResponses.elementAt(0)).trim();
-					if(expression.startsWith("*"))
+					final String expression=entry.expression;
+					if(entry.combatEntry)
 					{
-						if(!combat) continue;
-						expression=expression.substring(1);
+						if(!combat)
+							continue;
 					}
 					else
-					if(combat) continue;
+					if(combat)
+						continue;
 
-					l=expression.length();
-					if((l>0)
-					&&(expression.charAt(0)=='(')
-					&&(expression.charAt(l-1)==')'))
+					if((expression.charAt(0)=='(')
+					&&(expression.charAt(expression.length()-1)==')'))
 					{
 						if(match(mob,expression.substring(1,expression.length()-1),str,rest))
 						{
-							myResponses=new Vector();
-							myResponses.addAll(possResponses);
-                            break;
+							myResponses=new ArrayList<ChattyTestResponse>();
+							myResponses.addAll(Arrays.asList(entry.responses));
+							break;
 						}
 					}
 				}
 			}
 			else // dont interrupt another mob
-			if((msg.sourceMinor()==CMMsg.TYP_SPEAK) 
+			if((msg.sourceMinor()==CMMsg.TYP_SPEAK)
 			&&(mob.isMonster())  // this is another mob (not me) talking
-			&&(CMLib.flags().canBeHeardBy(mob,monster))
+			&&(CMLib.flags().canBeHeardSpeakingBy(mob,monster))
 			&&(CMLib.flags().canBeSeenBy(mob,monster)))
 			   talkDown=TALK_WAIT_DELAY;
 			else // dont parse unless we are done waiting
-			if((CMLib.flags().canBeHeardBy(mob,monster))
+			if((CMLib.flags().canBeHeardMovingBy(mob,monster))
 			&&(CMLib.flags().canBeSeenBy(mob,monster))
 			&&(CMLib.flags().canBeSeenBy(monster,mob))
 			&&(talkDown<=0)
@@ -585,34 +703,30 @@ public class MudChat extends StdBehavior implements ChattyBehavior
 				}
 				if(str!=null)
 				{
-					int l=0;
-					for(int i=1;i<myChatGroup.size();i++)
+					for(final ChattyEntry entry : myChatGroup.entries)
 					{
-						Vector possResponses=(Vector)myChatGroup.elementAt(i);
-						String expression=((String)possResponses.elementAt(0)).trim();
-						if(expression.startsWith("*"))
+						final String expression=entry.expression;
+						if(entry.combatEntry)
 						{
-							if(!combat) continue;
-							expression=expression.substring(1);
+							if(!combat)
+								continue;
 						}
 						else
-						if(combat) continue;
-						l=expression.length();
-						if((l>0)
-						&&(expression.charAt(0)==c1)
-						&&(expression.charAt(l-1)==c2))
+						if(combat)
+							continue;
+						if((expression.charAt(0)==c1)
+						&&(expression.charAt(expression.length()-1)==c2))
 						{
 							if(match(mob,expression.substring(1,expression.length()-1),str,rest))
 							{
-								myResponses=new Vector();
-								myResponses.addAll(possResponses);
-                                break;
+								myResponses=new ArrayList<ChattyTestResponse>();
+								myResponses.addAll(Arrays.asList(entry.responses));
+								break;
 							}
 						}
 					}
 				}
 			}
-
 
 			if(myResponses!=null)
 			{
@@ -623,20 +737,16 @@ public class MudChat extends StdBehavior implements ChattyBehavior
 		}
 	}
 
+	@Override
 	public boolean tick(Tickable ticking, int tickID)
 	{
 		super.tick(ticking,tickID);
 		if((tickID==Tickable.TICKID_MOB)
 		&&(ticking instanceof MOB)
-		&&(!CMSecurity.isDisabled("MUDCHAT")))
+		&&(!CMSecurity.isDisabled(CMSecurity.DisFlag.MUDCHAT)))
 		{
-			if(!canActAtAll(ticking))
-			{
-				responseQue.removeAllElements();
-				return true;
-			}
-
-			if(talkDown>0) talkDown--;
+			if(talkDown>0)
+				talkDown--;
 
 			if(tickDown>=0)
 			{
@@ -646,23 +756,57 @@ public class MudChat extends StdBehavior implements ChattyBehavior
 					myChatGroup=getMyChatGroup((MOB)ticking,getChatGroups(getParms()));
 				}
 			}
+			if((myChatGroup!=null)&&(myChatGroup.tickies.length>0) && canActAtAll(ticking))
+			{
+				final boolean combat = ((MOB)ticking).isInCombat();
+				ArrayList<ChattyTestResponse> myResponses=null;
+				for(ChattyEntry entry : myChatGroup.tickies)
+				{
+					if(entry.combatEntry)
+					{
+						if(!combat)
+							continue;
+					}
+					else
+					if(combat)
+						continue;
+					if(entry.expression.length()>2)
+					{
+						int val=CMath.s_int(entry.expression.substring(1,entry.expression.length()-1).trim());
+						if((val==0)||(CMLib.dice().rollPercentage()>val))
+							continue;
+					}
+					if(myResponses==null)
+						myResponses=new ArrayList<ChattyTestResponse>();
+					myResponses.addAll(Arrays.asList(entry.responses));
+				}
+				if(myResponses!=null)
+				{
+					queResponse(myResponses,(MOB)ticking,(MOB)ticking,"");
+				}
+			}
 			if(responseQue.size()==0)
 				lastReactedTo=null;
 			else
-			for(int t=responseQue.size()-1;t>=0;t--)
+			if(!canActAtAll(ticking))
 			{
-				Vector que=(Vector)responseQue.elementAt(t);
-				Integer I=(Integer)que.elementAt(0);
-				I=Integer.valueOf(I.intValue()-1);
-				que.setElementAt(I,0);
-				if(I.intValue()<=0)
+				responseQue.clear();
+				return true;
+			}
+			else
+			{
+				for(final Iterator<ChattyResponse> riter= responseQue.descendingIterator();riter.hasNext();)
 				{
-					que.removeElementAt(0);
-					responseQue.removeElementAt(t);
-					((MOB)ticking).doCommand(que,Command.METAFLAG_FORCED);
-					lastReactedTo=null;
-					// you've done one, so get out before doing another!
-					break;
+					final ChattyResponse R = riter.next();
+					R.delay--;
+					if(R.delay<=0)
+					{
+						responseQue.remove(R);
+						((MOB)ticking).doCommand(R.parsedCommand,MUDCmdProcessor.METAFLAG_FORCED);
+						lastReactedTo=null;
+						// you've done one, so get out before doing another!
+						break;
+					}
 				}
 			}
 		}

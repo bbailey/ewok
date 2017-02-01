@@ -285,9 +285,12 @@ RAND_PROG 50
 			MPWALKTO $%INAREA($0)%
 		ENDIF
 	ELSE
-		YELL $INVADER_SCREAM
 		IF !AFFECTED($i Skill_Track)
-			kill all
+	        mpargset $1 $C
+	        IF !QUESTMOB($1 *)
+                YELL $INVADER_SCREAM
+                mpkill $1
+			ENDIF
 		ENDIF
 	ENDIF
 ~

@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.MOBS;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,6 +10,7 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -16,14 +18,14 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 
-/* 
-   Copyright 2000-2010 Lee H. Fox
+/*
+   Copyright 2000-2016 Lee H. Fox
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -33,7 +35,12 @@ import java.util.*;
 */
 public class DrowElf extends StdMOB
 {
-	public String ID(){return "DrowElf";}
+	@Override
+	public String ID()
+	{
+		return "DrowElf";
+	}
+
 	public static final int MALE	= 0;
 	public static final int FEMALE	= 1;
 
@@ -43,11 +50,11 @@ public class DrowElf extends StdMOB
 	{
 		super();
 
-		Random randomizer = new Random(System.currentTimeMillis());
+		final Random randomizer = new Random(System.currentTimeMillis());
 
-		baseEnvStats().setLevel(4 + Math.abs(randomizer.nextInt() % 7));
+		basePhyStats().setLevel(4 + Math.abs(randomizer.nextInt() % 7));
 
-		int gender = Math.abs(randomizer.nextInt() % 2);
+		final int gender = Math.abs(randomizer.nextInt() % 2);
 		String sex = null;
 		if (gender == MALE)
 			sex = "male";
@@ -55,18 +62,18 @@ public class DrowElf extends StdMOB
 			sex = "female";
 
 		// ===== set the basics
-		Username="a Drow Elf";
+		username="a Drow Elf";
 		setDescription("a " + sex + " Drow Fighter");
 		setDisplayText("The drow is armored in black chain mail and carrying a nice arsenal of weapons");
 
-		baseState.setHitPoints(CMLib.dice().roll(baseEnvStats().level(),20,baseEnvStats().level()));
-		setMoney((int)Math.round(CMath.div((50 * baseEnvStats().level()),(randomizer.nextInt() % 10 + 1))));
-		baseEnvStats.setWeight(70 + Math.abs(randomizer.nextInt() % 20));
+		baseState.setHitPoints(CMLib.dice().roll(basePhyStats().level(),20,basePhyStats().level()));
+		setMoney((int)Math.round(CMath.div((50 * basePhyStats().level()),(randomizer.nextInt() % 10 + 1))));
+		basePhyStats.setWeight(70 + Math.abs(randomizer.nextInt() % 20));
 
 		setWimpHitPoint(5);
 
-		baseEnvStats().setSpeed(2.0);
-		baseEnvStats().setSensesMask(EnvStats.CAN_SEE_DARK | EnvStats.CAN_SEE_INFRARED);
+		basePhyStats().setSpeed(2.0);
+		basePhyStats().setSensesMask(PhyStats.CAN_SEE_DARK | PhyStats.CAN_SEE_INFRARED);
 
 		if(gender == MALE)
 			baseCharStats().setStat(CharStats.STAT_GENDER,'M');
@@ -85,10 +92,11 @@ public class DrowElf extends StdMOB
 
 		recoverMaxState();
 		resetToMaxState();
-		recoverEnvStats();
+		recoverPhyStats();
 		recoverCharStats();
 	}
 
+	@Override
 	public boolean tick(Tickable ticking, int tickID)
 	{
 		if((!amDead())&&(tickID==Tickable.TICKID_MOB))
@@ -121,7 +129,8 @@ public class DrowElf extends StdMOB
 		else
 			dark=this.fetchAbility(dark.ID());
 
-		if(dark!=null) dark.invoke(this,null,true,0);
+		if(dark!=null)
+			dark.invoke(this,null,true,0);
 		return true;
 	}
 

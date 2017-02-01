@@ -5,7 +5,7 @@ import java.lang.String;
 
 /**
  * IMC2 version 0.10 - an inter-mud communications protocol
- * Copyright (C) 1996 & 1997 Oliver Jowett <oliver@randomly.org>
+ * Copyright (C) 1996 - 1997 Oliver Jowett: oliver@randomly.org
  *
  * IMC2 Gold versions 1.00 though 2.00 are developed by MudWorld.
  * Copyright (C) 1999 - 2002 Haslage Net Electronics (Anthony R. Haslage)
@@ -34,24 +34,24 @@ import java.lang.String;
  *
  */
 public final class PACKET {
-    
-    /* max number of data keys in a packet */
-    public final static int IMC_MAX_KEYS = 20;
-    
-    String to = ""; /* destination of packet */
-    String from = ""; /* source of packet      */
-    String type = ""; /* type of packet        */
-    String[] key = new String[IMC_MAX_KEYS];
-    String[] value = new String[IMC_MAX_KEYS];
 
-    /* internal things which only the low-level code needs to know about */
-    class ii {
-        String to = "";
-        String from = "";
-        String path = "";
+	/* max number of data keys in a packet */
+	public final static int IMC_MAX_KEYS = 20;
 
-        long sequence;
-        int stamp;
-    }
-    ii i = new ii();
+	String to = ""; /* destination of packet */
+	String from = ""; /* source of packet      */
+	String type = ""; /* type of packet 	   */
+	String[] key = new String[IMC_MAX_KEYS];
+	String[] value = new String[IMC_MAX_KEYS];
+
+	/* internal things which only the low-level code needs to know about */
+	class ii {
+		String to = "";
+		String from = "";
+		String path = "";
+
+		long sequence;
+		int stamp;
+	}
+	ii i = new ii();
 }

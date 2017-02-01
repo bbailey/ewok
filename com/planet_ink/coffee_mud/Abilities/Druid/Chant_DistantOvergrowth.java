@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Druid;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,21 +10,21 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
-
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2003-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,81 +33,114 @@ import java.util.*;
    limitations under the License.
 */
 
-@SuppressWarnings("unchecked")
+
 public class Chant_DistantOvergrowth extends Chant
 {
-	public String ID() { return "Chant_DistantOvergrowth"; }
-	public String name(){ return "Distant Overgrowth";}
-	public int classificationCode(){return Ability.ACODE_CHANT|Ability.DOMAIN_PLANTGROWTH;}
-	public int abstractQuality(){return Ability.QUALITY_INDIFFERENT;}
-	protected int canAffectCode(){return 0;}
-	protected int canTargetCode(){return CAN_ROOMS;}
+	@Override
+	public String ID()
+	{
+		return "Chant_DistantOvergrowth";
+	}
 
-	public boolean invoke(MOB mob, Vector commands, Environmental givenTarget, boolean auto, int asLevel)
+	private final static String	localizedName	= CMLib.lang().L("Distant Overgrowth");
+
+	@Override
+	public String name()
+	{
+		return localizedName;
+	}
+
+	@Override
+	public int classificationCode()
+	{
+		return Ability.ACODE_CHANT | Ability.DOMAIN_PLANTGROWTH;
+	}
+
+	@Override
+	public int abstractQuality()
+	{
+		return Ability.QUALITY_INDIFFERENT;
+	}
+
+	@Override
+	protected int canAffectCode()
+	{
+		return 0;
+	}
+
+	@Override
+	protected int canTargetCode()
+	{
+		return CAN_ROOMS;
+	}
+
+	@Override
+	public boolean invoke(MOB mob, List<String> commands, Physical givenTarget, boolean auto, int asLevel)
 	{
 
 		if(commands.size()<1)
 		{
-			mob.tell("Create overgrowth where?");
+			mob.tell(L("Create overgrowth where?"));
 			return false;
 		}
 
-		String areaName=CMParms.combine(commands,0).trim().toUpperCase();
+		final String areaName=CMParms.combine(commands,0).trim().toUpperCase();
 		Room anyRoom=null;
 		Room newRoom=null;
 		try
 		{
-			Vector rooms=CMLib.map().findRooms(CMLib.map().rooms(), mob, areaName, true, 10);
-			for(Enumeration r=rooms.elements();r.hasMoreElements();)
+			final List<Room> rooms=CMLib.map().findRooms(CMLib.map().rooms(), mob, areaName, true, 10);
+			for(final Room R : rooms)
 			{
-				Room R=(Room)r.nextElement();
 				anyRoom=R;
 				if((R.domainType()&Room.INDOORS)==0)
 				{
-				    newRoom=R;
-				    break;
+					newRoom=R;
+					break;
 				}
 			}
-	    }catch(NoSuchElementException e){}
+		}
+		catch (final NoSuchElementException e)
+		{
+		}
 
 		if(newRoom==null)
 		{
 			if(anyRoom==null)
-				mob.tell("You don't know of a place called '"+CMParms.combine(commands,0)+"'.");
+				mob.tell(L("You don't know of a place called '@x1'.",CMParms.combine(commands,0)));
 			else
-				mob.tell("There IS such a place, but its not outdoors, so your magic would fail.");
+				mob.tell(L("There IS such a place, but its not outdoors, so your magic would fail."));
 			return false;
 		}
 
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
 			return false;
 
-		boolean success=proficiencyCheck(mob,0,auto);
+		final boolean success=proficiencyCheck(mob,0,auto);
 
 		if(success)
 		{
-			CMMsg msg=CMClass.getMsg(mob,null,this,verbalCastCode(mob,null,auto),"^S<S-NAME> chant(s) about a far away place.^?");
+			final CMMsg msg=CMClass.getMsg(mob,null,this,verbalCastCode(mob,null,auto),L("^S<S-NAME> chant(s) about a far away place.^?"));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);
 				Item newItem=null;
 				if(newRoom.domainType()==Room.DOMAIN_INDOORS_CAVE)
-					newItem=Chant_SummonFungus.buildFungus(mob,newRoom);
+					newItem=new Chant_SummonFungus().buildFungus(mob,newRoom);
 				else
-				if((newRoom.domainType()==Room.DOMAIN_OUTDOORS_UNDERWATER)
-				||(newRoom.domainType()==Room.DOMAIN_OUTDOORS_WATERSURFACE))
-					newItem=Chant_SummonSeaweed.buildSeaweed(mob,newRoom);
+				if(CMLib.flags().isWateryRoom(newRoom))
+					newItem=new Chant_SummonSeaweed().buildSeaweed(mob,newRoom);
 				else
 				if((newRoom.domainType()==Room.DOMAIN_INDOORS_STONE)
 				||(newRoom.domainType()==Room.DOMAIN_INDOORS_WOOD))
-					newItem=Chant_SummonHouseplant.buildHouseplant(mob,newRoom);
+					newItem=new Chant_SummonHouseplant().buildHouseplant(mob,newRoom);
 				else
-					newItem=Chant_SummonPlants.buildPlant(mob,newRoom);
-				mob.tell("You feel a distant connection with "+newItem.name());
+					newItem=new Chant_SummonPlants().buildPlant(mob,newRoom);
+				mob.tell(L("You feel a distant connection with @x1",newItem.name()));
 			}
 		}
 		else
-			beneficialWordsFizzle(mob,null,"<S-NAME> chant(s) about a far away place, but the magic fades.");
+			beneficialWordsFizzle(mob,null,L("<S-NAME> chant(s) about a far away place, but the magic fades."));
 
 
 		// return whether it worked

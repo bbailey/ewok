@@ -2,6 +2,9 @@ package com.planet_ink.coffee_mud.Libraries.layouts;
 
 import java.util.Enumeration;
 import java.util.Hashtable;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.Vector;
 
@@ -11,29 +14,69 @@ import com.planet_ink.coffee_mud.Libraries.interfaces.AreaGenerationLibrary.Layo
 import com.planet_ink.coffee_mud.Libraries.interfaces.AreaGenerationLibrary.LayoutTypes;
 import com.planet_ink.coffee_mud.core.Directions;
 
-public class LayoutSet 
+/*
+   Copyright 2008-2016 Bo Zimmerman
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+	   http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+*/
+
+public class LayoutSet
 {
 	Random r = new Random();
-	
+
 	private long total  = 0;
-	private final Hashtable<Long, LayoutNode> used = new Hashtable<Long, LayoutNode>();
-	private Vector<LayoutNode> set = null;
-	public LayoutSet(Vector<LayoutNode> V, long total)
+	private final Map<Long, LayoutNode> used = new Hashtable<Long, LayoutNode>();
+	private List<LayoutNode> set = null;
+
+	public LayoutSet(List<LayoutNode> V, long total)
 	{
 		this.total = total;
 		this.set = V;
 	}
-	public Vector<LayoutNode> set() { return set;}
-	public Long getHashCode(long x, long y){ return (Long.valueOf((x * total)+y));}
-	public boolean isUsed(long[] xy) { return isUsed(xy[0],xy[1]); }
-	public boolean isUsed(long x, long y) { return used.containsKey(getHashCode(x,y)); }
-	public boolean isUsed(LayoutNode n) { return isUsed(n.coord())&&set.contains(n); }
-	public void unUse(LayoutNode n) {
+
+	public List<LayoutNode> set()
+	{
+		return set;
+	}
+
+	public Long getHashCode(long x, long y)
+	{
+		return (Long.valueOf((x * total) + y));
+	}
+
+	public boolean isUsed(long[] xy)
+	{
+		return isUsed(xy[0], xy[1]);
+	}
+
+	public boolean isUsed(long x, long y)
+	{
+		return used.containsKey(getHashCode(x, y));
+	}
+
+	public boolean isUsed(LayoutNode n)
+	{
+		return isUsed(n.coord()) && set.contains(n);
+	}
+
+	public void unUse(LayoutNode n)
+	{
 		used.remove(getHashCode(n.coord()[0],n.coord()[1]));
 		set.remove(n);
 	}
-	public boolean use(LayoutNode n, LayoutTypes nodeType) {
-		if(isUsed(n.coord())) 
+	public boolean use(LayoutNode n, LayoutTypes nodeType)
+	{
+		if(isUsed(n.coord()))
 			return false;
 		used.put(getHashCode(n.coord()[0],n.coord()[1]),n);
 		set.add(n);
@@ -41,10 +84,22 @@ public class LayoutSet
 			n.reType(nodeType);
 		return true;
 	}
-	public LayoutNode getNode(long[] xy) { return getNode(xy[0],xy[1]);}
-	public LayoutNode getNode(long x, long y) { return used.get(getHashCode(x,y));}
-	public boolean spaceAvailable() { return set.size() < total; }
-	
+
+	public LayoutNode getNode(long[] xy)
+	{
+		return getNode(xy[0], xy[1]);
+	}
+
+	public LayoutNode getNode(long x, long y)
+	{
+		return used.get(getHashCode(x, y));
+	}
+
+	public boolean spaceAvailable()
+	{
+		return set.size() < total;
+	}
+
 	public long[] makeNextCoord(long[] n, int dir)
 	{
 		switch(dir)
@@ -60,20 +115,21 @@ public class LayoutSet
 		}
 		return null;
 	}
-	
+
 	public LayoutNode makeNextNode(LayoutNode n, int dir)
 	{
-		long[] l = makeNextCoord(n.coord(),dir);
-		if(l!=null) return new DefaultLayoutNode(l);
+		final long[] l = makeNextCoord(n.coord(),dir);
+		if(l!=null)
+			return new DefaultLayoutNode(l);
 		return null;
 	}
-	
+
 	public LayoutNode getNextNode(LayoutNode n, int dir)
 	{
-		LayoutNode next = makeNextNode(n,dir);
+		final LayoutNode next = makeNextNode(n,dir);
 		return getNode(next.coord());
 	}
-	
+
 
 	public void drawABox(int width, int height)
 	{
@@ -83,7 +139,8 @@ public class LayoutSet
 		{
 			use(n,LayoutTypes.surround);
 			LayoutNode nn = getNextNode(n, Directions.NORTH);
-			if(nn==null) nn=makeNextNode(n, Directions.NORTH);
+			if(nn==null)
+				nn=makeNextNode(n, Directions.NORTH);
 			n.crossLink(nn);
 			nn.flagRun(LayoutRuns.ns);
 			n=nn;
@@ -96,7 +153,8 @@ public class LayoutSet
 		{
 			use(n,LayoutTypes.surround);
 			LayoutNode nn = getNextNode(n, Directions.NORTH);
-			if(nn==null) nn=makeNextNode(n, Directions.NORTH);
+			if(nn==null)
+				nn=makeNextNode(n, Directions.NORTH);
 			n.crossLink(nn);
 			nn.flagRun(LayoutRuns.ns);
 			n=nn;
@@ -109,9 +167,10 @@ public class LayoutSet
 		{
 			use(n,LayoutTypes.surround);
 			LayoutNode nn = getNextNode(n, Directions.EAST);
-			if(nn==null) nn=makeNextNode(n, Directions.EAST);
+			if(nn==null)
+				nn=makeNextNode(n, Directions.EAST);
 			n.crossLink(nn);
-			nn.flagRun(LayoutRuns.ns);
+			nn.flagRun(LayoutRuns.ew);
 			n=nn;
 		}
 		n.flag(LayoutFlags.corner);
@@ -122,31 +181,32 @@ public class LayoutSet
 		{
 			use(n,LayoutTypes.surround);
 			LayoutNode nn = getNextNode(n, Directions.EAST);
-			if(nn==null) nn=makeNextNode(n, Directions.EAST);
+			if(nn==null)
+				nn=makeNextNode(n, Directions.EAST);
 			n.crossLink(nn);
-			nn.flagRun(LayoutRuns.ns);
+			nn.flagRun(LayoutRuns.ew);
 			n=nn;
 		}
 		n.flag(LayoutFlags.corner);
 		use(n,LayoutTypes.surround);
 	}
-	
+
 	public boolean fillMaze(LayoutNode p)
 	{
-		Vector<Integer> dirs = new Vector<Integer>();
+		final Vector<Integer> dirs = new Vector<Integer>();
 		for(int i=0;i<4;i++)
 			dirs.add(Integer.valueOf(i));
-		Vector<Integer> rdirs = new Vector<Integer>();
+		final Vector<Integer> rdirs = new Vector<Integer>();
 		while(dirs.size()>0)
 		{
-			int x = r.nextInt(dirs.size());
-			Integer dir = dirs.elementAt(x);
+			final int x = r.nextInt(dirs.size());
+			final Integer dir = dirs.elementAt(x);
 			dirs.removeElementAt(x);
 			rdirs.addElement(dir);
 		}
 		for(int r=0;r<rdirs.size();r++)
 		{
-			Integer dir = rdirs.elementAt(r);
+			final Integer dir = rdirs.elementAt(r);
 			LayoutNode p2 = getNextNode(p, dir.intValue());
 			if(p2 == null)
 			{
@@ -154,74 +214,76 @@ public class LayoutSet
 				p.crossLink(p2);
 				use(p2,LayoutTypes.interior);
 				fillMaze(p2);
-			} 
+			}
 		}
 		return true;
 	}
-	
+
 	public void clipLongStreets()
 	{
-		@SuppressWarnings("unchecked")
-		Vector<LayoutNode> set2=(Vector<LayoutNode>)set().clone();
-		for(Enumeration<LayoutNode> e=set2.elements();e.hasMoreElements();)
+		final Vector<LayoutNode> set2= new Vector<LayoutNode>(set());
+		for (final LayoutNode p : set2)
 		{
-			LayoutNode p=e.nextElement();
 			if(isUsed(p) && p.isStreetLike())
+			{
 				for(int d=0;d<4;d++)
+				{
 					if(p.getLink(d)==null)
 					{
-						LayoutNode p2 =getNextNode(p, d); 
+						final LayoutNode p2 =getNextNode(p, d);
 						if((p2!=null)
 						&&(!p.links().containsValue(p2)))
 						{
-							Enumeration<LayoutNode> nodes=p.links().elements();
-							LayoutNode p_1=(LayoutNode)nodes.nextElement();
-							LayoutNode p_2=(LayoutNode)nodes.nextElement();
+							final Iterator<LayoutNode> nodes=p.links().values().iterator();
+							final LayoutNode p_1=nodes.next();
+							final LayoutNode p_2=nodes.next();
 							p.deLink();
 							p_1.crossLink(p_2);
 							unUse(p);
-							LayoutNode p3 = makeNextNode(p2, Directions.getOpDirectionCode(d));
+							final LayoutNode p3 = makeNextNode(p2, Directions.getOpDirectionCode(d));
 							p2.crossLink(p3);
 							use(p3, LayoutTypes.leaf);
 							break;
 						}
 					}
+				}
+			}
 		}
 	}
-	
+
 	public void fillInFlags()
 	{
-		for(Enumeration<LayoutNode> e=set().elements();e.hasMoreElements();)
+		for (final LayoutNode n : set())
 		{
-			LayoutNode n = (LayoutNode)e.nextElement();
-			int[] dirs=new int[n.links().size()];
+			final int[] dirs=new int[n.links().size()];
 			int x=0;
-			for(Integer dirLink : n.links().keySet())
+			for(final Integer dirLink : n.links().keySet())
 				dirs[x++]=dirLink.intValue();
 			n.setExits(dirs);
 			if((dirs.length==1)&&(!n.isFlagged(LayoutFlags.gate)))
 				n.reType(LayoutTypes.leaf);
 		}
-		for(Enumeration<LayoutNode> e=set().elements();e.hasMoreElements();)
+		for (final LayoutNode n : set())
 		{
-			LayoutNode n = (LayoutNode)e.nextElement();
 			if(n.links().size()==2)
 			{
 				LayoutFlags flag = null;
 				if(n.type()==LayoutTypes.interior)
-					for(Integer dirLink : n.links().keySet())
+				{
+					for(final Integer dirLink : n.links().keySet())
 					{
-						LayoutNode n2=n.links().get(dirLink);
+						final LayoutNode n2=n.links().get(dirLink);
 						if((n2!=null)&&(n2.type()==LayoutTypes.leaf))
 							flag=LayoutFlags.offleaf;
 					}
+				}
 				if(flag!=null)
 					n.flag(flag);
 				else
 				{
-					Enumeration<Integer> dirs=n.links().keys();
-					Integer lN1=dirs.nextElement();
-					Integer lN2=dirs.nextElement();
+					final Iterator<Integer> dirs=n.links().keySet().iterator();
+					final Integer lN1=dirs.next();
+					final Integer lN2=dirs.next();
 					if(lN1.intValue() != Directions.getOpDirectionCode(lN2.intValue()))
 						n.flag(LayoutFlags.corner);
 				}
@@ -232,9 +294,9 @@ public class LayoutSet
 				||(n.type()!=LayoutTypes.surround))))
 			{
 				boolean allStreet = true;
-				for(Integer dirLink : n.links().keySet())
+				for(final Integer dirLink : n.links().keySet())
 				{
-					LayoutNode n2=n.links().get(dirLink);
+					final LayoutNode n2=n.links().get(dirLink);
 					if((n2==null)
 					||((n2.type()!=LayoutTypes.street)
 						&&(n2.type()!=LayoutTypes.surround)))
@@ -249,9 +311,9 @@ public class LayoutSet
 				||(n.type()!=LayoutTypes.surround))))
 			{
 				boolean allStreet = true;
-				for(Integer dirLink : n.links().keySet())
+				for(final Integer dirLink : n.links().keySet())
 				{
-					LayoutNode n2=n.links().get(dirLink);
+					final LayoutNode n2=n.links().get(dirLink);
 					if((n2==null)
 					||((n2.type()!=LayoutTypes.street)
 						&&(n2.type()!=LayoutTypes.surround)))

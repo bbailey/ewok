@@ -1,5 +1,6 @@
 package com.planet_ink.coffee_mud.Libraries.layouts;
 
+import java.util.List;
 import java.util.Vector;
 import com.planet_ink.coffee_mud.core.Directions;
 import com.planet_ink.coffee_mud.core.Log;
@@ -7,17 +8,38 @@ import com.planet_ink.coffee_mud.Libraries.interfaces.AreaGenerationLibrary.Layo
 import com.planet_ink.coffee_mud.Libraries.interfaces.AreaGenerationLibrary.LayoutRuns;
 import com.planet_ink.coffee_mud.Libraries.interfaces.AreaGenerationLibrary.LayoutTypes;
 
-public class GridCityLayout extends AbstractLayout 
+/*
+   Copyright 2008-2016 Bo Zimmerman
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+	   http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+*/
+
+public class GridCityLayout extends AbstractLayout
 {
-	public String name() { return "GRIDCITY";}
-	
-	public Vector<LayoutNode> generate(int num, int dir) 
+	@Override
+	public String name()
 	{
-		Vector<LayoutNode> set = new Vector<LayoutNode>();
-		int diameter = (int)Math.round(Math.sqrt((double)num));
-		int plusX = (diff(diameter,diameter,num) > diff(diameter+1,diameter,num)) ? 1 : 0;
-		
-		LayoutSet lSet = new LayoutSet(set,num);
+		return "GRIDCITY";
+	}
+
+	@Override
+	public List<LayoutNode> generate(int num, int dir)
+	{
+		final Vector<LayoutNode> set = new Vector<LayoutNode>();
+		final int diameter = (int)Math.round(Math.sqrt(num));
+		final int plusX = (diff(diameter,diameter,num) > diff(diameter+1,diameter,num)) ? 1 : 0;
+
+		final LayoutSet lSet = new LayoutSet(set,num);
 		lSet.drawABox(diameter+plusX,diameter);
 		int middle=(diameter+plusX)/2;
 		LayoutNode firstNode=null;
@@ -33,7 +55,8 @@ public class GridCityLayout extends AbstractLayout
 					lSet.use(n,LayoutTypes.street);
 					n.flagRun(LayoutRuns.ns);
 					LayoutNode nn = lSet.getNextNode(n, Directions.NORTH);
-					if(nn==null) nn=lSet.makeNextNode(n, Directions.NORTH);
+					if(nn==null)
+						nn=lSet.makeNextNode(n, Directions.NORTH);
 					n.crossLink(nn);
 					n=nn;
 				}
@@ -43,7 +66,7 @@ public class GridCityLayout extends AbstractLayout
 					firstNode=n;
 			}
 		}
-		int endX=diameter+plusX-1;
+		final int endX=diameter+plusX-1;
 		middle=(-diameter+1)/2;
 		for(int y=-2;y>=-diameter+1;y-=2)
 		{
@@ -57,7 +80,8 @@ public class GridCityLayout extends AbstractLayout
 					lSet.use(n,LayoutTypes.street);
 					n.flagRun(LayoutRuns.ew);
 					LayoutNode nn = lSet.getNextNode(n, Directions.EAST);
-					if(nn==null) nn=lSet.makeNextNode(n, Directions.EAST);
+					if(nn==null)
+						nn=lSet.makeNextNode(n, Directions.EAST);
 					n.crossLink(nn);
 					n=nn;
 				}
@@ -72,7 +96,7 @@ public class GridCityLayout extends AbstractLayout
 		{
 			for(int x=1;x<endX;x++)
 			{
-				LayoutNode n = lSet.getNode(new long[]{x,y});
+				final LayoutNode n = lSet.getNode(new long[]{x,y});
 				LayoutNode nn = lSet.getNextNode(n, Directions.NORTH);
 				if(nn==null)
 				{
@@ -96,7 +120,7 @@ public class GridCityLayout extends AbstractLayout
 		{
 			for(int x=1;x<endX;x++)
 			{
-				LayoutNode n = lSet.getNode(new long[]{x,y});
+				final LayoutNode n = lSet.getNode(new long[]{x,y});
 				LayoutNode nn = lSet.getNextNode(n, Directions.SOUTH);
 				if(nn==null)
 				{

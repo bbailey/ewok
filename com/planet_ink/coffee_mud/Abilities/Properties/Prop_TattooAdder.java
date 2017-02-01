@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Properties;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,20 +10,21 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2002-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,15 +34,17 @@ import java.util.*;
 */
 public class Prop_TattooAdder extends Property
 {
-	public String ID() { return "Prop_TattooAdder"; }
-	public String name(){ return "A TattooAdder";}
-	protected int canAffectCode(){return Ability.CAN_ITEMS|Ability.CAN_ROOMS|Ability.CAN_AREAS|Ability.CAN_MOBS|Ability.CAN_EXITS;}
+	@Override public String ID() { return "Prop_TattooAdder"; }
+	@Override public String name(){ return "A TattooAdder";}
+	@Override protected int canAffectCode(){return Ability.CAN_ITEMS|Ability.CAN_ROOMS|Ability.CAN_AREAS|Ability.CAN_MOBS|Ability.CAN_EXITS;}
 	int tattooCode=-1;
 
 	public int tattooCode()
 	{
-		if(tattooCode>=0) return tattooCode;
-		if(affected==null) return -1;
+		if(tattooCode>=0)
+			return tattooCode;
+		if(affected==null)
+			return -1;
 		if(affected instanceof Drink)
 			tattooCode= CMMsg.TYP_DRINK;
 		else
@@ -73,7 +77,8 @@ public class Prop_TattooAdder extends Property
 	public void applyTattooCodes(MOB mob, boolean addOnly, boolean subOnly)
 	{
 		String tattooName=text();
-		if(tattooName.length()==0) return;
+		if(tattooName.length()==0)
+			return;
 
 		boolean tattooPlus=true;
 		boolean tattooMinus=false;
@@ -94,26 +99,33 @@ public class Prop_TattooAdder extends Property
 			tattooMinus=true;
 			tattooName=tattooName.substring(1);
 		}
-		
-		boolean silent=tattooName.startsWith("~");
-		if(silent) tattooName=tattooName.substring(1);
 
-		if(addOnly) tattooMinus=false;
-		if(subOnly) tattooPlus=false;
+		final boolean silent=tattooName.startsWith("~");
+		if(silent)
+			tattooName=tattooName.substring(1);
 
-		String tattoo=tattooName;
-		if((tattoo.length()>0)
-		&&(Character.isDigit(tattoo.charAt(0)))
-		&&(tattoo.indexOf(" ")>0)
-		&&(CMath.isNumber(tattoo.substring(0,tattoo.indexOf(" ")))))
-			tattoo=tattoo.substring(tattoo.indexOf(" ")+1).trim();
-		if(mob.fetchTattoo(tattoo)!=null)
+		Tattooable TO=mob;
+		if(tattooName.toLowerCase().startsWith("account ")
+		&&(mob.playerStats()!=null)
+		&&(mob.playerStats().getAccount()!=null))
+		{
+			TO=mob.playerStats().getAccount();
+			tattooName=tattooName.substring(8).trim();
+		}
+		if(addOnly)
+			tattooMinus=false;
+		if(subOnly)
+			tattooPlus=false;
+
+		final Tattoo pT=((Tattoo)CMClass.getCommon("DefaultTattoo")).parse(tattooName);
+		final Tattoo T = mob.findTattoo(pT.getTattooName());
+		if(T!=null)
 		{
 			if(tattooMinus)
 			{
 				if(!silent)
-					mob.location().show(mob,affected,CMMsg.MSG_OK_ACTION,"<T-NAME> takes away the "+tattoo+" tattoo from <S-NAME>.");
-				mob.delTattoo(tattooName);
+					mob.location().show(mob,affected,CMMsg.MSG_OK_ACTION,L("<T-NAME> takes away the @x1 tattoo from <S-NAME>.",pT.getTattooName().toLowerCase()));
+				TO.delTattoo(T);
 			}
 		}
 		else
@@ -121,14 +133,15 @@ public class Prop_TattooAdder extends Property
 			if(tattooPlus)
 			{
 				if(!silent)
-					mob.location().show(mob,affected,CMMsg.MSG_OK_ACTION,"<T-NAME> gives <S-NAME> the "+tattoo+" tattoo.");
-				mob.addTattoo(tattooName);
+					mob.location().show(mob,affected,CMMsg.MSG_OK_ACTION,L("<T-NAME> gives <S-NAME> the @x1 tattoo.",pT.getTattooName().toLowerCase()));
+				TO.addTattoo(pT);
 			}
 		}
 	}
 
 
-	public void executeMsg(Environmental myHost, CMMsg msg)
+	@Override
+	public void executeMsg(final Environmental myHost, final CMMsg msg)
 	{
 		if((tattooCode()==CMMsg.TYP_DEATH)&&(msg.sourceMinor()==tattooCode()))
 		{

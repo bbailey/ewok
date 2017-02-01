@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Languages;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,20 +10,21 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2004-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -31,50 +33,58 @@ import java.util.*;
    limitations under the License.
 */
 
-@SuppressWarnings("unchecked")
 public class Gigantic extends StdLanguage
 {
-	public String ID() { return "Gigantic"; }
-	public String name(){ return "Gigantic";}
-	public static Vector wordLists=null;
-	private static boolean mapped=false;
+	@Override
+	public String ID()
+	{
+		return "Gigantic";
+	}
+
+	private final static String localizedName = CMLib.lang().L("Gigantic");
+	@Override
+	public String name()
+	{
+		return localizedName;
+	}
+
+	public static List<String[]> wordLists=null;
 	public Gigantic()
 	{
 		super();
-		if(!mapped){mapped=true;
-					CMLib.ableMapper().addCharAbilityMapping("All",1,ID(),false);}
 	}
-	public Vector translationVector(String language)
+
+	@Override
+	public List<String[]> translationVector(String language)
 	{
 		if(wordLists==null)
 		{
-			String[] one={"o","est","e","am"};
-			String[]
-two={"on","dva","sa","is","id","et","bo","ja","te","me","za","ve"};
-			String[] three={"pet","set","tre","mal","maz","mat","ane","dom"};
-			String[]
-four={"nast","sest","osam","bedu","beda","mene","mame","maja","beli","nesi"};
-			String[]
-five={"sedam","devat","flanon","dvade","matke","trede","horat","jesam","taram","anaht","maram","nezme"};
-			String[]
-six={"jedanast","delalime","veralim","dvanast","bahone","zahedon","prasad","trenast","staronast","starde","delaja"};
-			wordLists=new Vector();
-			wordLists.addElement(one);
-			wordLists.addElement(two);
-			wordLists.addElement(three);
-			wordLists.addElement(four);
-			wordLists.addElement(five);
-			wordLists.addElement(six);
+			final String[] one={"o","est","e","am"};
+			final String[] two={"on","dva","sa","is","id","et","bo","ja","te","me","za","ve"};
+			final String[] three={"pet","set","tre","mal","maz","mat","ane","dom"};
+			final String[] four={"nast","sest","osam","bedu","beda","mene","mame","maja","beli","nesi"};
+			final String[] five={"sedam","devat","flanon","dvade","matke","trede","horat","jesam","taram","anaht","maram","nezme"};
+			final String[] six={"jedanast","delalime","veralim","dvanast","bahone","zahedon","prasad","trenast","staronast","starde","delaja"};
+			wordLists=new Vector<String[]>();
+			wordLists.add(one);
+			wordLists.add(two);
+			wordLists.add(three);
+			wordLists.add(four);
+			wordLists.add(five);
+			wordLists.add(six);
 		}
 		return wordLists;
 	}
+
 	public String tup(String msg)
 	{
-		if(msg==null) return msg;
+		if(msg==null)
+			return msg;
 		return msg.toUpperCase();
 	}
 
-	public boolean okMessage(Environmental myHost, CMMsg msg)
+	@Override
+	public boolean okMessage(final Environmental myHost, final CMMsg msg)
 	{
 		if((beingSpoken(ID()))
 		&&(affected instanceof MOB)
@@ -83,7 +93,7 @@ six={"jedanast","delalime","veralim","dvanast","bahone","zahedon","prasad","tren
 		&&(msg.tool()==null)
 		&&((msg.sourceMinor()==CMMsg.TYP_SPEAK)
 		   ||(msg.sourceMinor()==CMMsg.TYP_TELL)
-		   ||(CMath.bset(msg.sourceCode(),CMMsg.MASK_CHANNEL))))
+		   ||(CMath.bset(msg.sourceMajor(),CMMsg.MASK_CHANNEL))))
 		{
 			msg.modify(msg.source(),msg.target(),msg.tool(),
 					   msg.sourceCode(),tup(msg.sourceMessage()),
@@ -93,8 +103,10 @@ six={"jedanast","delalime","veralim","dvanast","bahone","zahedon","prasad","tren
 		return super.okMessage(myHost,msg);
 	}
 
-	private static final Hashtable hashwords=new Hashtable();
-	public Hashtable translationHash(String language)
+	private static final Hashtable<String,String> hashwords=new Hashtable<String,String>();
+
+	@Override
+	public Map<String, String> translationHash(String language)
 	{
 		if((hashwords!=null)&&(hashwords.size()>0))
 			return hashwords;
@@ -187,5 +199,5 @@ six={"jedanast","delalime","veralim","dvanast","bahone","zahedon","prasad","tren
 		hashwords.put("YOUR","ar");
 		hashwords.put("YOURS","tar");
 		return hashwords;
-		}
+	}
 }

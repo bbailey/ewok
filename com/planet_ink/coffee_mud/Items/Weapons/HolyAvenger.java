@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Items.Weapons;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,19 +10,20 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 
 /*
-   Copyright 2000-2010 Bo Zimmerman
+   Copyright 2002-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -31,7 +33,12 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 */
 public class HolyAvenger extends TwoHandedSword
 {
-	public String ID(){	return "HolyAvenger";}
+	@Override
+	public String ID()
+	{
+		return "HolyAvenger";
+	}
+
 	public HolyAvenger()
 	{
 		super();
@@ -40,27 +47,28 @@ public class HolyAvenger extends TwoHandedSword
 		setDisplayText("a beautiful two-handed sword has been left here");
 		setDescription("A two-handed sword crafted with a careful hand, and inscribed with several holy symbols.");
 		secretIdentity="The Holy Avenger!  A good-only Paladin sword that casts dispel evil on its victims";
-		baseEnvStats().setAbility(0);
-		baseEnvStats().setLevel(20);
-		baseEnvStats().setWeight(25);
-		baseEnvStats().setAttackAdjustment(25);
-		baseEnvStats().setDamage(18);
-		baseEnvStats().setDisposition(baseEnvStats().disposition()|EnvStats.IS_GOOD|EnvStats.IS_BONUS);
+		basePhyStats().setAbility(0);
+		basePhyStats().setLevel(20);
+		basePhyStats().setWeight(25);
+		basePhyStats().setAttackAdjustment(25);
+		basePhyStats().setDamage(18);
+		basePhyStats().setDisposition(basePhyStats().disposition()|PhyStats.IS_GOOD|PhyStats.IS_BONUS);
 		baseGoldValue=15500;
-		recoverEnvStats();
+		recoverPhyStats();
 		material=RawMaterial.RESOURCE_MITHRIL;
-		weaponType=TYPE_SLASHING;
+		weaponDamageType=TYPE_SLASHING;
 		setRawLogicalAnd(true);
 	}
 
 
 
-	public boolean okMessage(Environmental myHost, CMMsg msg)
+	@Override
+	public boolean okMessage(final Environmental myHost, final CMMsg msg)
 	{
 		if(!super.okMessage(myHost,msg))
 			return false;
 
-		MOB mob=msg.source();
+		final MOB mob=msg.source();
 		if(mob.location()==null)
 			return true;
 
@@ -75,9 +83,9 @@ public class HolyAvenger extends TwoHandedSword
 			||(!CMLib.flags().isGood(msg.source())))
 			{
 				unWear();
-				mob.location().show(mob,null,CMMsg.MSG_OK_ACTION,name()+" flashes and flies out of <S-HIS-HER> hands!");
+				mob.location().show(mob,null,CMMsg.MSG_OK_ACTION,L("@x1 flashes and flies out of <S-HIS-HER> hands!",name()));
 				if(msg.source().isMine(this))
-					CMLib.commands().postDrop(msg.source(),this,true,false);
+					CMLib.commands().postDrop(msg.source(),this,true,false,false);
 				return false;
 			}
 			break;
@@ -87,7 +95,8 @@ public class HolyAvenger extends TwoHandedSword
 		return true;
 	}
 
-	public void executeMsg(Environmental myHost, CMMsg msg)
+	@Override
+	public void executeMsg(final Environmental myHost, final CMMsg msg)
 	{
 		super.executeMsg(myHost,msg);
 		if((msg.source().location()!=null)
@@ -96,17 +105,17 @@ public class HolyAvenger extends TwoHandedSword
 		&&(msg.tool()==this)
 		&&(msg.target() instanceof MOB)
 		&&(!((MOB)msg.target()).amDead())
-		&&(CMLib.flags().isEvil(msg.target())))
+		&&(CMLib.flags().isEvil((MOB)msg.target())))
 		{
-			CMMsg msg2=CMClass.getMsg(msg.source(),msg.target(),new HolyAvenger(),CMMsg.MSG_OK_ACTION,CMMsg.MSK_MALICIOUS_MOVE|CMMsg.TYP_UNDEAD,CMMsg.MSG_NOISYMOVEMENT,null);
+			final CMMsg msg2=CMClass.getMsg(msg.source(),msg.target(),new HolyAvenger(),CMMsg.MSG_OK_ACTION,CMMsg.MSK_MALICIOUS_MOVE|CMMsg.TYP_UNDEAD,CMMsg.MSG_NOISYMOVEMENT,null);
 			if(msg.source().location().okMessage(msg.source(),msg2))
 			{
 				msg.source().location().send(msg.source(), msg2);
 				int damage=CMLib.dice().roll(1,15,0);
 				if(msg.value()>0)
 					damage=damage/2;
-				msg.addTrailerMsg(CMClass.getMsg(msg.source(),msg.target(),CMMsg.MSG_OK_ACTION,name()+" dispels evil within <T-NAME> and "+CMLib.combat().standardHitWord(Weapon.TYPE_BURSTING,damage)+" <T-HIM-HER>>!"));
-				CMMsg msg3=CMClass.getMsg(msg.source(),msg.target(),null,CMMsg.MSG_OK_VISUAL,CMMsg.MSG_DAMAGE,CMMsg.NO_EFFECT,null);
+				msg.addTrailerMsg(CMClass.getMsg(msg.source(),msg.target(),CMMsg.MSG_OK_ACTION,L("@x1 dispels evil within <T-NAME> and @x2 <T-HIM-HER>>!",name(),CMLib.combat().standardHitWord(Weapon.TYPE_BURSTING,damage))));
+				final CMMsg msg3=CMClass.getMsg(msg.source(),msg.target(),null,CMMsg.MSG_OK_VISUAL,CMMsg.MSG_DAMAGE,CMMsg.NO_EFFECT,null);
 				msg3.setValue(damage);
 				msg.addTrailerMsg(msg3);
 			}

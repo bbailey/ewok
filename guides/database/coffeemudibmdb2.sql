@@ -35,10 +35,11 @@ CREATE TABLE CMPOLL (
 	PRIMARY KEY (CMNAME)
 );
 
-CREATE TABLE CMvarchar (
+CREATE TABLE CMCHAR (
+    CMCHID varchar (50) NOT NULL,
 	CMUSERID varchar (50)  NOT NULL ,
 	CMPASS varchar (50) ,
-	CMCLAS varchar (200) ,
+	CMCLAS varchar (250) ,
 	CMSTRE int ,
 	CMRACE varchar (50) ,
 	CMDEXT int ,
@@ -46,12 +47,12 @@ CREATE TABLE CMvarchar (
 	CMGEND varchar (50) ,
 	CMWISD int ,
 	CMINTE int ,
-	CMvarchar int ,
+	CMCHAR int ,
 	CMHITP int ,
 	CMLEVL varchar (50) ,
 	CMMANA int ,
 	CMMOVE int  ,
-	CMDESC varchar (255) ,
+	CMDESC CLOB ,
 	CMALIG int ,
 	CMEXPE int ,
 	CMEXLV int ,
@@ -75,8 +76,6 @@ CREATE TABLE CMvarchar (
 	CMPRPT varchar (250) ,
 	CMCOLR varchar (100) ,
 	CMLSIP varchar (100) ,
-	CMCLAN varchar (100) ,
-	CMCLRO integer ,
 	CMEMAL varchar (255) ,
 	CMPFIL CLOB ,
 	CMSAVE varchar (150) ,
@@ -92,6 +91,14 @@ CREATE TABLE CMCHFO (
 	CMFOLV int,
 	CMFOAB int ,
 	PRIMARY KEY (CMUSERID,CMFONM)
+);
+
+CREATE TABLE CMCHCL (
+	CMUSERID varchar (50) NOT NULL,
+	CMCLAN varchar (100) NOT NULL,
+	CMCLRO int,
+	CMCLSTS varchar (100) ,
+	PRIMARY KEY(CMUSERID, CMCLAN)
 );
 
 CREATE TABLE CMCHIT (
@@ -156,6 +163,7 @@ CREATE TABLE CMROOM (
 CREATE TABLE CMQUESTS (
 	CMQUESID varchar (50)  NOT NULL,
 	CMQUTYPE varchar (50),
+	CMQFLAGS int,
 	CMQSCRPT CLOB,
 	CMQWINNS CLOB ,
 	PRIMARY KEY (CMQUESID)
@@ -231,7 +239,8 @@ CREATE TABLE CMCCAC (
 
 CREATE TABLE CMGAAC (
 	CMGAID varchar (50)   NOT NULL,
-	CMGAAT CLOB,  
+	CMGAAT CLOB , 
+	CMGACL varchar (50) ,  
 	PRIMARY KEY (CMGAID)
 );
 
@@ -242,3 +251,26 @@ CREATE TABLE CMACCT (
 	CMAXML CLOB ,
 	PRIMARY KEY (CMANAM)
 );
+
+CREATE TABLE CMBKLG (
+	CMNAME varchar (50) NOT NULL,
+	CMINDX int NOT NULL,
+	CMDATE integer(8),
+	CMDATA CLOB,
+	PRIMARY KEY (CMNAME,CMINDX)
+);
+
+CREATE TABLE CMCLIT (
+	CMCLID varchar (100)  NOT NULL,
+	CMITNM varchar (100)   NOT NULL,
+	CMITID varchar (50),
+	CMITTX CLOB,
+	CMITLO varchar (100),
+	CMITWO int,
+	CMITUR int,
+	CMITLV int,
+	CMITAB int,
+	CMHEIT int,
+	PRIMARY KEY (CMCLID,CMITNM)
+);
+

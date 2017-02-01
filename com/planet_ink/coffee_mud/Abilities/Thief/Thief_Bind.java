@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Thief;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,21 +10,21 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
-
 import java.util.*;
 
 /*
-   Copyright 2000-2010 Bo Zimmerman
+   Copyright 2002-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -31,34 +32,37 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
+
 public class Thief_Bind extends ThiefSkill
 {
-	public String ID() { return "Thief_Bind"; }
-	public String name(){ return "Bind";}
-	public String displayText(){ return "(Bound by "+ropeName+")";}
-	protected int canAffectCode(){return CAN_MOBS|CAN_ROOMS;}
-	protected int canTargetCode(){return CAN_MOBS;}
-	public int abstractQuality(){return Ability.QUALITY_MALICIOUS;}
-    public int classificationCode(){return Ability.ACODE_THIEF_SKILL|Ability.DOMAIN_BINDING;}
-	private static final String[] triggerStrings = {"BIND"};
-	public String[] triggerStrings(){return triggerStrings;}
+	@Override public String ID() { return "Thief_Bind"; }
+	private final static String localizedName = CMLib.lang().L("Bind");
+	@Override public String name() { return localizedName; }
+	@Override public String displayText() { return L("(Bound by "+ropeName+")"); }
+	@Override protected int canAffectCode(){return CAN_MOBS|CAN_ROOMS;}
+	@Override protected int canTargetCode(){return CAN_MOBS;}
+	@Override public int abstractQuality(){return Ability.QUALITY_MALICIOUS;}
+	@Override public int classificationCode(){return Ability.ACODE_THIEF_SKILL|Ability.DOMAIN_BINDING;}
+	private static final String[] triggerStrings =I(new String[] {"BIND"});
+	@Override public String[] triggerStrings(){return triggerStrings;}
 	protected int maxRange=0;
-	public int maxRange(){return maxRange;}
-	public int minRange(){return 0;}
-	public long flags(){return Ability.FLAG_BINDING;}
-	public int usageType(){return USAGE_MOVEMENT;}
-	public boolean bubbleAffect(){return affected instanceof Room;}
+	@Override public int maxRange(){return maxRange;}
+	@Override public int minRange(){return 0;}
+	@Override public long flags(){return Ability.FLAG_BINDING;}
+	@Override public int usageType(){return USAGE_MOVEMENT;}
+	@Override public boolean bubbleAffect(){return affected instanceof Room;}
 
 	public int amountRemaining=500;
 	public String ropeName="the ropes";
 
-	public void affectEnvStats(Environmental affected, EnvStats affectableStats)
+	@Override
+	public void affectPhyStats(Physical affected, PhyStats affectableStats)
 	{
-		super.affectEnvStats(affected,affectableStats);
-		affectableStats.setDisposition(affectableStats.disposition()|EnvStats.IS_BOUND);
+		super.affectPhyStats(affected,affectableStats);
+		affectableStats.setDisposition(affectableStats.disposition()|PhyStats.IS_BOUND);
 	}
-	public boolean okMessage(Environmental myHost, CMMsg msg)
+	@Override
+	public boolean okMessage(final Environmental myHost, final CMMsg msg)
 	{
 		// when this spell is on a MOBs Affected list,
 		// it should consistantly prevent the mob
@@ -73,21 +77,21 @@ public class Thief_Bind extends ThiefSkill
 			&&(affected instanceof Room))
 				return true;
 			else
-			if((!CMath.bset(msg.sourceMajor(),CMMsg.MASK_ALWAYS))
-			&&((CMath.bset(msg.sourceMajor(),CMMsg.MASK_HANDS))
-			||(CMath.bset(msg.sourceMajor(),CMMsg.MASK_MOVE))))
+			if((!msg.sourceMajor(CMMsg.MASK_ALWAYS))
+			&&((msg.sourceMajor(CMMsg.MASK_HANDS))
+			||(msg.sourceMajor(CMMsg.MASK_MOVE))))
 			{
 				if(canBeUninvoked())
 				{
-					if(msg.source().location().show(msg.source(),null,CMMsg.MSG_OK_ACTION,"<S-NAME> struggle(s) against "+ropeName.toLowerCase()+" binding <S-HIM-HER>."))
+					if(msg.source().location().show(msg.source(),null,CMMsg.MSG_OK_ACTION,L("<S-NAME> struggle(s) against @x1 binding <S-HIM-HER>.",ropeName.toLowerCase())))
 					{
-						amountRemaining-=(msg.source().charStats().getStat(CharStats.STAT_STRENGTH)+msg.source().envStats().level());
+						amountRemaining-=(msg.source().charStats().getStat(CharStats.STAT_STRENGTH)+msg.source().phyStats().level());
 						if(amountRemaining<0)
 							unInvoke();
 					}
 				}
 				else
-					msg.source().tell("You are constricted by "+ropeName.toLowerCase()+" and can't move!");
+					msg.source().tell(L("You are constricted by @x1 and can't move!",ropeName.toLowerCase()));
 				return false;
 			}
 		}
@@ -95,86 +99,88 @@ public class Thief_Bind extends ThiefSkill
 	}
 
 
-	public void setAffectedOne(Environmental E)
+	@Override
+	public void setAffectedOne(Physical P)
 	{
-		if(!(E instanceof Item))
-			super.setAffectedOne(E);
+		if(!(P instanceof Item))
+			super.setAffectedOne(P);
 		else
-			ropeName=E.name();
+			ropeName=P.name();
 	}
 
+	@Override
 	public void unInvoke()
 	{
 		// undo the affects of this spell
-		if((affected==null)||(!(affected instanceof MOB)))
+		if(!(affected instanceof MOB))
 		{
 			super.unInvoke();
 			return;
 		}
-		MOB mob=(MOB)affected;
+		final MOB mob=(MOB)affected;
 
 		super.unInvoke();
 		if(canBeUninvoked())
 		{
 			if(!mob.amDead())
-				mob.location().show(mob,null,CMMsg.MSG_NOISYMOVEMENT,"<S-NAME> manage(s) to break <S-HIS-HER> way free of "+ropeName+".");
+				mob.location().show(mob,null,CMMsg.MSG_NOISYMOVEMENT,L("<S-NAME> manage(s) to break <S-HIS-HER> way free of @x1.",ropeName));
 			CMLib.commands().postStand(mob,true);
 		}
 	}
-    
-    public int castingQuality(MOB mob, Environmental target)
-    {
-        if((mob!=null)&&(target!=null))
-        {
-            if(!(target instanceof MOB))
-                return Ability.QUALITY_INDIFFERENT;
-            if(mob.isInCombat())
-                return Ability.QUALITY_INDIFFERENT;
-            if((!CMLib.flags().isSleeping(target))&&(CMLib.flags().canMove((MOB)target)))
-                return Ability.QUALITY_INDIFFERENT;
-        }
-        return super.castingQuality(mob,target);
-    }
 
-	public boolean invoke(MOB mob, Vector commands, Environmental givenTarget, boolean auto, int asLevel)
+	@Override
+	public int castingQuality(MOB mob, Physical target)
+	{
+		if((mob!=null)&&(target!=null))
+		{
+			if(!(target instanceof MOB))
+				return Ability.QUALITY_INDIFFERENT;
+			if(mob.isInCombat())
+				return Ability.QUALITY_INDIFFERENT;
+			if((!CMLib.flags().isSleeping(target))&&(CMLib.flags().canMove((MOB)target)))
+				return Ability.QUALITY_INDIFFERENT;
+		}
+		return super.castingQuality(mob,target);
+	}
+
+	@Override
+	public boolean invoke(MOB mob, List<String> commands, Physical givenTarget, boolean auto, int asLevel)
 	{
 		if((mob.isInCombat())&&(!auto))
 		{
-			mob.tell("Not while you are fighting!");
+			mob.tell(L("Not while you are fighting!"));
 			return false;
 		}
-	    if((commands.size()>0)&&((String)commands.firstElement()).equalsIgnoreCase("UNTIE"))
-	    {
-	        commands.removeElementAt(0);
-			MOB target=super.getTarget(mob,commands,givenTarget,false,true);
-			if(target==null) return false;
-			Ability A=target.fetchEffect(ID());
+		if((commands.size()>0)&&(commands.get(0)).equalsIgnoreCase("UNTIE"))
+		{
+			commands.remove(0);
+			final MOB target=super.getTarget(mob,commands,givenTarget,false,true);
+			if(target==null)
+				return false;
+			final Ability A=target.fetchEffect(ID());
 			if(A!=null)
 			{
-			    if(mob.location().show(mob,target,null,CMMsg.MSG_HANDS,"<S-NAME> attempt(s) to unbind <T-NAMESELF>."))
-			    {
-				    A.unInvoke();
-				    return true;
-			    }
-		        return false;
+				if(mob.location().show(mob,target,null,CMMsg.MSG_HANDS,L("<S-NAME> attempt(s) to unbind <T-NAMESELF>.")))
+				{
+					A.unInvoke();
+					return true;
+				}
+				return false;
 			}
-		    mob.tell(target.name()+" doesn't appear to be bound with ropes.");
-		    return false;
-	    }
+			mob.tell(L("@x1 doesn't appear to be bound with ropes.",target.name(mob)));
+			return false;
+		}
 
 
-		MOB target=getTarget(mob,commands,givenTarget);
-		if(target==null) return false;
+		final MOB target=getTarget(mob,commands,givenTarget);
+		if(target==null)
+			return false;
 
 		if((!CMLib.flags().isSleeping(target))&&(CMLib.flags().canMove(target)&&(!auto)))
 		{
-			mob.tell(target.name()+" doesn't look willing to cooperate.");
+			mob.tell(L("@x1 doesn't look willing to cooperate.",target.name(mob)));
 			return false;
 		}
-		// the invoke method for spells receives as
-		// parameters the invoker, and the REMAINING
-		// command line parameters, divided into words,
-		// and added as String objects to a vector.
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
 			return false;
 
@@ -182,9 +188,10 @@ public class Thief_Bind extends ThiefSkill
 
 		if(success)
 		{
-			if(auto) maxRange=10;
-			String str=auto?"<T-NAME> become(s) bound by "+ropeName+".":"<S-NAME> bind(s) <T-NAME> with "+ropeName+".";
-			CMMsg msg=CMClass.getMsg(mob,target,this,(auto?CMMsg.MASK_ALWAYS:0)|CMMsg.MSG_THIEF_ACT|CMMsg.MASK_SOUND|CMMsg.MASK_MALICIOUS,auto?"":str,str,str);
+			if(auto)
+				maxRange=10;
+			final String str=auto?L("<T-NAME> become(s) bound by @x1.",ropeName):L("<S-NAME> bind(s) <T-NAME> with @x1.",ropeName);
+			final CMMsg msg=CMClass.getMsg(mob,target,this,(auto?CMMsg.MASK_ALWAYS:0)|CMMsg.MSG_THIEF_ACT|CMMsg.MASK_SOUND|CMMsg.MASK_MALICIOUS,auto?"":str,str,str);
 			if((target.location().okMessage(mob,msg))&&(target.fetchEffect(this.ID())==null))
 			{
 				target.location().send(mob,msg);
@@ -194,30 +201,32 @@ public class Thief_Bind extends ThiefSkill
 					{
 						maxRange=0;
 						double prof=0.0;
-						Ability A=mob.fetchAbility("Specialization_Ranged");
-						if(A!=null) prof=CMath.div(A.proficiency(),20);
-						amountRemaining=(mob.charStats().getStat(CharStats.STAT_STRENGTH)+mob.envStats().level()+(2*getXLEVELLevel(mob)))*((int)Math.round(5.0+prof));
+						final Ability A=mob.fetchAbility("Specialization_Ranged");
+						if(A!=null)
+							prof=CMath.div(A.proficiency(),20);
+						amountRemaining=(mob.charStats().getStat(CharStats.STAT_STRENGTH)+mob.phyStats().level()+(2*getXLEVELLevel(mob)))*((int)Math.round(5.0+prof));
 					}
 					else
 						amountRemaining=(adjustedLevel(mob,asLevel))*25;
 					if((target.location()==mob.location())||(auto))
-						success=maliciousAffect(mob,target,asLevel,Integer.MAX_VALUE-1000,-1);
+						success=maliciousAffect(mob,target,asLevel,Ability.TICKS_FOREVER,-1)!=null;
 				}
 				if((mob.getVictim()==target)&&(!auto))
 				{
-					HashSet H=mob.getGroupMembers(new HashSet());
+					final Set<MOB> H=mob.getGroupMembers(new HashSet<MOB>());
 					MOB M=null;
-					mob.makePeace();
-					for(Iterator i=H.iterator();i.hasNext();)
+					mob.makePeace(true);
+					for (final Object element : H)
 					{
-						M=(MOB)i.next();
-						if(M.getVictim()==target) M.setVictim(null);
+						M=(MOB)element;
+						if(M.getVictim()==target)
+							M.setVictim(null);
 					}
 				}
 			}
 		}
 		else
-			return maliciousFizzle(mob,target,"<S-NAME> attempt(s) to bind <T-NAME> and fail(s).");
+			return maliciousFizzle(mob,target,L("<S-NAME> attempt(s) to bind <T-NAME> and fail(s)."));
 
 
 		// return whether it worked

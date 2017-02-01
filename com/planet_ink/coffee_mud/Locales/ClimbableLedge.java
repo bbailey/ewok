@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Locales;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,6 +10,7 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -18,14 +20,14 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2003-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -35,8 +37,14 @@ import java.util.*;
 */
 public class ClimbableLedge extends ClimbableSurface
 {
-	public String ID(){return "ClimbableLedge";}
-	public boolean okMessage(Environmental myHost, CMMsg msg)
+	@Override
+	public String ID()
+	{
+		return "ClimbableLedge";
+	}
+
+	@Override
+	public boolean okMessage(final Environmental myHost, final CMMsg msg)
 	{
 		if(CMLib.flags().isSleeping(this))
 			return super.okMessage(myHost,msg);
@@ -44,11 +52,11 @@ public class ClimbableLedge extends ClimbableSurface
 		if((msg.targetMinor()==CMMsg.TYP_ENTER)
 		&&(msg.amITarget(this)))
 		{
-			Rideable ladder=findALadder(msg.source(),this);
+			final Rideable ladder=CMLib.tracking().findALadder(msg.source(),this);
 			if(ladder!=null)
 			{
 				msg.source().setRiding(ladder);
-				msg.source().recoverEnvStats();
+				msg.source().recoverPhyStats();
 			}
 			if((getRoomInDir(Directions.DOWN)!=msg.source().location()))
 				return true;

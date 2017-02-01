@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.core.smtp;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,24 +10,27 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.JournalsLibrary;
+import com.planet_ink.coffee_mud.Libraries.interfaces.PlayerLibrary.ThinPlayer;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.net.*;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import com.planet_ink.coffee_mud.core.exceptions.*;
 import java.io.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2004-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -34,47 +38,52 @@ import java.io.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
-public class ProcessSMTPrequest extends Thread
+public class ProcessSMTPrequest implements Runnable
 {
-	private CMProps page;
-	private Socket sock;
-	private static long instanceCnt = 0;
-	private SMTPserver server=null;
 	private final static String cr = "\r\n";
 	private final static String S_250 = "250 OK";
-	protected String from=null;
-	protected Vector to=null;
-	private StringBuffer data=null;
-	protected String domain=null;
+	private final static long IDLE_TIMEOUT=10000;
+	private static volatile AtomicInteger instanceCnt = new AtomicInteger(0);
 
-	public ProcessSMTPrequest(Socket a_sock,
-							  SMTPserver a_Server,
-							  CMProps a_page)
+
+	private Socket  		 sock;
+	private SMTPserver  	 server=null;
+	private StringBuffer	 data=null;
+	protected String		 from=null;
+	protected MOB			 fromM=null;
+	protected String		 domain=null;
+	protected String		 runnableName;
+	protected boolean   	 debug=false;
+	protected Vector<String> to=null;
+
+	public ProcessSMTPrequest(Socket a_sock, SMTPserver a_Server)
 	{
-		super( "SMTPrq"+(instanceCnt++));
-		page = a_page;
+		runnableName="SMTPrq"+(instanceCnt.addAndGet(1));
 		server = a_Server;
 		sock = a_sock;
-
-		if (page != null && sock != null)
-			this.start();
 	}
-	
-	public String validLocalAccount(String s)
+
+	public String validLocalAccount(String s, boolean checkFROMcase)
 	{
-		int x=s.indexOf("@");
+		final int x=s.indexOf('@');
 		String name=s;
 		if(x>0)
 		{
 			name=s.substring(0,x).trim();
-			String domain=s.substring(x+1).trim();
+			final String domain=s.substring(x+1).trim();
 			if(!domain.toUpperCase().endsWith(server.domainName().toUpperCase()))
 			{
 				if(server.mailboxName().length()>0)
 				{
-					name=CMLib.database().DBEmailSearch(s);
-					if(name!=null) return name;
+					name=CMLib.database().DBPlayerEmailSearch(s);
+					if(name!=null)
+						return name;
+					if(checkFROMcase) // accounts cannot receive emails
+					{
+						final PlayerAccount A=CMLib.players().getLoadAccountByEmail(s);
+						if(A!=null)
+							return A.getAccountName();
+					}
 				}
 				return null;
 			}
@@ -85,235 +94,394 @@ public class ProcessSMTPrequest extends Thread
 		{
 			if(CMLib.players().playerExists(name))
 				return CMStrings.capitalizeAndLower(name);
+			if(checkFROMcase) // accounts cannot receive emails
+			{
+				if(CMLib.players().accountExists(name))
+					return CMStrings.capitalizeAndLower(name);
+			}
 		}
 		return null;
 	}
-	
-	
+
+	public MOB getAccountMob(String s)
+	{
+		MOB M=CMLib.players().getPlayer(s);
+		if(M!=null)
+			return M;
+		if(CMLib.players().playerExists(s))
+			return CMLib.players().getLoadPlayer(s);
+		if(CMLib.players().accountExists(s))
+		{
+			final PlayerAccount A=CMLib.players().getLoadAccount(s);
+			if(A.numPlayers()==0)
+				M=A.getAccountMob();
+			else
+			{
+				ThinPlayer tP=null;
+				for(final Enumeration<ThinPlayer> e=A.getThinPlayers();e.hasMoreElements();)
+				{
+					final ThinPlayer P=e.nextElement();
+					if((tP==null)||(P.level()>tP.level()))
+						tP=P;
+				}
+				if(tP!=null)
+					M=CMLib.players().getLoadPlayer(tP.name());
+			}
+			return M;
+		}
+		return null;
+	}
+
+	public void cleanHtml(String journal, StringBuilder finalData)
+	{
+		if(journal!= null)
+		{
+			// the input MUST be html -- text that only might be need not apply
+			final JournalsLibrary.ForumJournal forum=CMLib.journals().getForumJournal(journal);
+			if(forum!=null)
+				CMStrings.stripHeadHtmlTags(finalData);
+			else
+				CMStrings.convertHtmlToText(finalData);
+		}
+		else
+			CMStrings.convertHtmlToText(finalData);
+	}
+
+	@Override
 	public void run()
 	{
-		DataInputStream sin = null;
-		DataOutputStream sout = null;
+		BufferedReader sin = null;
+		PrintWriter sout = null;
 		int failures=0;
+		debug = CMSecurity.isDebugging(CMSecurity.DbgFlag.SMTPSERVER);
 
 		byte[] replyData = null;
+		final byte[] lastReplyData = null;
+		int msgsSent = 0;
 
 		try
 		{
-			sout = new DataOutputStream(sock.getOutputStream());
-			sin=new DataInputStream(sock.getInputStream());
-			sout.write(("220 ESMTP "+server.domainName()+" "+SMTPserver.ServerVersionString+"; "+CMLib.time().date2String(System.currentTimeMillis())+cr).getBytes());
+			sock.setSoTimeout(100);
+			sout=new PrintWriter(new BufferedWriter(new OutputStreamWriter(sock.getOutputStream(),"US-ASCII")));
+			sin=new BufferedReader(new InputStreamReader(sock.getInputStream(),"US-ASCII"));
+			final String initialMsg = "220 ESMTP "+server.domainName()+" "+SMTPserver.ServerVersionString+"; "+CMLib.time().date2String(System.currentTimeMillis());
+			if(debug)
+				Log.debugOut(runnableName,"Sent: "+initialMsg);
+			sout.write(initialMsg+cr);
+			sout.flush();
 			boolean quitFlag=false;
 			boolean dataMode=false;
+			final LinkedList<String> cmdQueue=new LinkedList<String>();
+			final LinkedList<byte[]> respQueue=new LinkedList<byte[]>();
+			long timeSinceLastChar=System.currentTimeMillis();
 			while(!quitFlag)
 			{
-				sock.setSoTimeout(5*60*1000);
-				String s=null;
 				char lastc=(char)-1;
 				char c=(char)-1;
-				StringBuffer input=new StringBuffer("");
+				final StringBuffer input=new StringBuffer("");
 				while(!quitFlag)
 				{
 					lastc=c;
-					c=(char)sin.read();
-					if(c<0)	throw new IOException("reset by peer");
+					try
+					{
+						c=(char)sin.read();
+					}
+					catch(final java.net.SocketTimeoutException ioe)
+					{
+						c=65535;
+					}
+					if(c<0)
+					{
+						if(debug)
+							Log.debugOut(runnableName,"Internal: EOF observed.");
+						throw new IOException("reset by peer");
+					}
+					if(c==65535)
+					{
+						final long ellapsed = System.currentTimeMillis()-timeSinceLastChar;
+						if(ellapsed > IDLE_TIMEOUT)
+						{
+							quitFlag=true;
+							if(debug)
+								Log.debugOut(runnableName,"Internal: generated timeout: "+msgsSent+" msgs sent");
+							break;
+						}
+						else
+							break;
+					}
+					if(sock.isClosed())
+					{
+						if(debug)
+							Log.debugOut(runnableName,"Internal: Noticed socket close.");
+						quitFlag=true;
+						break;
+					}
+					timeSinceLastChar=System.currentTimeMillis();
 					if((lastc==cr.charAt(0))&&(c==cr.charAt(1)))
-					{	s=input.substring(0,input.length()-1); break;}
+					{
+						cmdQueue.add(input.substring(0,input.length()-1));
+						input.setLength(0);
+						continue;
+					}
 					input.append(c);
 					if(input.length()>server.getMaxMsgSize())
 					{
-						replyData=("552 String exceeds size limit. You are very bad!"+cr).getBytes();
+						if(debug)
+						{
+							final StringBuilder str=new StringBuilder("");
+							for(int i=0;i<10 && i<input.length();i++)
+								str.append((int)input.charAt(i)).append(",");
+							Log.debugOut(runnableName,"Internal: 552 String exceeds size limit ("+server.getMaxMsgSize()+"): "+str.toString());
+						}
 						//Log.errOut("SMTPR","Long request from "+sock.getInetAddress());
-						sout.write(replyData);
+						sout.write("552 String exceeds size limit. You are very bad!"+cr);
 						sout.flush();
 						quitFlag=true;
-						s="";
+						input.setLength(0);
 					}
 				}
-				if(s!=null)
+				while(cmdQueue.size()>0)
 				{
-					String cmd=s.toUpperCase();
+					final String s=cmdQueue.removeFirst();
 					String parm="";
-					int cmdindex=s.indexOf(" ");
+					final int cmdindex=s.indexOf(' ');
+					String cmd=s.toUpperCase();
 					if(cmdindex>0)
 					{
 						cmd=s.substring(0,cmdindex).toUpperCase();
 						parm=s.substring(cmdindex+1);
 					}
-					
-					
+					if(debug)
+						Log.debugOut(runnableName,"Input: "+cmd+" "+parm);
+
 					if((dataMode)&&(s.equals(".")))
 					{
+						if(debug)
+							Log.debugOut(runnableName,"End of data reached.");
 						dataMode=false;
-	                    boolean translateEqualSigns=false;
+						boolean translateEqualSigns=false;
 						/*When the SMTP server accepts a message either for relaying or for final delivery, it inserts a trace record (also referred to interchangeably as a "time stamp line" or "Received" line) at the top of the mail data. This trace record indicates the identity of the host that sent the message, the identity of the host that received the message (and is inserting this time stamp), and the date and time the message was received.*/
 						if(data.length()>=server.getMaxMsgSize())
 							replyData=("552 Message exceeds size limit."+cr).getBytes();
 						else
 						{
 							replyData=("250 Message accepted for delivery."+cr).getBytes();
+							msgsSent++;
 							boolean startBuffering=false;
-							StringBuffer finalData=new StringBuffer("");
+							StringBuilder finalData=new StringBuilder("");
+							char bodyType='t'; // h=html, t=text
 							String subject=null;
-	                        String boundry=null;
-	                        // -1=waitForHeaderDone, 
-	                        // 0=waitForFirstHeaderDone, 
-	                        // 1=waitForBoundry, 
-	                        // 2=waitForContentTypeConfirmation
-	                        int boundryState=-1; 
+							String boundry=null;
+							final Map<Character,StringBuilder> dataBlocks=new Hashtable<Character,StringBuilder>();
+
+							// -1=waitForHeaderDone,
+							// 0=waitForFirstHeaderDone,
+							// 1=waitForBoundry,
+							// 2=waitForContentTypeConfirmation
+							int boundryState=-1;
 							try
 							{
-								BufferedReader lineR=new BufferedReader(new InputStreamReader(new ByteArrayInputStream(data.toString().getBytes())));
+								final BufferedReader lineR=new BufferedReader(new InputStreamReader(new ByteArrayInputStream(data.toString().getBytes())));
 								while(true)
 								{
 									String s2=lineR.readLine();
-									if(s2==null) break;
+									if(s2==null)
+										break;
 									String s2u=s2.toUpperCase();
-									
+									if(debug)
+										Log.debugOut(runnableName,"Header State="+boundryState+", "+s2);
+
 									if((startBuffering)&&(boundry!=null)&&(s2.indexOf(boundry)>=0))
-	                                    break; // we're done with a multipart!
-	                                else
-	                                if(startBuffering)
-	                                {
-	                                    boolean nextAppended=false;
-	                                    if(translateEqualSigns)
-	                                    {
-	                                        if(s2.indexOf("=")>=0)
-	                                        {
-	                                            StringBuffer newStr=new StringBuffer(s2);
-	                                            for(int c1=0;c1<newStr.length()-2;c1++)
-	                                                if(newStr.charAt(c1)=='=')
-	                                                {
-	                                                    if(("0123456789ABCDEF".indexOf(Character.toUpperCase(newStr.charAt(c1+1)))>=0)
-	                                                    &&("0123456789ABCDEF".indexOf(Character.toUpperCase(newStr.charAt(c1+2)))>=0))
-	                                                    {
-	                                                        int x=(16*("0123456789ABCDEF".indexOf(Character.toUpperCase(newStr.charAt(c1+1)))))
-	                                                                 +"0123456789ABCDEF".indexOf(Character.toUpperCase(newStr.charAt(c1+2)));
-	                                                        newStr.replace(c1,c1+3,""+((char)x));
-	                                                    }
-	                                                }
-	                                            s2=newStr.toString();
-	                                        }
-	                                        if(s2.endsWith("="))
-	                                        {
-	                                            nextAppended=true;
-	                                            s2=s2.substring(0,s2.length()-1);
-	                                        }
-	                                        else
-	                                        if(s2.endsWith("=<BR>"))
-	                                        {
-	                                            nextAppended=true;
-	                                            s2=s2.substring(0,s2.length()-5);
-	                                        }
-	                                    }
-	                                    if(nextAppended)
-	                                        finalData.append(s2);
-	                                    else
-	                                        finalData.append(s2+cr);
-	                                }
+									{
+										if(debug)
+											Log.debugOut(runnableName,"Multipart boundary "+boundry+" completed.");
+										if(finalData.length()>0)
+											dataBlocks.put(Character.valueOf(bodyType), finalData);
+										finalData=new StringBuilder("");
+										boundryState=-1;
+										startBuffering=false;
+										continue;
+									}
+									else
+									if(startBuffering)
+									{
+										boolean nextAppended=false;
+										if(translateEqualSigns)
+										{
+											if(s2.indexOf('=')>=0)
+											{
+												final StringBuffer newStr=new StringBuffer(s2);
+												for(int c1=0;c1<newStr.length()-2;c1++)
+													if(newStr.charAt(c1)=='=')
+													{
+														if(("0123456789ABCDEF".indexOf(Character.toUpperCase(newStr.charAt(c1+1)))>=0)
+														&&("0123456789ABCDEF".indexOf(Character.toUpperCase(newStr.charAt(c1+2)))>=0))
+														{
+															final int x=(16*("0123456789ABCDEF".indexOf(Character.toUpperCase(newStr.charAt(c1+1)))))
+																	 +"0123456789ABCDEF".indexOf(Character.toUpperCase(newStr.charAt(c1+2)));
+															newStr.replace(c1,c1+3,""+((char)x));
+														}
+													}
+												s2=newStr.toString();
+											}
+											if(s2!=null)
+											{
+												if(s2.endsWith("="))
+												{
+													nextAppended=true;
+													s2=s2.substring(0,s2.length()-1);
+												}
+												else
+												if(s2.endsWith("=<BR>"))
+												{
+													nextAppended=true;
+													s2=s2.substring(0,s2.length()-5);
+												}
+											}
+										}
+										if(nextAppended)
+											finalData.append(s2);
+										else
+											finalData.append(s2+cr);
+									}
 									else
 									if((s2.length()==0)&&(boundryState<0))
 										startBuffering=true;
-	                                else
-	                                if((s2.length()==0)&&(boundryState==0))
-	                                    boundryState=1;
-	                                else
-	                                if(boundryState==1)
-	                                {
-	                                    if(s2.indexOf(boundry)>=0)
-	                                        boundryState=2;
-	                                    continue;
-	                                }
-	                                else
-									if((s2u.startsWith("SUBJECT: "))&&(boundryState<2))
-										subject=s2.substring(9).trim();
 									else
-	                                if((s2u.startsWith("CONTENT-TRANSFER-ENCODING: "))
-	                                ||(s2u.startsWith("CONTENT TRANSFER ENCODING: ")))
-	                                {
-	                                    if(s2u.substring(27).trim().startsWith("QUOTED-PRINTABLE")
-	                                     ||s2u.substring(27).trim().startsWith("QUOTED PRINTABLE"))
-	                                        translateEqualSigns=true;
-	                                    else
-	                                        translateEqualSigns=false;
-	                                }
-	                                else
+									if((s2.length()==0)&&(boundryState==0))
+										boundryState=1;
+									else
+									if(boundryState==1)
+									{
+										if(debug)
+											Log.debugOut(runnableName,"Boundary "+boundry+" spotted -- state is now 2.");
+										if(s2.indexOf(boundry)>=0)
+											boundryState=2;
+										continue;
+									}
+									else
+									if((s2u.startsWith("SUBJECT: "))&&(boundryState<2))
+									{
+										subject=s2.substring(9).trim();
+										if(debug)
+											Log.debugOut(runnableName,"Subject="+subject);
+									}
+									else
+									if((s2u.startsWith("CONTENT-TRANSFER-ENCODING: "))
+									||(s2u.startsWith("CONTENT TRANSFER ENCODING: ")))
+									{
+										if(s2u.substring(27).trim().startsWith("QUOTED-PRINTABLE")
+										 ||s2u.substring(27).trim().startsWith("QUOTED PRINTABLE"))
+											translateEqualSigns=true;
+										else
+											translateEqualSigns=false;
+										if(debug)
+											Log.debugOut(runnableName,"Transfer Equal Sign="+translateEqualSigns);
+									}
+									else
 									if((s2u.startsWith("CONTENT TYPE: ")||s2u.startsWith("CONTENT-TYPE: ")))
-	                                {
-	                                    if((boundryState<0)&&(s2u.substring(14).trim().startsWith("MULTIPART/")))
-	                                    {
-	                                        String contentType=s2.substring(14).trim();
-	                                        int y=s2u.indexOf(";");
-	                                        if(y>=0) contentType=s2.substring(14,y).trim();
-	                                        int x=s2u.indexOf("BOUNDARY=");
-	                                        for(int z=0;(z<5)&&(x<0);z++)
-	                                        {
-	                                            s2=lineR.readLine();
-	                                            if(s2==null) break;
-	                                            s2u=s2.toUpperCase();
-	                                            x=s2u.indexOf("BOUNDARY=");
-	                                        }
-	                                        if(x<0)
-	                                        {
-	                                            replyData=("552 Message content type '"+contentType+"' not accepted without boundry."+cr).getBytes();
-	                                            subject=null;
-	                                            break;
-	                                        }
-	                                        if(s2!=null)
-	                                        {
-		                                        boundry=s2.substring(x+9).trim();
-		                                        y=s2.indexOf(";");
-		                                        if(y>=0) s2=s2.substring(0,y).trim();
-		                                        if(boundry.startsWith("\"")&&boundry.endsWith("\""))
-		                                            boundry=boundry.substring(1,boundry.length()-1).trim();
-		                                        boundryState=0;
-	                                        }
-	                                    }
-	                                    else
-	    								if(!s2u.substring(14).trim().startsWith("TEXT/PLAIN"))
-	    								{
-	                                        if(boundryState==2)
-	                                            boundryState=0;
-	                                        else
-	                                        {
-	        									replyData=("552 Message content type '"+s2u.substring(14).trim()+"' not accepted."+cr).getBytes();
-	        									subject=null;
-	        									break;
-	                                        }
-	    								}
-	                                    else
-	                                    if(boundryState==2)
-	                                        boundryState=-1;
-	                                }
+									{
+										if((boundryState<0)&&(s2u.substring(14).trim().startsWith("MULTIPART/")))
+										{
+											String contentType=s2.substring(14).trim();
+											int y=s2u.indexOf(';');
+											if(y>=0)
+												contentType=s2.substring(14,y).trim();
+											int x=s2u.indexOf("BOUNDARY=");
+											for(int z=0;(z<5)&&(x<0);z++)
+											{
+												s2=lineR.readLine();
+												if(s2==null)
+													break;
+												s2u=s2.toUpperCase();
+												x=s2u.indexOf("BOUNDARY=");
+											}
+											if(x<0)
+											{
+												replyData=("552 Message content type '"+contentType+"' not accepted without boundry."+cr).getBytes();
+												subject=null;
+												break;
+											}
+											if(s2!=null)
+											{
+												boundry=s2.substring(x+9).trim();
+												y=s2.indexOf(';');
+												if(y>=0)
+													s2=s2.substring(0,y).trim();
+												if(boundry.startsWith("\"")&&boundry.endsWith("\""))
+													boundry=boundry.substring(1,boundry.length()-1).trim();
+												boundryState=0;
+											}
+										}
+										else
+										if(s2u.substring(14).trim().startsWith("TEXT/HTML"))
+										{
+											if(boundryState==2)
+												boundryState=-1;
+											bodyType='h';
+										}
+										else
+										if(!s2u.substring(14).trim().startsWith("TEXT/PLAIN"))
+										{
+											bodyType='t';
+											if(boundryState==2)
+												boundryState=0;
+											else
+											{
+												replyData=("552 Message content type '"+s2u.substring(14).trim()+"' not accepted."+cr).getBytes();
+												subject=null;
+												break;
+											}
+										}
+										else
+										if(boundryState==2)
+											boundryState=-1;
+									}
 								}
 							}
-							catch(IOException e){}
-								
+							catch(final IOException e){}
+
 							if((replyData!=null)&&(new String(replyData).startsWith("250")))
 							{
 								if((finalData.length()==0)&&(!startBuffering))
 								{
-									finalData=new StringBuffer(data.toString());
-									if(subject==null) subject="";
+									finalData=new StringBuilder(data.toString());
+									if(subject==null)
+										subject="";
 								}
-								
-								if((finalData.length()>0) && (subject!=null))
+
+								if(dataBlocks.containsKey(Character.valueOf('h')))
+								{
+									bodyType='h';
+									finalData=dataBlocks.get(Character.valueOf('h'));
+								}
+								else
+								if(finalData.toString().trim().length()==0)
+								{
+									if(dataBlocks.size()>0)
+									{
+										bodyType=dataBlocks.keySet().iterator().next().charValue();
+										finalData=dataBlocks.get(Character.valueOf(bodyType));
+									}
+								}
+
+								if(subject!=null)
 								{
 									if(subject.toUpperCase().startsWith("MOTD")
 									||subject.toUpperCase().startsWith("MOTM")
 									||subject.toUpperCase().startsWith("MOTY"))
 									{
-										MOB M=CMLib.players().getLoadPlayer(from);
-										if((M==null)||(!CMSecurity.isAllowedAnywhere(M,"JOURNALS")))
+										if((fromM==null)||(!CMSecurity.isAllowedAnywhere(fromM,CMSecurity.SecFlag.JOURNALS)))
 											subject=subject.substring(4);
 									}
-									
+
 									for(int i=0;i<to.size();i++)
 									{
-										String journal=server.getAnEmailJournal((String)to.elementAt(i));
+										final String journal=server.getAnEmailJournal(to.elementAt(i));
 										if(journal!=null)
 										{
-											String fdat=finalData.toString().trim();
+											String parentKey="";
+											final String fdat=finalData.toString().trim();
 											if((subject!=null)
 											&&(!subject.trim().equalsIgnoreCase("subscribe"))
 											&&(!subject.trim().equalsIgnoreCase("unsubscribe"))
@@ -323,8 +491,7 @@ public class ProcessSMTPrequest extends Thread
 											{
 												if(server.isASubscribeOnlyJournal(journal))
 												{
-													MOB M=CMLib.players().getLoadPlayer(from);
-													if((M==null)||(!CMSecurity.isAllowedAnywhere(M,"JOURNALS")))
+													if((fromM==null)||(!CMSecurity.isAllowedAnywhere(fromM,CMSecurity.SecFlag.JOURNALS)))
 													{
 														replyData=("552 Mailbox '"+journal+"' only accepts subscribe/unsubscribe."+cr).getBytes();
 														break;
@@ -332,30 +499,59 @@ public class ProcessSMTPrequest extends Thread
 												}
 												else
 												{
-													Hashtable lists=server.getMailingLists(null);
-													Vector mylist=null;
-													if(lists!=null)	mylist=(Vector)lists.get(journal);
+													final Map<String, List<String>> lists=Resources.getCachedMultiLists("mailinglists.txt",true);
+													List<String> mylist=null;
+													if(lists!=null)
+														mylist=lists.get(journal);
 													if((mylist==null)||(!mylist.contains(from)))
 													{
+														if(debug)
+															Log.debugOut(runnableName,from+" is not in mailing list for journal "+journal);
 														replyData=("552 Mailbox '"+journal+"' only accepts messages from subscribers.  Send an email with 'subscribe' as the subject."+cr).getBytes();
 														break;
 													}
+													final JournalsLibrary.ForumJournal forum=CMLib.journals().getForumJournal(journal);
+													if((forum != null)
+													&&(subject.trim().toUpperCase().startsWith("RE:")||subject.trim().toUpperCase().startsWith("RE ")))
+													{
+														String realSubject=subject.substring(3).trim();
+														if(realSubject.toUpperCase().startsWith("["+journal.toUpperCase()+"]"))
+															realSubject=realSubject.substring(journal.length()+2).trim();
+														final List<JournalEntry> entries = CMLib.database().DBReadJournalPageMsgs(journal, null, realSubject, 0, 0);
+														for(final JournalEntry entry : entries)
+														{
+															if(entry.subj().equalsIgnoreCase(realSubject))
+															{
+																parentKey=entry.key();
+																break;
+															}
+														}
+													}
 												}
 											}
-											   
-											CMLib.database().DBWriteJournal(journal,
-																			  from,
-																			  "ALL",
-																			  CMLib.coffeeFilter().fullInFilter(subject,false),
-																			  CMLib.coffeeFilter().fullInFilter(fdat,false));
+
+											if(debug)
+												Log.debugOut(runnableName,"Written: "+journal+"/"+from+"/ALL/"+bodyType);
+											final StringBuilder finalFinalData=new StringBuilder(finalData);
+											if(bodyType=='h')
+												cleanHtml(journal, finalFinalData);
+											CMLib.database().DBWriteJournalChild(journal, "",from, "ALL", parentKey,
+													CMLib.coffeeFilter().simpleInFilter(new StringBuilder(subject)).toString(),
+													CMLib.coffeeFilter().simpleInFilter(finalData).toString());
 										}
 										else
+										if(finalData.toString().trim().length()>0)
 										{
+											if(debug)
+												Log.debugOut(runnableName,"Written: "+server.mailboxName()+"/"+from+"/"+to.elementAt(i)+"/"+bodyType);
+											final StringBuilder finalFinalData=new StringBuilder(finalData);
+											if(bodyType=='h')
+												cleanHtml(journal, finalFinalData);
 											CMLib.database().DBWriteJournal(server.mailboxName(),
-																			  from,
-																			  (String)to.elementAt(i),
-	                                                                          CMLib.coffeeFilter().fullInFilter(subject,false),
-																			  CMLib.coffeeFilter().fullInFilter(finalData.toString(),false));
+																			from,
+																			to.elementAt(i),
+																			CMLib.coffeeFilter().simpleInFilter(new StringBuilder(subject)).toString(),
+																			CMLib.coffeeFilter().simpleInFilter(finalFinalData).toString());
 										}
 									}
 								}
@@ -363,9 +559,20 @@ public class ProcessSMTPrequest extends Thread
 						}
 					}
 					else
+					if(cmd.equals("RSET"))
+					{
+						replyData=("250 Reset state"+cr).getBytes();
+						dataMode=false;
+						from=null;
+						fromM=null;
+						to=null;
+						data=null;
+					}
+					else
 					if(dataMode)
 					{
-						if(data==null) data=new StringBuffer("");
+						if(data==null)
+							data=new StringBuffer("");
 						if(data.length()<server.getMaxMsgSize())
 							data.append(s+cr);
 					}
@@ -531,34 +738,35 @@ public class ProcessSMTPrequest extends Thread
 					{
 						if((domain!=null)&&(parm.trim().length()==0))
 							replyData=("503 "+sock.getLocalAddress().getHostName()+" Duplicate HELO/EHLO"+cr).getBytes();
-						else	
+						else
 						if(parm.trim().length()==0)
 							replyData=("501 "+cmd+" requires domain address"+cr).getBytes();
 						else
 						{
 							domain=parm;
-							replyData=("250 "+sock.getLocalAddress().getHostName()+" Hello "+sock.getInetAddress().getHostName()+" ["+sock.getInetAddress().getHostAddress()+"], pleased to meet you"+cr).getBytes();
 							if(cmd.equals("EHLO"))
 							{
-								replyData=(replyData.toString()
+								replyData=("250-"+server.domainName()+" Ok."+cr
 										  +"250-8BITMIME"+cr
-										  +"250-SIZE 2000"+cr
-										  +"250-DSN"+cr
+										  +"250-SIZE "+server.getMaxMsgSize()+cr
+										  +"250-HELP"+cr
 										  +"250-ONEX"+cr
-										  +"250-XUSR"+cr
-										  +"250 HELP"+cr).getBytes();
+										  +"250-PIPELINING"+cr
+										  +"250 DSN"+cr).getBytes();
 							}
+							else
+								replyData=("250 "+sock.getLocalAddress().getHostName()+" Hello "+sock.getInetAddress().getHostName()+" ["+sock.getInetAddress().getHostAddress()+"], pleased to meet you"+cr).getBytes();
 						}
 					}
 					else
 					if(cmd.equals("MAIL"))
 					{
-						int x=parm.indexOf(":");
+						int x=parm.indexOf(':');
 						if(x<0)
 							replyData=("501 Syntax error in \""+parm+"\""+cr).getBytes();
 						else
 						{
-							String to2=parm.substring(0,x).trim();
+							final String to2=parm.substring(0,x).trim();
 							if(!to2.equalsIgnoreCase("from"))
 								replyData=("500 Unrecognized command \""+cmd+"\""+cr).getBytes();
 							else
@@ -568,7 +776,7 @@ public class ProcessSMTPrequest extends Thread
 								boolean error=false;
 								if(parm.startsWith("<"))
 								{
-									x=parm.indexOf(">");
+									x=parm.indexOf('>');
 									if(x<0)
 									{
 										replyData=("501 Syntax error in \""+parm+"\""+cr).getBytes();
@@ -581,27 +789,32 @@ public class ProcessSMTPrequest extends Thread
 									}
 								}
 								else
-								if(parm.indexOf(" ")>=0)
+								if(parm.indexOf(' ')>=0)
 								{
 									replyData=("501 Syntax error in \""+parm+"\""+cr).getBytes();
 									error=true;
 								}
 								if(parmparms.trim().length()>0)
-	                            {
-	                                if((parmparms.trim().toUpperCase().startsWith("SIZE="))
-	                                ||(!CMath.isNumber(parmparms.trim().toUpperCase().substring(5))))
-	                                {
-	                                    int size=CMath.s_int(parmparms.trim().toUpperCase().substring(5));
-	                                    if(size>server.getMaxMsgSize())
-	                                        replyData=("552 String exceeds size limit. But you were nice to tell me!"+cr).getBytes();
-	                                }
-	                                else
-	    								replyData=("502 Parameters not supported... \""+parmparms+"\""+cr).getBytes();
-	                            }
-								else
+								{
+									if((parmparms.trim().toUpperCase().startsWith("SIZE="))
+									||(!CMath.isNumber(parmparms.trim().toUpperCase().substring(5))))
+									{
+										final int size=CMath.s_int(parmparms.trim().toUpperCase().substring(5));
+										if(size>server.getMaxMsgSize())
+										{
+											replyData=("552 String exceeds size limit. But you were nice to tell me!"+cr).getBytes();
+											error=true;
+										}
+									}
+									else
+									{
+										replyData=("502 Parameters not supported... \""+parmparms+"\""+cr).getBytes();
+										error=true;
+									}
+								}
 								if(!error)
 								{
-									String name=validLocalAccount(parm);
+									final String name=validLocalAccount(parm,true);
 									if(name==null)
 									{
 										if((++failures)==3)
@@ -616,6 +829,7 @@ public class ProcessSMTPrequest extends Thread
 									{
 										replyData=("250 OK "+name+cr).getBytes();
 										from=name;
+										fromM=getAccountMob(from);
 									}
 								}
 							}
@@ -634,14 +848,6 @@ public class ProcessSMTPrequest extends Thread
 							replyData=("354 Enter mail, end with \".\" on a line by itself"+cr).getBytes();
 							dataMode=true;
 						}
-					}
-					else
-					if(cmd.equals("RSET"))
-					{
-						replyData=("250 Reset state"+cr).getBytes();
-						from=null;
-						to=null;
-						data=null;
 					}
 					else
 					if(cmd.equals("QUIT"))
@@ -664,106 +870,108 @@ public class ProcessSMTPrequest extends Thread
 					else
 					if(cmd.equals("RCPT"))
 					{
-						if(from==null)
-							replyData=("503 Need MAIL before RCPT"+cr).getBytes();
+						int x=parm.indexOf(':');
+						if(x<0)
+							replyData=("501 Syntax error in \""+parm+"\""+cr).getBytes();
 						else
 						{
-							int x=parm.indexOf(":");
-							if(x<0)
-								replyData=("501 Syntax error in \""+parm+"\""+cr).getBytes();
+							final String to2=parm.substring(0,x).trim();
+							if(!to2.equalsIgnoreCase("to"))
+								replyData=("500 Unrecognized command \""+cmd+"\""+cr).getBytes();
 							else
 							{
-								String to2=parm.substring(0,x).trim();
-								if(!to2.equalsIgnoreCase("to"))
-									replyData=("500 Unrecognized command \""+cmd+"\""+cr).getBytes();
-								else
+								parm=parm.substring(x+1).trim();
+								String parmparms="";
+								boolean error=false;
+								if(parm.startsWith("<"))
 								{
-									parm=parm.substring(x+1).trim();
-									String parmparms="";
-									boolean error=false;
-									if(parm.startsWith("<"))
-									{
-										x=parm.indexOf(">");
-										if(x<0)
-										{
-											replyData=("501 Syntax error in \""+parm+"\""+cr).getBytes();
-											error=true;
-										}
-										else
-										{
-											parmparms=parm.substring(x+1).trim();
-											parm=parm.substring(1,x);
-										}
-									}
-									else
-									if(parm.indexOf(" ")>=0)
+									x=parm.indexOf('>');
+									if(x<0)
 									{
 										replyData=("501 Syntax error in \""+parm+"\""+cr).getBytes();
 										error=true;
 									}
-									if(parmparms.trim().length()>0)
-	                                {
-	                                    if((parmparms.trim().toUpperCase().startsWith("SIZE="))
-	                                    ||(!CMath.isNumber(parmparms.trim().toUpperCase().substring(5))))
-	                                    {
-	                                        int size=CMath.s_int(parmparms.trim().toUpperCase().substring(5));
-	                                        if(size>server.getMaxMsgSize())
-	                                            replyData=("552 String exceeds size limit. But you were nice to tell me!"+cr).getBytes();
-	                                    }
-	                                    else
-	                                        replyData=("502 Parameters not supported... \""+parmparms+"\""+cr).getBytes();
-	                                }
 									else
-									if(parm.indexOf("@")<0)
-										replyData=("550 "+parm+" user unknown."+cr).getBytes();
-									else
-									if(!error)
 									{
-										String name=validLocalAccount(parm);
-										if(name==null)
+										parmparms=parm.substring(x+1).trim();
+										parm=parm.substring(1,x);
+										if(parmparms.trim().length()>0)
 										{
-											if((++failures)==3)
+											if((parmparms.trim().toUpperCase().startsWith("SIZE="))
+											||(!CMath.isNumber(parmparms.trim().toUpperCase().substring(5))))
 											{
-												replyData=("421 Quit Fishing!"+cr).getBytes();
-												quitFlag=true;
+												final int size=CMath.s_int(parmparms.trim().toUpperCase().substring(5));
+												if(size>server.getMaxMsgSize())
+													replyData=("552 String exceeds size limit. But you were nice to tell me!"+cr).getBytes();
 											}
-											else
-												replyData=("553 Requested action not taken: User is not local."+cr).getBytes();
+											//else replyData=("502 Parameters not supported... \""+parmparms+"\""+cr).getBytes(); // say nothing, see if that works.
+										}
+									}
+								}
+								else
+								if(parm.indexOf(' ')>=0)
+								{
+									replyData=("501 Syntax error in \""+parm+"\""+cr).getBytes();
+									error=true;
+								}
+								if(parm.indexOf('@')<0)
+									replyData=("550 "+parm+" user unknown."+cr).getBytes();
+								else
+								if(!error)
+								{
+									final String name=validLocalAccount(parm,false);
+									if(name==null)
+									{
+										if((++failures)==3)
+										{
+											replyData=("421 Quit Fishing!"+cr).getBytes();
+											quitFlag=true;
 										}
 										else
+											replyData=("553 Requested action not taken: User is not local."+cr).getBytes();
+									}
+									else
+									{
+										if(server.getAnEmailJournal(name)!=null)
 										{
-											if(server.getAnEmailJournal(name)!=null)
+											boolean jerror=false;
+											if(server.getJournalCriteria(name)!=null)
 											{
-												boolean jerror=false;
-												if(server.getJournalCriteria(name).length()>0)
+												if(from==null)
 												{
-													MOB M=CMLib.players().getPlayer(from);
-													if((M==null)
-													||(!CMLib.masking().maskCheck(server.getJournalCriteria(name),M,false)))
+													replyData=("503 Need MAIL before RCPT"+cr).getBytes();
+													jerror=true;
+												}
+												else
+												{
+													if((fromM==null)
+													||(!CMLib.masking().maskCheck(server.getJournalCriteria(name),fromM,false)))
 													{
 														replyData=("552 User '"+from+"' may not send emails to '"+name+"'."+cr).getBytes();
 														jerror=true;
 													}
 												}
-												
-												if(!jerror)
-												{
-													replyData=("250 OK "+name+cr).getBytes();
-													if(to==null) to=new Vector();
-													if(!to.contains(name))
-														to.addElement(name);
-												}
 											}
-											else
-											if(CMLib.database().DBCountJournal(server.mailboxName(),null,name)>=server.getMaxMsgs())
-												replyData=("552 Mailbox '"+name+"' is full."+cr).getBytes();
-											else
+
+											if(!jerror)
 											{
 												replyData=("250 OK "+name+cr).getBytes();
-												if(to==null) to=new Vector();
+												if(to==null)
+													to=new Vector<String>();
 												if(!to.contains(name))
 													to.addElement(name);
 											}
+										}
+										else
+										if(CMLib.database().DBCountJournal(server.mailboxName(),null,name)>=server.getMaxMsgs())
+											replyData=("552 Mailbox '"+name+"' is full."+cr).getBytes();
+										else
+										{
+											replyData=("250 OK "+name+cr).getBytes();
+											if(to==null)
+												to=new Vector<String>();
+											if(!to.contains(name))
+												to.addElement(name);
 										}
 									}
 								}
@@ -771,39 +979,57 @@ public class ProcessSMTPrequest extends Thread
 						}
 					}
 					else
-						replyData=("500 Command Unrecognized: \""+cmd+"\""+cr).getBytes();
-					
-					
+						replyData=lastReplyData;//("500 Command Unrecognized: \""+cmd+"\""+cr).getBytes();
+
+
 					if ((replyData != null))
 					{
-						// must insert a blank line before message body
-						sout.write(replyData);
-						sout.flush();
+						respQueue.add(replyData);
 						replyData=null;
+						if((cmdQueue.size()==0)&&(respQueue.size()>0))
+						{
+							// we should be looping through these .. why does ZD act so wierd?!
+							//final byte [] resp=respQueue.getLast();
+							for(byte[] resp : respQueue)
+							{
+								if(debug)
+									Log.debugOut(runnableName,"Reply: "+CMStrings.replaceAll(new String(resp),cr,"\\r\\n"));
+								// must insert a blank line before message body
+								sout.write(new String(resp));
+								sout.flush();
+							}
+							respQueue.clear();
+						}
 					}
 				}
 			}
 		}
-		catch (java.net.SocketTimeoutException e2)
+		catch (final java.net.SocketTimeoutException e2)
 		{
 			try
 			{
 				if (sout != null)
 				{
-					sout.write(("421 You're taking too long.  I'm outa here."+cr).getBytes());
+					sout.write("421 You're taking too long.  I'm outa here."+cr);
 					sout.flush();
 				}
 			}
-			catch(Exception e)
+			catch(final Exception e)
 			{
-				Log.errOut(getName(),"Exception2: " + e.getMessage() );
+				Log.errOut(runnableName,"Exception2: " + e.getMessage() );
 			}
 		}
-		catch (Exception e)
+		catch (final Exception e)
 		{
-			Log.errOut(getName(),"Exception: " + e.getMessage() );
+			final String errorMessage=e.getMessage();
+			final StringBuilder msg = new StringBuilder(errorMessage==null?"EMPTY e.getMessage()":errorMessage);
+			final StackTraceElement[] ts = e.getStackTrace();
+			if(ts != null)
+				for(final StackTraceElement t : ts)
+					msg.append(" ").append(t.getFileName()).append("(").append(t.getLineNumber()).append(")");
+			Log.errOut(runnableName,"Exception: " + msg.toString() );
 		}
-		
+
 		try
 		{
 			if (sout != null)
@@ -813,7 +1039,7 @@ public class ProcessSMTPrequest extends Thread
 				sout = null;
 			}
 		}
-		catch (Exception e)	{}
+		catch (final Exception e)    {}
 
 		try
 		{
@@ -823,7 +1049,7 @@ public class ProcessSMTPrequest extends Thread
 				sin = null;
 			}
 		}
-		catch (Exception e)	{}
+		catch (final Exception e)    {}
 
 		try
 		{
@@ -833,7 +1059,7 @@ public class ProcessSMTPrequest extends Thread
 				sock = null;
 			}
 		}
-		catch (Exception e)	{}
+		catch (final Exception e)    {}
 	}
 
 }

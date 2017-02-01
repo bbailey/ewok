@@ -81,7 +81,7 @@
                 return;
             if(poll.indexOf(' ')>=0)
             {
-                window.alert('No spaces are allowed in your ID!');
+                if(window.alert) window.alert('No spaces are allowed in your ID!');
                 return;
             }
             document.RESOURCES.NEWPOLLID.value=poll;
@@ -142,7 +142,7 @@
     </script>
 </head>
 <body BGCOLOR=BLACK>
-<FORM NAME=RESOURCES TARGET=_top METHOD=POST ACTION="poll.cmvp">
+<FORM  ACCEPT-CHARSET="UTF-8" NAME=RESOURCES TARGET=_top METHOD=POST ACTION="poll.cmvp">
 <INPUT TYPE=HIDDEN NAME=AUTH VALUE="@Authenticate?AUTH@">
 <INPUT TYPE=HIDDEN NAME=NEWPOLLID VALUE="">
 <INPUT TYPE=HIDDEN NAME=REPLACE VALUE="">
@@ -185,7 +185,7 @@
             <TD WIDTH=66%><INPUT TYPE=CHECKBOX NAME=ISABSTAIN @PollData?ISABSTAIN@></TD>
         </TR>
         <TR>
-            <TD WIDTH=25%><FONT COLOR=YELLOW>Use IP Addresses: </FONT></TD>
+            <TD WIDTH=25%><FONT COLOR=YELLOW>Use IP Addresses/Accounts: </FONT></TD>
             <TD WIDTH=66%><INPUT TYPE=CHECKBOX NAME=ISVOTEBYIP @PollData?ISVOTEBYIP@></TD>
         </TR>
         <TR>

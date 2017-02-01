@@ -15,7 +15,7 @@ echo "***** MAKE SURE YOU ARE EXECUTING THIS SCRIPT FROM THE MAIN COFFEEMUD DIR 
 sleep 2
 
 echo "Questions:"
-echo "1. What is the location of JAVA V1.5+ (example: /opt/jdk1.5.0_09 - just to main dir NO TRAILING SLASH)?"
+echo "1. What is the location of JAVA V1.6+ (example: /opt/jdk1.6.0_09 - just to main dir NO TRAILING SLASH)?"
 read Java_Home
 
 echo "
@@ -63,6 +63,21 @@ $JAVACPATH com/planet_ink/coffee_mud/CharClasses/*.java
 $JAVACPATH com/planet_ink/coffee_mud/Commands/*.java
 $JAVACPATH com/planet_ink/coffee_mud/Common/*.java
 $JAVACPATH com/planet_ink/coffee_mud/core/*.java
+$JAVACPATH com/planet_ink/coffee_mud/core/database/*.java
+$JAVACPATH com/planet_ink/coffee_mud/core/exceptions/*.java
+$JAVACPATH com/planet_ink/coffee_mud/core/interfaces/*.java
+$JAVACPATH com/planet_ink/coffee_mud/core/intermud/*.java
+$JAVACPATH com/planet_ink/coffee_mud/core/intermud/cm1/*.java
+$JAVACPATH com/planet_ink/coffee_mud/core/intermud/cm1/commands/*.java
+$JAVACPATH com/planet_ink/coffee_mud/core/intermud/i3/*.java
+$JAVACPATH com/planet_ink/coffee_mud/core/intermud/i3/net/*.java
+$JAVACPATH com/planet_ink/coffee_mud/core/intermud/i3/packets/*.java
+$JAVACPATH com/planet_ink/coffee_mud/core/intermud/i3/persist/*.java
+$JAVACPATH com/planet_ink/coffee_mud/core/intermud/i3/server/*.java
+$JAVACPATH com/planet_ink/coffee_mud/core/intermud/imc2/*.java
+$JAVACPATH com/planet_ink/coffee_mud/core/smtp/*.java
+$JAVACPATH com/planet_ink/coffee_mud/core/threads/*.java
+$JAVACPATH com/planet_ink/coffee_mud/core/collections/*.java
 $JAVACPATH com/planet_ink/coffee_mud/Exits/*.java
 $JAVACPATH com/planet_ink/coffee_mud/Libraries/*.java
 $JAVACPATH com/planet_ink/coffee_mud/Locales/*.java
@@ -87,6 +102,7 @@ $JAVACPATH com/planet_ink/coffee_mud/Abilities/Songs/*.java
 $JAVACPATH com/planet_ink/coffee_mud/Abilities/Specializations/*.java
 $JAVACPATH com/planet_ink/coffee_mud/Abilities/Spells/*.java
 $JAVACPATH com/planet_ink/coffee_mud/Abilities/SuperPowers/*.java
+$JAVACPATH com/planet_ink/coffee_mud/Abilities/Tech/*.java
 $JAVACPATH com/planet_ink/coffee_mud/Abilities/Thief/*.java
 $JAVACPATH com/planet_ink/coffee_mud/Abilities/Traps/*.java
 $JAVACPATH com/planet_ink/coffee_mud/Areas/interfaces/*.java
@@ -94,34 +110,30 @@ $JAVACPATH com/planet_ink/coffee_mud/Behaviors/interfaces/*.java
 $JAVACPATH com/planet_ink/coffee_mud/CharClasses/interfaces/*.java
 $JAVACPATH com/planet_ink/coffee_mud/Commands/interfaces/*.java
 $JAVACPATH com/planet_ink/coffee_mud/Common/interfaces/*.java
-$JAVACPATH com/planet_ink/coffee_mud/core/database/*.java
-$JAVACPATH com/planet_ink/coffee_mud/core/exceptions/*.java
-$JAVACPATH com/planet_ink/coffee_mud/core/http/*.java
-$JAVACPATH com/planet_ink/coffee_mud/core/interfaces/*.java
-$JAVACPATH com/planet_ink/coffee_mud/core/intermud/*.java
-$JAVACPATH com/planet_ink/coffee_mud/core/smtp/*.java
-$JAVACPATH com/planet_ink/coffee_mud/core/threads/*.java
-$JAVACPATH com/planet_ink/coffee_mud/core/intermud/imc2/*.java
-$JAVACPATH com/planet_ink/coffee_mud/core/intermud/net/*.java
-$JAVACPATH com/planet_ink/coffee_mud/core/intermud/packets/*.java
-$JAVACPATH com/planet_ink/coffee_mud/core/intermud/persist/*.java
-$JAVACPATH com/planet_ink/coffee_mud/core/intermud/server/*.java
 $JAVACPATH com/planet_ink/coffee_mud/Exits/interfaces/*.java
 $JAVACPATH com/planet_ink/coffee_mud/Items/Armor/*.java
 $JAVACPATH com/planet_ink/coffee_mud/Items/Basic/*.java
 $JAVACPATH com/planet_ink/coffee_mud/Items/ClanItems/*.java
 $JAVACPATH com/planet_ink/coffee_mud/Items/interfaces/*.java
 $JAVACPATH com/planet_ink/coffee_mud/Items/MiscMagic/*.java
-$JAVACPATH com/planet_ink/coffee_mud/Items/MiscTech/*.java
+$JAVACPATH com/planet_ink/coffee_mud/Items/BasicTech/*.java
+$JAVACPATH com/planet_ink/coffee_mud/Items/CompTech/*.java
 $JAVACPATH com/planet_ink/coffee_mud/Items/Software/*.java
 $JAVACPATH com/planet_ink/coffee_mud/Items/Weapons/*.java
 $JAVACPATH com/planet_ink/coffee_mud/Libraries/interfaces/*.java
 $JAVACPATH com/planet_ink/coffee_mud/Libraries/layouts/*.java
+$JAVACPATH com/planet_ink/coffee_mud/Libraries/mcppkgs/*.java
 $JAVACPATH com/planet_ink/coffee_mud/Locales/interfaces/*.java
 $JAVACPATH com/planet_ink/coffee_mud/MOBS/interfaces/*.java
 $JAVACPATH com/planet_ink/coffee_mud/Races/interfaces/*.java
 $JAVACPATH com/planet_ink/coffee_mud/WebMacros/grinder/*.java
 $JAVACPATH com/planet_ink/coffee_mud/WebMacros/interfaces/*.java
+$JAVACPATH com/planet_ink/coffee_web/converters/*.java
+$JAVACPATH com/planet_ink/coffee_web/http/*.java
+$JAVACPATH com/planet_ink/coffee_web/interfaces/*.java
+$JAVACPATH com/planet_ink/coffee_web/server/*.java
+$JAVACPATH com/planet_ink/coffee_web/servlets/*.java
+$JAVACPATH com/planet_ink/coffee_web/util/*.java
 $JAVACPATH com/planet_ink/siplet/applet/*.java
 $JAVACPATH com/planet_ink/siplet/support/*.java
 
@@ -135,7 +147,7 @@ echo "#You should really input a name for your MUD below...." >> mudUNIX.sh
 echo "#Before using this on a UNIX machine, you must 'chmod 755 mudUNIX.sh' to make this file executable by the UNIX machine" >> mudUNIX.sh
 echo "#FYI - the nohup command will make a nohup.out file, usually in the CofferMud (directory where you start this from) directory - it will log the server messages..." >> mudUNIX.sh
 echo "" >> mudUNIX.sh
-echo "nohup $Java_Home/bin/java -classpath \".:./lib/js.jar:./lib/jzlib.jar\" -Xms65535000 -Xmx115535000 com.planet_ink.coffee_mud.application.MUD \"$MUDname\" &" >> mudUNIX.sh
+echo "nohup $Java_Home/bin/java -classpath \".:./lib/js.jar:./lib/jzlib.jar\" -Xms129m -Xmx256m com.planet_ink.coffee_mud.application.MUD \"$MUDname\" &" >> mudUNIX.sh
 chmod 755 mudUNIX.sh
 echo "Your mudUNIX.sh script has been written."
 echo "To change memory or other settings, you must MANUALLY edit mudUNIX.sh after every time you run this script."

@@ -4,7 +4,7 @@
 @if?!CheckAuthCode?AUTH_CMDPLAYERS=true@ @AddFile?/grinder/nopriv.cmvp@ @else@
 <BODY>
 @MUDGrinder?EDITITEM@
-<FORM NAME=AREAEDIT TARGET=_top METHOD=POST ACTION="/grinder/player.cmvp">
+<FORM  ACCEPT-CHARSET="UTF-8" NAME=AREAEDIT TARGET=_top METHOD=POST ACTION="/grinder/player.cmvp">
 <INPUT TYPE=HIDDEN NAME=AUTH VALUE="@Authenticate?AUTH@">
 <INPUT TYPE=HIDDEN NAME=PLAYER VALUE="@PlayerID@">
 <INPUT TYPE=HIDDEN NAME=FUNCTION VALUE="EDIT">
@@ -13,7 +13,7 @@
 <IMG SRC="/grinder/images/grinder.gif" WIDTH=10% HEIGHT=75% ALT="" BORDER="0"><P>
 <SCRIPT LANGUAGE=JavaScript>
 <!--
-alert('Operation Completed:');
+if(alert) alert('Operation Completed:');
 document.location.href='player.cmvp?AUTH=@Authenticate?AUTH@&PLAYER=@PlayerID@&FUNCTION=EDIT&ACTION=FIRSTTIME';
 //-->
 </SCRIPT>

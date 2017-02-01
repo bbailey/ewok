@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Spells;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,20 +10,21 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2001-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -30,88 +32,91 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
+
 public class Spell_Fear extends Spell
 {
-	public String ID() { return "Spell_Fear"; }
-	public String name(){return "Fear";}
-	public String displayText(){return "(Afraid)";}
-	public int abstractQuality(){return Ability.QUALITY_MALICIOUS;}
-	public int classificationCode(){ return Ability.ACODE_SPELL|Ability.DOMAIN_ENCHANTMENT;}
-	
+	@Override public String ID() { return "Spell_Fear"; }
+	private final static String localizedName = CMLib.lang().L("Fear");
+	@Override public String name() { return localizedName; }
+	private final static String localizedStaticDisplay = CMLib.lang().L("(Afraid)");
+	@Override public String displayText() { return localizedStaticDisplay; }
+	@Override public int abstractQuality(){return Ability.QUALITY_MALICIOUS;}
+	@Override public int classificationCode(){ return Ability.ACODE_SPELL|Ability.DOMAIN_ENCHANTMENT;}
+	@Override public long flags(){return Ability.FLAG_TRANSPORTING;}
+
+	@Override
 	public void unInvoke()
 	{
-	    MOB M=null;
-	    MOB oldI=invoker;
-	    if(affected instanceof MOB) M=(MOB)affected;
-	    super.unInvoke();
-	    if(M!=null)
-	    {
-	        if(!M.isMonster())
-		        CMLib.commands().postStand(M,true);
-	        if((oldI!=M)&&(oldI!=null))
-		        M.tell(M,oldI,null,"You are no longer afraid of <T-NAMESELF>.");
-	        else
-	            M.tell("You are no longer afraid.");
-	    }
+		MOB M=null;
+		final MOB oldI=invoker;
+		if(affected instanceof MOB)
+			M=(MOB)affected;
+		super.unInvoke();
+		if(M!=null)
+		{
+			if(!M.isMonster())
+				CMLib.commands().postStand(M,true);
+			if((oldI!=M)&&(oldI!=null))
+				M.tell(M,oldI,null,L("You are no longer afraid of <T-NAMESELF>."));
+			else
+				M.tell(L("You are no longer afraid."));
+			if(M.isMonster())
+				CMLib.tracking().wanderAway(M, false, true);
+		}
 	}
-	
+
+	@Override
 	public boolean tick(Tickable ticking, int tickID)
 	{
-	    if((affected instanceof MOB)
-	    &&(invoker!=null)
-	    &&(invoker!=affected)
-	    &&((((MOB)affected).location()==null)
-            ||(!((MOB)affected).location().isInhabitant(invoker))))
-	    {
-	        unInvoke();
-	    }
-	    return super.tick(ticking,tickID);
+		if((affected instanceof MOB)
+		&&(invoker!=null)
+		&&(invoker!=affected)
+		&&((((MOB)affected).location()==null)
+			||(!((MOB)affected).location().isInhabitant(invoker))))
+		{
+			unInvoke();
+		}
+		return super.tick(ticking,tickID);
 	}
-	
-	public void affectEnvStats(Environmental E, EnvStats stats)
+
+	@Override
+	public void affectPhyStats(Physical E, PhyStats stats)
 	{
-	    if((affected instanceof MOB)&&(invoker!=null)&&(invoker!=affected)&&(((MOB)affected).getVictim()==invoker))
-	    {
-	    	float f=(float)0.05*(float)super.getXLEVELLevel(invoker());
-	        stats.setArmor((int)Math.round(CMath.mul(stats.armor(),0.90-f)));
-	        stats.setAttackAdjustment((int)Math.round(CMath.mul(stats.attackAdjustment(),0.90-f)));
-	        stats.setDamage((int)Math.round(CMath.mul(stats.damage(),0.90-f)));
-	    }
+		if((affected instanceof MOB)&&(invoker!=null)&&(invoker!=affected)&&(((MOB)affected).getVictim()==invoker))
+		{
+			final int xlvl=super.getXLEVELLevel(invoker());
+			final float f=(float)0.05*xlvl;
+			stats.setArmor(stats.armor()+30+(3*xlvl));
+			stats.setAttackAdjustment((int)Math.round(CMath.mul(stats.attackAdjustment(),0.90-f)));
+			stats.setDamage((int)Math.round(CMath.mul(stats.damage(),0.90-f)));
+		}
 	}
-	
-	public boolean invoke(MOB mob, Vector commands, Environmental givenTarget, boolean auto, int asLevel)
+
+	@Override
+	public boolean invoke(MOB mob, List<String> commands, Physical givenTarget, boolean auto, int asLevel)
 	{
-		HashSet h=properTargets(mob,givenTarget,auto);
+		final Set<MOB> h=properTargets(mob,givenTarget,auto);
 		if(h==null)
 		{
 			if(!auto)
-				mob.tell("There doesn't appear to be anyone here worth scaring.");
+				mob.tell(L("There doesn't appear to be anyone here worth scaring."));
 			return false;
 		}
 
-		// the invoke method for spells receives as
-		// parameters the invoker, and the REMAINING
-		// command line parameters, divided into words,
-		// and added as String objects to a vector.
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
 			return false;
 
-		boolean success=proficiencyCheck(mob,0,auto);
+		final boolean success=proficiencyCheck(mob,0,auto);
 
 		if(success)
 		{
-			for(Iterator f=h.iterator();f.hasNext();)
+			for (final Object element : h)
 			{
-				MOB target=(MOB)f.next();
+				final MOB target=(MOB)element;
 
-				// it worked, so build a copy of this ability,
-				// and add it to the affects list of the
-				// affected MOB.  Then tell everyone else
-				// what happened.
-				CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),auto?"":"^S<S-NAME> scare(s) <T-NAMESELF>.^?");
-				CMMsg msg2=CMClass.getMsg(mob,target,this,CMMsg.MSK_CAST_MALICIOUS_VERBAL|CMMsg.TYP_MIND|(auto?CMMsg.MASK_ALWAYS:0),null);
-				if(((text().toUpperCase().indexOf("WEAK")<0)||((mob.envStats().level()/2)>target.envStats().level()))
+				final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),auto?"":L("^S<S-NAME> scare(s) <T-NAMESELF>.^?"));
+				final CMMsg msg2=CMClass.getMsg(mob,target,this,CMMsg.MSK_CAST_MALICIOUS_VERBAL|CMMsg.TYP_MIND|(auto?CMMsg.MASK_ALWAYS:0),null);
+				if(((text().toUpperCase().indexOf("WEAK")<0)||((mob.phyStats().level()/2)>target.phyStats().level()))
 				&&((mob.location().okMessage(mob,msg))&&((mob.location().okMessage(mob,msg2)))))
 				{
 					mob.location().send(mob,msg);
@@ -128,7 +133,7 @@ public class Spell_Fear extends Spell
 			}
 		}
 		else
-			return beneficialWordsFizzle(mob,null,"<S-NAME> attempt(s) a frightening spell, but completely flub(s) it.");
+			return beneficialWordsFizzle(mob,null,L("<S-NAME> attempt(s) a frightening spell, but completely flub(s) it."));
 
 
 		// return whether it worked

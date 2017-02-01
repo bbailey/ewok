@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Thief;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,22 +10,21 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
-
-
 import java.util.*;
 
 /*
-   Copyright 2000-2010 Bo Zimmerman
+   Copyright 2003-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,43 +32,46 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
+
 public class Thief_Embezzle extends ThiefSkill
 {
-	public String ID() { return "Thief_Embezzle"; }
-	public String name(){ return "Embezzle";}
-	public String displayText(){return "";}
-	protected int canAffectCode(){return CAN_MOBS;}
-	protected int canTargetCode(){return CAN_MOBS;}
-	public int abstractQuality(){return Ability.QUALITY_MALICIOUS;}
-	private static final String[] triggerStrings = {"EMBEZZLE"};
-	public String[] triggerStrings(){return triggerStrings;}
-    public int classificationCode() {   return Ability.ACODE_SKILL|Ability.DOMAIN_CRIMINAL; }
-	protected boolean disregardsArmorCheck(MOB mob){return true;}
-	public Vector mobs=new Vector();
-	private DVector lastOnes=new DVector(2);
+	@Override public String ID() { return "Thief_Embezzle"; }
+	private final static String localizedName = CMLib.lang().L("Embezzle");
+	@Override public String name() { return localizedName; }
+	@Override public String displayText(){return "";}
+	@Override protected int canAffectCode(){return CAN_MOBS;}
+	@Override protected int canTargetCode(){return CAN_MOBS;}
+	@Override public int abstractQuality(){return Ability.QUALITY_MALICIOUS;}
+	private static final String[] triggerStrings =I(new String[] {"EMBEZZLE"});
+	@Override public String[] triggerStrings(){return triggerStrings;}
+	@Override public int classificationCode() {   return Ability.ACODE_SKILL|Ability.DOMAIN_CRIMINAL; }
+	@Override public boolean disregardsArmorCheck(MOB mob){return true;}
+	public List<MOB> mobs=new Vector<MOB>();
+	private final LinkedList<Pair<MOB,Integer>> lastOnes=new LinkedList<Pair<MOB,Integer>>();
 
 	protected int timesPicked(MOB target)
 	{
 		int times=0;
-		for(int x=0;x<lastOnes.size();x++)
+		for(final Iterator<Pair<MOB,Integer>> p=lastOnes.iterator();p.hasNext();)
 		{
-			MOB M=(MOB)lastOnes.elementAt(x,1);
-			Integer I=(Integer)lastOnes.elementAt(x,2);
+			final Pair<MOB,Integer> P=p.next();
+			final MOB M=P.first;
+			final Integer I=P.second;
 			if(M==target)
 			{
 				times=I.intValue();
-				lastOnes.removeElement(M);
+				p.remove();
 				break;
 			}
 		}
 		if(lastOnes.size()>=50)
-			lastOnes.removeElementAt(0);
-		lastOnes.addElement(target,Integer.valueOf(times+1));
+			lastOnes.removeFirst();
+		lastOnes.add(new Pair<MOB,Integer>(target,Integer.valueOf(times+1)));
 		return times+1;
 	}
 
-	public boolean okMessage(Environmental myHost, CMMsg msg)
+	@Override
+	public boolean okMessage(final Environmental myHost, final CMMsg msg)
 	{
 		if((msg.amITarget(affected))
 		   &&(mobs.contains(msg.source())))
@@ -80,130 +83,133 @@ public class Thief_Embezzle extends ThiefSkill
 			   ||(msg.targetMinor()==CMMsg.TYP_VALUE)
 			   ||(msg.targetMinor()==CMMsg.TYP_VIEW))
 			{
-				msg.source().tell(affected.name()+" looks unwilling to do business with you.");
+				msg.source().tell(L("@x1 looks unwilling to do business with you.",affected.name()));
 				return false;
 			}
 		}
 		return super.okMessage(myHost,msg);
 	}
 
-    public int castingQuality(MOB mob, Environmental target)
-    {
-        if(mob!=null)
-        {
-            if(mob.isInCombat())
-                return Ability.QUALITY_INDIFFERENT;
-        }
-        return super.castingQuality(mob,target);
-    }
+	@Override
+	public int castingQuality(MOB mob, Physical target)
+	{
+		if(mob!=null)
+		{
+			if(mob.isInCombat())
+				return Ability.QUALITY_INDIFFERENT;
+		}
+		return super.castingQuality(mob,target);
+	}
 
-	public boolean invoke(MOB mob, Vector commands, Environmental givenTarget, boolean auto, int asLevel)
+	@Override
+	public boolean invoke(MOB mob, List<String> commands, Physical givenTarget, boolean auto, int asLevel)
 	{
 		if((commands.size()<1)&&(givenTarget==null))
 		{
-			mob.tell("Embezzle money from whose accounts?");
+			mob.tell(L("Embezzle money from whose accounts?"));
 			return false;
 		}
-        MOB target=null;
-        if((target==null)&&(givenTarget!=null)&&(givenTarget instanceof MOB)) 
-            target=(MOB)givenTarget;
-        else
-            target=mob.location().fetchInhabitant(CMParms.combine(commands,0));
+		MOB target=null;
+		if((givenTarget!=null)&&(givenTarget instanceof MOB))
+			target=(MOB)givenTarget;
+		else
+			target=mob.location().fetchInhabitant(CMParms.combine(commands,0));
 		if((target==null)||(target.amDead())||(!CMLib.flags().canBeSeenBy(target,mob)))
 		{
-			mob.tell("You don't see '"+CMParms.combine(commands,1)+"' here.");
+			mob.tell(L("You don't see '@x1' here.",CMParms.combine(commands,1)));
 			return false;
 		}
 		if(!(target instanceof Banker))
 		{
-			mob.tell("You can't embezzle from "+target.name()+"'s accounts.");
+			mob.tell(L("You can't embezzle from @x1's accounts.",target.name(mob)));
 			return false;
 		}
-        if(mob.isInCombat())
-        {
-            mob.tell("You are too busy to embezzle.");
-            return false;
-        }
-		Banker bank=(Banker)target;
-		Ability A=target.fetchEffect(ID());
+		if(mob.isInCombat())
+		{
+			mob.tell(L("You are too busy to embezzle."));
+			return false;
+		}
+		final Banker bank=(Banker)target;
+		final Ability A=target.fetchEffect(ID());
 		if(A!=null)
 		{
-			mob.tell(target.name()+" is watching "+target.charStats().hisher()+" books too closely.");
+			mob.tell(L("@x1 is watching @x2 books too closely.",target.name(mob),target.charStats().hisher()));
 			return false;
 		}
-		int levelDiff=target.envStats().level()-(mob.envStats().level()+(2*super.getXLEVELLevel(mob)));
+		final int levelDiff=target.phyStats().level()-(mob.phyStats().level()+(2*getXLEVELLevel(mob)));
 
 		if(!target.mayIFight(mob))
 		{
-			mob.tell("You cannot embezzle from "+target.charStats().himher()+".");
+			mob.tell(L("You cannot embezzle from @x1.",target.charStats().himher()));
 			return false;
 		}
 
 		Item myCoins=null;
-        String myAcct=mob.Name();
-        if(bank.isSold(ShopKeeper.DEAL_CLANBANKER))
-        {
-            if(mob.getClanID().length()>0)
-            {
-                myAcct=mob.getClanID();
-                myCoins=bank.findDepositInventory(mob.getClanID(),"1");
-            }
-        }
-        else
-            myCoins=bank.findDepositInventory(mob.Name(),"1");
+		String myAcct=mob.Name();
+		if(bank.isSold(ShopKeeper.DEAL_CLANBANKER))
+		{
+			Pair<Clan,Integer> clanPair=CMLib.clans().findPrivilegedClan(mob, Clan.Function.WITHDRAW);
+			if(clanPair == null)
+				clanPair=CMLib.clans().findPrivilegedClan(mob, Clan.Function.DEPOSIT_LIST);
+			if(clanPair == null)
+				clanPair=CMLib.clans().findPrivilegedClan(mob, Clan.Function.DEPOSIT);
+			if(clanPair!=null)
+				myAcct=clanPair.first.clanID();
+		}
+		myCoins=bank.findDepositInventory(myAcct,"1");
 		if((myCoins==null)||(!(myCoins instanceof Coins)))
 		{
-			mob.tell("You don't have your own account with "+target.name()+".");
+			mob.tell(L("You don't have your own account with @x1.",target.name(mob)));
 			return false;
 		}
-		Vector accounts=bank.getAccountNames();
+		final List<String> accounts=bank.getAccountNames();
 		String victim="";
 		int tries=0;
 		Coins hisCoins=null;
 		double hisAmount=0;
 		while((hisCoins==null)&&((++tries)<10))
 		{
-			String possVic=(String)accounts.elementAt(CMLib.dice().roll(1,accounts.size(),-1));
-			Item C=bank.findDepositInventory(possVic,"1");
+			final String possVic=accounts.get(CMLib.dice().roll(1,accounts.size(),-1));
+			final Item C=bank.findDepositInventory(possVic,"1");
 			if((C!=null)
-	        &&(C instanceof Coins)
-	        &&((((Coins)C).getTotalValue()/50.0)>0.0)
-	        &&(!mob.Name().equals(possVic)))
+			&&(C instanceof Coins)
+			&&((((Coins)C).getTotalValue()/50.0)>0.0)
+			&&(!mob.Name().equals(possVic)))
 			{
 				hisCoins=(Coins)C;
 				victim=possVic;
 				hisAmount=hisCoins.getTotalValue()/50.0;
 			}
 		}
-		int classLevel=CMLib.ableMapper().qualifyingClassLevel(mob,this)+(2*getXLEVELLevel(mob));
+		final int classLevel=CMLib.ableMapper().qualifyingClassLevel(mob,this)+(2*getXLEVELLevel(mob));
 		if((classLevel>0)
 		&&(Math.round(hisAmount)>(1000*(classLevel)+(2*getXLEVELLevel(mob)))))
-		   hisAmount=(double)(1000l*(classLevel+(2l*getXLEVELLevel(mob))));
+		   hisAmount=1000l*(classLevel+(2l*getXLEVELLevel(mob)));
 
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
 			return false;
 
-		boolean success=proficiencyCheck(mob,(-(levelDiff+(timesPicked(mob)*50))),auto);
+		final boolean success=proficiencyCheck(mob,(-(levelDiff+(timesPicked(mob)*50))),auto);
 		if((success)&&(hisAmount>0)&&(hisCoins!=null))
 		{
-		    String str="<S-NAME> embezzle(s) "+CMLib.beanCounter().nameCurrencyShort(target,hisAmount)+" from the "+victim+" account maintained by <T-NAME>.";
-			CMMsg msg=CMClass.getMsg(mob,target,this,(auto?CMMsg.MASK_ALWAYS:0)|CMMsg.MSG_THIEF_ACT,str,null,str);
+			final String str=L("<S-NAME> embezzle(s) @x1 from the @x2 account maintained by <T-NAME>.",CMLib.beanCounter().nameCurrencyShort(target,hisAmount),victim);
+			final CMMsg msg=CMClass.getMsg(mob,target,this,(auto?CMMsg.MASK_ALWAYS:0)|CMMsg.MSG_THIEF_ACT,str,null,str);
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);
-				beneficialAffect(mob,target,asLevel,(int)(((Tickable.TIME_MILIS_PER_MUDHOUR*mob.location().getArea().getTimeObj().getHoursInDay()*mob.location().getArea().getTimeObj().getDaysInMonth())/Tickable.TIME_TICK)));
+				beneficialAffect(mob,target,asLevel,(int)(((CMProps.getMillisPerMudHour()*mob.location().getArea().getTimeObj().getHoursInDay()*mob.location().getArea().getTimeObj().getDaysInMonth())/CMProps.getTickMillis())));
 				bank.delDepositInventory(victim,hisCoins);
 				hisCoins=CMLib.beanCounter().makeBestCurrency(target,hisCoins.getTotalValue()-(hisAmount/3.0));
 				if(hisCoins.getNumberOfCoins()>0)
-					bank.addDepositInventory(victim,hisCoins);
+					bank.addDepositInventory(victim,hisCoins,null);
 				bank.delDepositInventory(myAcct,myCoins);
 				myCoins=CMLib.beanCounter().makeBestCurrency(mob,((Coins)myCoins).getTotalValue()+hisAmount);
 				if(((Coins)myCoins).getNumberOfCoins()>0)
-					bank.addDepositInventory(myAcct,myCoins);
+					bank.addDepositInventory(myAcct,myCoins,null);
 			}
 		}
 		else
-			maliciousFizzle(mob,target,"<T-NAME> catch(es) <S-NAME> trying to embezzle money!");
+			maliciousFizzle(mob,target,L("<T-NAME> catch(es) <S-NAME> trying to embezzle money!"));
 		return success;
 	}
 

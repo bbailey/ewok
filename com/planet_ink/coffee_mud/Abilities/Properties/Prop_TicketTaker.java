@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Properties;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,6 +10,7 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -17,13 +19,13 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2000-2010 Bo Zimmerman
+   Copyright 2003-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -33,33 +35,58 @@ import java.util.*;
 */
 public class Prop_TicketTaker extends Property
 {
-	public String ID() { return "Prop_TicketTaker"; }
-	public String name(){ return "Ticket Taker";}
-	public String displayText() {return "";}
-	protected int canAffectCode(){return Ability.CAN_MOBS|Ability.CAN_ITEMS;}
+	@Override
+	public String ID()
+	{
+		return "Prop_TicketTaker";
+	}
 
+	@Override
+	public String name()
+	{
+		return "Ticket Taker";
+	}
+
+	@Override
+	public String displayText()
+	{
+		return "";
+	}
+
+	@Override
+	protected int canAffectCode()
+	{
+		return Ability.CAN_MOBS | Ability.CAN_ITEMS;
+	}
+
+	@Override
 	public String accountForYourself()
 	{
 		return "one who acts as a ticket taker";
 	}
 
-    protected double cost(){
+	protected double cost()
+	{
 		int amount=CMath.s_int(text());
-		if(amount==0) amount=10;
-		return (double)amount;
+		if(amount==0)
+			amount=10;
+		return amount;
 	}
 
-    protected boolean isMine(Environmental host, Rideable R)
+	protected boolean isMine(Environmental host, Rideable R)
 	{
 		if(host instanceof Rider)
 		{
-			Rider mob=(Rider)host;
-			if(R==mob) return true;
-			if(mob.riding()==null) return false;
-			if(mob.riding()==R) return true;
-			if((R instanceof Rider)&&(((Rider)R).riding()==mob.riding()))
+			final Rider mob=(Rider)host;
+			if(R==mob)
 				return true;
-			if((mob.riding() instanceof Rider)&&(((Rider)mob.riding()).riding()==R))
+			if(mob.riding()==null)
+				return false;
+			if(mob.riding()==R)
+				return true;
+			if((((Rider)R).riding()==mob.riding()))
+				return true;
+			if((((Rider)mob.riding()).riding()==R))
 				return true;
 		}
 		else
@@ -68,13 +95,14 @@ public class Prop_TicketTaker extends Property
 		return false;
 	}
 
-	public void executeMsg(Environmental myHost, CMMsg msg)
+	@Override
+	public void executeMsg(final Environmental myHost, final CMMsg msg)
 	{
 		super.executeMsg(myHost,msg);
 		if(((myHost instanceof Rider)&&(((Rider)myHost).riding()!=null))
 		   ||(myHost instanceof Rideable))
 		{
-			MOB mob=msg.source();
+			final MOB mob=msg.source();
 			if((msg.target()!=null)
 			&&(myHost!=mob)
 			&&(!mob.isMonster())
@@ -90,11 +118,11 @@ public class Prop_TicketTaker extends Property
 				{
 					String currency=CMLib.beanCounter().getCurrency(affected);
 					if(currency.length()==0)
-					    currency=CMLib.beanCounter().getCurrency(mob);
+						currency=CMLib.beanCounter().getCurrency(mob);
 					if(CMLib.beanCounter().getTotalAbsoluteValue(mob,currency)>=cost())
 					{
-					    String costStr=CMLib.beanCounter().nameCurrencyShort(currency,cost());
-						mob.location().show(mob,myHost,CMMsg.MSG_NOISYMOVEMENT,"<S-NAME> give(s) "+costStr+" to <T-NAME>.");
+						final String costStr=CMLib.beanCounter().nameCurrencyShort(currency,cost());
+						mob.location().show(mob,myHost,CMMsg.MSG_NOISYMOVEMENT,L("<S-NAME> give(s) @x1 to <T-NAME>.",costStr));
 						CMLib.beanCounter().subtractMoney(mob,currency,cost());
 					}
 				}
@@ -103,18 +131,22 @@ public class Prop_TicketTaker extends Property
 			}
 		}
 	}
-	public boolean okMessage(Environmental myHost, CMMsg msg)
+
+	@Override
+	public boolean okMessage(final Environmental myHost, final CMMsg msg)
 	{
-		if(!super.okMessage(myHost,msg)) return false;
+		if(!super.okMessage(myHost,msg))
+			return false;
 		if(((myHost instanceof Rider)&&(((Rider)myHost).riding()!=null))
 		   ||(myHost instanceof Rideable))
 		{
-			MOB mob=msg.source();
+			final MOB mob=msg.source();
 			if((msg.target()!=null)
 			&&(myHost!=mob)
 			&&(!mob.isMonster())
 			&&(msg.target() instanceof Rideable)
 			&&(isMine(myHost,(Rideable)msg.target())))
+			{
 				switch(msg.sourceMinor())
 				{
 				case CMMsg.TYP_MOUNT:
@@ -124,14 +156,14 @@ public class Prop_TicketTaker extends Property
 				{
 					String currency=CMLib.beanCounter().getCurrency(affected);
 					if(currency.length()==0)
-					    currency=CMLib.beanCounter().getCurrency(mob);
+						currency=CMLib.beanCounter().getCurrency(mob);
 					if(CMLib.beanCounter().getTotalAbsoluteValue(mob,currency)<cost())
 					{
-					    String costStr=CMLib.beanCounter().nameCurrencyLong(currency,cost());
+						final String costStr=CMLib.beanCounter().nameCurrencyLong(currency,cost());
 						if(myHost instanceof MOB)
-							CMLib.commands().postSay((MOB)myHost,mob,"You'll need "+costStr+" to board.",false,false);
+							CMLib.commands().postSay((MOB)myHost,mob,L("You'll need @x1 to board.",costStr),false,false);
 						else
-							mob.tell("You'll need "+costStr+" to board.");
+							mob.tell(L("You'll need @x1 to board.",costStr));
 						return false;
 					}
 					break;
@@ -139,6 +171,7 @@ public class Prop_TicketTaker extends Property
 				default:
 					break;
 				}
+			}
 		}
 		return true;
 	}

@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Songs;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,21 +10,21 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
-
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2003-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -31,53 +32,78 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
+
 public class Skill_Disguise extends BardSkill
 {
-	public String ID() { return "Skill_Disguise"; }
-	public String name(){ return "Disguise";}
+	@Override public String ID() { return "Skill_Disguise"; }
+	private final static String localizedName = CMLib.lang().L("Disguise");
+	@Override public String name() { return localizedName; }
+	@Override
 	public String description()
 	{
-		StringBuffer ret=new StringBuffer("");
-		for(int i=0;i<whats.length;i++)
-			if(whats[i]==null)
+		final StringBuffer ret=new StringBuffer("");
+		for (final String what : whats)
+			if(what==null)
 				ret.append(". ");
 			else
-				ret.append(whats[i]+" ");
+				ret.append(what+" ");
 		return ret.toString();
 	}
-	public String displayText(){ return "(In Disguise)";}
-	protected int canAffectCode(){return CAN_MOBS;}
-	protected int canTargetCode(){return 0;}
-	public int abstractQuality(){return Ability.QUALITY_OK_SELF;}
-	private static final String[] triggerStrings = {"DISGUISE"};
-	public String[] triggerStrings(){return triggerStrings;}
-    public int classificationCode(){ return Ability.ACODE_SKILL|Ability.DOMAIN_DECEPTIVE;}
+	private final static String localizedStaticDisplay = CMLib.lang().L("(In Disguise)");
+	@Override public String displayText() { return localizedStaticDisplay; }
+	@Override protected int canAffectCode(){return CAN_MOBS;}
+	@Override protected int canTargetCode(){return 0;}
+	@Override public int abstractQuality(){return Ability.QUALITY_OK_SELF;}
+	private static final String[] triggerStrings =I(new String[] {"DISGUISE"});
+	@Override public String[] triggerStrings(){return triggerStrings;}
+	@Override public int classificationCode(){ return Ability.ACODE_SKILL|Ability.DOMAIN_DECEPTIVE;}
 
-    protected final static String[] whats={
-		//0!     1!      2!    3!     4!       5!     6!      7!          8!
+	protected final static String[] whats={
+		//0!	 1! 	 2!    3!     4!	   5!     6!	  7!		  8!
 		"WEIGHT","LEVEL","SEX","RACE","HEIGHT","NAME","CLASS","ALIGNMENT","AGE"};
-    protected final static int[] levels={2,10,4,14,6,8,0,18,12};
+	protected final static int[] levels={2,10,4,14,6,8,0,18,12};
 	protected String[] values=new String[whats.length];
 
+	@Override
 	protected void cloneFix(Ability E)
 	{
-	    values=new String[whats.length];
-	    for(int i=0;i<values.length;i++)
-	        values[i]=null;
+		values=new String[whats.length];
+		for(int i=0;i<values.length;i++)
+			values[i]=null;
 	}
-	public void affectEnvStats(Environmental myHost, EnvStats affectableStats)
+
+	@Override
+	public String text()
+	{
+		final StringBuilder str=new StringBuilder("");
+		for(int i=0;i<whats.length;i++)
+			if(values[i]!=null)
+				str.append(" ").append(whats[i]).append("=\"").append(values[i]).append("\"");
+		return str.toString();
+	}
+	
+	@Override
+	public void setMiscText(final String txt)
+	{
+		values=new String[whats.length];
+		for(int i=0;i<values.length;i++)
+			values[i] = CMParms.getParmStr(txt, whats[i], null);
+	}
+	
+	@Override
+	public void affectPhyStats(Physical myHost, PhyStats affectableStats)
 	{
 		if(values[5]!=null)
 			affectableStats.setName(values[5]);
 		if(values[7]!=null)
 			if(values[7].equalsIgnoreCase("good"))
-				affectableStats.setDisposition(affectableStats.disposition()|EnvStats.IS_GOOD);
+				affectableStats.setDisposition(affectableStats.disposition()|PhyStats.IS_GOOD);
 			else
 			if(values[7].equalsIgnoreCase("evil"))
-				affectableStats.setDisposition(affectableStats.disposition()|EnvStats.IS_EVIL);
+				affectableStats.setDisposition(affectableStats.disposition()|PhyStats.IS_EVIL);
 	}
 
+	@Override
 	public void affectCharStats(MOB myHost, CharStats affectableStats)
 	{
 		if(values[3]!=null)
@@ -92,12 +118,14 @@ public class Skill_Disguise extends BardSkill
 			affectableStats.setStat(CharStats.STAT_AGE,CMath.s_int(values[8]));
 	}
 
-	public boolean okMessage(Environmental myHost, CMMsg msg)
+	@Override
+	public boolean okMessage(final Environmental myHost, final CMMsg msg)
 	{
-		if(!super.okMessage(myHost,msg)) return false;
+		if(!super.okMessage(myHost,msg))
+			return false;
 		if((myHost==null)||(!(myHost instanceof MOB)))
 		   return true;
-		MOB mob=(MOB)myHost;
+		final MOB mob=(MOB)myHost;
 		if(msg.amITarget(mob)
 		&&(CMLib.flags().canBeSeenBy(mob,msg.source()))
 		&&((msg.targetMinor()==CMMsg.TYP_LOOK)||(msg.targetMinor()==CMMsg.TYP_EXAMINE))
@@ -116,27 +144,30 @@ public class Skill_Disguise extends BardSkill
 		}
 		return true;
 	}
-	public void executeMsg(Environmental myHost, CMMsg msg)
+	@Override
+	public void executeMsg(final Environmental myHost, final CMMsg msg)
 	{
 		super.executeMsg(myHost,msg);
 		if((myHost==null)||(!(myHost instanceof MOB)))
 		   return;
-		MOB mob=(MOB)myHost;
+		final MOB mob=(MOB)myHost;
 		if(msg.amITarget(this)
 		&&(CMLib.flags().canBeSeenBy(mob,msg.source()))
 		&&((msg.targetMinor()==CMMsg.TYP_LOOK)||(msg.targetMinor()==CMMsg.TYP_EXAMINE))
 		&&((values[0]!=null)||(values[4]!=null)))
 		{
-			StringBuffer myDescription=new StringBuffer("");
+			final StringBuffer myDescription=new StringBuffer("");
 			if(!mob.isMonster())
 			{
-				String levelStr=mob.charStats().displayClassLevel(mob,false);
-				myDescription.append(mob.displayName(msg.source())+" the "+mob.charStats().raceName()+" is a "+levelStr+".\n\r");
+				final String levelStr=mob.charStats().displayClassLevel(mob,false);
+				myDescription.append(mob.name(msg.source())+" the "+mob.charStats().raceName()+" is a "+levelStr+".\n\r");
 			}
-			int height=mob.envStats().height();
-			int weight=mob.baseEnvStats().weight();
-			if(values[0]!=null) weight=CMath.s_int(values[0]);
-			if(values[4]!=null) height=CMath.s_int(values[4]);
+			int height=mob.phyStats().height();
+			int weight=mob.basePhyStats().weight();
+			if(values[0]!=null)
+				weight=CMath.s_int(values[0]);
+			if(values[4]!=null)
+				height=CMath.s_int(values[4]);
 			if(height>0)
 				myDescription.append(mob.charStats().HeShe()+" is "+height+" inches tall and weighs "+weight+" pounds.\n\r");
 			myDescription.append(mob.healthText(msg.source())+"\n\r\n\r");
@@ -146,50 +177,52 @@ public class Skill_Disguise extends BardSkill
 		}
 	}
 
-	public boolean invoke(MOB mob, Vector commands, Environmental givenTarget, boolean auto, int asLevel)
+	@Override
+	public boolean invoke(MOB mob, List<String> commands, Physical givenTarget, boolean auto, int asLevel)
 	{
 		if(!ID().equals("Skill_Disguise"))
 			return super.invoke(mob,commands,givenTarget,auto,asLevel);
 
 		Skill_Disguise A=(Skill_Disguise)mob.fetchEffect("Skill_Disguise");
-		if(A==null) A=(Skill_Disguise)mob.fetchEffect("Skill_MarkDisguise");
+		if(A==null)
+			A=(Skill_Disguise)mob.fetchEffect("Skill_MarkDisguise");
 
-		String validChoices="Weight, sex, race, height, age, name, level, class, or alignment";
+		final String validChoices="Weight, sex, race, height, age, name, level, class, or alignment";
 		if(commands.size()==0)
 		{
 			if(A==null)
 			{
-				mob.tell("Disguise what? "+validChoices+".");
+				mob.tell(L("Disguise what? @x1.",validChoices));
 				return false;
 			}
 			A.unInvoke();
-			mob.tell("You remove your disguise.");
+			mob.tell(L("You remove your disguise."));
 			return true;
 		}
-		String what=(String)commands.firstElement();
+		final String what=commands.get(0);
 		int which=-1;
 		for(int i=0;i<whats.length;i++)
 			if(whats[i].startsWith(what.toUpperCase()))
 				which=i;
 		if(which<0)
 		{
-			mob.tell("Disguise what? '"+what+"' is not a valid choice.  Valid choices are: "+validChoices+".");
+			mob.tell(L("Disguise what? '@x1' is not a valid choice.  Valid choices are: @x2.",what,validChoices));
 			return false;
 
 		}
 		if((CMLib.ableMapper().qualifyingLevel(mob,this)>0)
 		   &&((CMLib.ableMapper().qualifyingClassLevel(mob,this)+getXLEVELLevel(mob))<levels[which]))
 		{
-			mob.tell("You must have "+levels[which]+" levels in this skill to use that disguise.");
+			mob.tell(L("You must have @x1 levels in this skill to use that disguise.",""+levels[which]));
 			return false;
 		}
-		commands.removeElementAt(0);
+		commands.remove(0);
 		if(commands.size()==0)
 		{
-			mob.tell("Disguise "+whats[which].toLowerCase()+" in what way?  Be more specific.");
+			mob.tell(L("Disguise @x1 in what way?  Be more specific.",whats[which].toLowerCase()));
 			return false;
 		}
-		String how=CMParms.combine(commands,0);
+		String how=CMStrings.removeColors(CMParms.combine(commands,0));
 
 		int adjustment=0;
 		switch(which)
@@ -198,34 +231,41 @@ public class Skill_Disguise extends BardSkill
 		{
 			if(CMath.s_int(how)<=0)
 			{
-				mob.tell("You cannot disguise your weight as "+how+" pounds!");
+				mob.tell(L("You cannot disguise your weight as @x1 pounds!",how));
 				return false;
 			}
-			int x=mob.baseEnvStats().weight()-CMath.s_int(how);
-			if(x<0) x=x*-1;
-			adjustment=-((int)Math.round(CMath.div(x,mob.baseEnvStats().weight())*100.0));
+			int x=mob.basePhyStats().weight()-CMath.s_int(how);
+			if(x<0)
+				x=x*-1;
+			adjustment=-((int)Math.round(CMath.div(x,mob.basePhyStats().weight())*100.0));
 			break;
 		}
 		case 1: // level
-			if(CMath.s_int(how)<=0)
+			if((CMath.s_int(how)<=0)||CMath.s_int(how)>100000)
 			{
-				mob.tell("You cannot disguise your level as "+how+"!");
+				mob.tell(L("You cannot disguise your level as @x1!",how));
 				return false;
 			}
+			how=Integer.toString(CMath.s_int(how));
 			break;
 		case 2: // sex
-			if(how.toUpperCase().startsWith("M")) how="male";
+			if(how.toUpperCase().startsWith("M"))
+				how="male";
 			else
-			if(how.toUpperCase().startsWith("F")) how="female";
+			if(how.toUpperCase().startsWith("F"))
+				how="female";
 			else
-			if(how.toUpperCase().startsWith("N")) how="neuter";
+			if(how.toUpperCase().startsWith("N"))
+				how="neuter";
 			else
-			if(how.toUpperCase().startsWith("B")) how="male";
+			if(how.toUpperCase().startsWith("B"))
+				how="male";
 			else
-			if(how.toUpperCase().startsWith("G")) how="girl";
+			if(how.toUpperCase().startsWith("G"))
+				how="girl";
 			else
 			{
-				mob.tell("'"+how+"' is a sex which cannot be guessed at!");
+				mob.tell(L("'@x1' is a sex which cannot be guessed at!",how));
 				return false;
 			}
 			break;
@@ -233,7 +273,7 @@ public class Skill_Disguise extends BardSkill
 			{
 				if(CMClass.getRace(how)==null)
 				{
-					mob.tell("'"+how+"' is an unknown race!");
+					mob.tell(L("'@x1' is an unknown race!",how));
 					return false;
 				}
 				how=CMClass.getRace(how).name();
@@ -243,25 +283,32 @@ public class Skill_Disguise extends BardSkill
 		{
 			if(CMath.s_int(how)<=0)
 			{
-				mob.tell("You cannot disguise your height as "+how+" inches!");
+				mob.tell(L("You cannot disguise your height as @x1 inches!",how));
 				return false;
 			}
-			int x=mob.envStats().height()-CMath.s_int(how);
-			if(x<0) x=x*-1;
-			adjustment=-((int)Math.round(CMath.div(x,mob.envStats().height())*100.0));
+			int x=mob.phyStats().height()-CMath.s_int(how);
+			if(x<0)
+				x=x*-1;
+			adjustment=-((int)Math.round(CMath.div(x,mob.phyStats().height())*100.0));
 			break;
 		}
 		case 5: // name
 		{
-			if(how.indexOf(" ")>=0)
+			if((how.indexOf(' ')>=0)||(how.indexOf('<')>=0))
 			{
-				mob.tell("Your disguise name may not have a space in it.");
+				mob.tell(L("Your disguise name may not have a space in it, or illegal characters."));
 				return false;
 			}
 			else
 			if(CMLib.players().playerExists(how))
 			{
-				mob.tell("You cannot disguise yourself as a player except through Mark Disguise.");
+				mob.tell(L("You cannot disguise yourself as a player except through Mark Disguise."));
+				return false;
+			}
+			else
+			if(CMLib.login().isBadName(how))
+			{
+				mob.tell(L("You cannot disguise yourself as that."));
 				return false;
 			}
 			else
@@ -272,12 +319,12 @@ public class Skill_Disguise extends BardSkill
 			{
 				if(how.equalsIgnoreCase("Archon"))
 				{
-					mob.tell("You cannot disguise yourself as an Archon.");
+					mob.tell(L("You cannot disguise yourself as an Archon."));
 					return false;
 				}
 				if(CMClass.findCharClass(how)==null)
 				{
-					mob.tell("'"+how+"' is an unknown character class!");
+					mob.tell(L("'@x1' is an unknown character class!",how));
 					return false;
 				}
 				how=CMStrings.capitalizeAndLower(how);
@@ -287,7 +334,7 @@ public class Skill_Disguise extends BardSkill
 		{
 			if((!how.equalsIgnoreCase("good"))&&(!how.equalsIgnoreCase("evil")))
 			{
-				mob.tell("You may only disguise your alignment as 'good' or 'evil'.");
+				mob.tell(L("You may only disguise your alignment as 'good' or 'evil'."));
 				return false;
 			}
 			break;
@@ -296,11 +343,12 @@ public class Skill_Disguise extends BardSkill
 		{
 			if((CMath.s_int(how)<=0)||(CMath.s_int(how)>100000))
 			{
-				mob.tell("You cannot disguise your age as "+how+" years!");
+				mob.tell(L("You cannot disguise your age as @x1 years!",how));
 				return false;
 			}
 			int x=mob.baseCharStats().getStat(CharStats.STAT_AGE)-CMath.s_int(how);
-			if(x<0) x=x*-1;
+			if(x<0)
+				x=x*-1;
 			adjustment=-((int)Math.round(CMath.div(x,mob.baseCharStats().getStat(CharStats.STAT_AGE))*100.0));
 			break;
 		}
@@ -309,24 +357,26 @@ public class Skill_Disguise extends BardSkill
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
 			return false;
 
-		boolean success=proficiencyCheck(mob,adjustment,auto);
+		final boolean success=proficiencyCheck(mob,adjustment,auto);
 
 		if(success)
 		{
-			CMMsg msg=CMClass.getMsg(mob,mob,null,CMMsg.MSG_DELICATE_HANDS_ACT|(auto?CMMsg.MASK_ALWAYS:0),"<S-NAME> turn(s) away for a second.");
+			final CMMsg msg=CMClass.getMsg(mob,mob,null,CMMsg.MSG_DELICATE_HANDS_ACT|(auto?CMMsg.MASK_ALWAYS:0),L("<S-NAME> turn(s) away for a second."));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);
-				if(A==null)	beneficialAffect(mob,mob,asLevel,0);
-				if(A==null) A=(Skill_Disguise)mob.fetchEffect("Skill_Disguise");
+				if(A==null)
+					beneficialAffect(mob,mob,asLevel,0);
+				if(A==null)
+					A=(Skill_Disguise)mob.fetchEffect("Skill_Disguise");
 				if(A!=null){ A.values[which]=how; A.makeLongLasting();}
 				mob.recoverCharStats();
-				mob.recoverEnvStats();
+				mob.recoverPhyStats();
 				mob.location().recoverRoomStats();
 			}
 		}
 		else
-			return beneficialVisualFizzle(mob,null,"<S-NAME> turn(s) away and then back, but look(s) the same.");
+			return beneficialVisualFizzle(mob,null,L("<S-NAME> turn(s) away and then back, but look(s) the same."));
 
 		return success;
 	}

@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Common;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,21 +10,21 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
-
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2002-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,43 +33,48 @@ import java.util.*;
    limitations under the License.
 */
 
-@SuppressWarnings("unchecked")
 public class FireBuilding extends CommonSkill
 {
-	public String ID() { return "FireBuilding"; }
-	public String name(){ return "Fire Building";}
-	private static final String[] triggerStrings = {"LIGHT","FIREBUILD","FIREBUILDING"};
-	public String[] triggerStrings(){return triggerStrings;}
-    public int classificationCode() {   return Ability.ACODE_COMMON_SKILL|Ability.DOMAIN_NATURELORE; }
+	@Override public String ID() { return "FireBuilding"; }
+	private final static String localizedName = CMLib.lang().L("Fire Building");
+	@Override public String name() { return localizedName; }
+	private static final String[] triggerStrings =I(new String[] {"LIGHT","FIREBUILD","FIREBUILDING"});
+	@Override public String[] triggerStrings(){return triggerStrings;}
+	@Override public int classificationCode() {   return Ability.ACODE_COMMON_SKILL|Ability.DOMAIN_NATURELORE; }
 
 	public Item lighting=null;
 	protected int durationOfBurn=0;
 	protected boolean failed=false;
 
+	@Override protected boolean canBeDoneSittingDown() { return true; }
+	@Override protected boolean allowedInTheDark() { return true; }
+
+	@Override
 	public void unInvoke()
 	{
 		if(canBeUninvoked())
 		{
 			if((affected!=null)&&(affected instanceof MOB)&&(!aborted)&&(!helping))
 			{
-				MOB mob=(MOB)affected;
+				final MOB mob=(MOB)affected;
 				if(failed)
-					commonTell(mob,"You failed to get the fire started.");
+					commonTell(mob,L("You failed to get the fire started."));
 				else
 				{
 					if(lighting==null)
 					{
-						Item I=CMClass.getItem("GenItem");
-						I.baseEnvStats().setWeight(50);
-						I.setName("a roaring campfire");
-						I.setDisplayText("A roaring campfire has been built here.");
-						I.setDescription("It consists of dry wood, burning.");
-						I.recoverEnvStats();
+						final Item I=CMClass.getItem("GenItem");
+						I.basePhyStats().setWeight(50);
+						I.setName(L("a roaring campfire"));
+						I.setDisplayText(L("A roaring campfire has been built here."));
+						I.setDescription(L("It consists of dry wood, burning."));
+						I.recoverPhyStats();
 						I.setMaterial(RawMaterial.RESOURCE_WOOD);
 						mob.location().addItem(I);
 						lighting=I;
 					}
-					Ability B=CMClass.getAbility("Burning");
+					final Ability B=CMClass.getAbility("Burning");
+					B.setAbilityCode(512); // item destroyed on burn end
 					B.invoke(mob,lighting,true,durationOfBurn);
 				}
 				lighting=null;
@@ -77,56 +83,62 @@ public class FireBuilding extends CommonSkill
 		super.unInvoke();
 	}
 
-    public boolean fireHere(Room R)
-    {
-        for(int i=0;i<R.numItems();i++)
-        {
-            Item I2=R.fetchItem(i);
-            if((I2!=null)&&(I2.container()==null)&&(CMLib.flags().isOnFire(I2)))
-                return true;
-        }
-        return false;
-    }
-    
-    public Vector resourceHere(Room R, int material)
-    {
-        Vector here=new Vector();
-        for(int i=0;i<R.numItems();i++)
-        {
-            Item I2=R.fetchItem(i);
-            if((I2!=null)
-            &&(I2.container()==null)
-            &&(I2 instanceof RawMaterial)
-            &&(((I2.material()&RawMaterial.RESOURCE_MASK)==material)
-                ||(((I2.material())&RawMaterial.MATERIAL_MASK)==material))
-            &&(!CMLib.flags().enchanted(I2)))
-                here.addElement(I2);
-        }
-        return here;
-    }
-    
-	public boolean invoke(MOB mob, Vector commands, Environmental givenTarget, boolean auto, int asLevel)
+	public boolean fireHere(Room R)
 	{
+		for(int i=0;i<R.numItems();i++)
+		{
+			final Item I2=R.getItem(i);
+			if((I2!=null)&&(I2.container()==null)&&(CMLib.flags().isOnFire(I2)))
+				return true;
+		}
+		return false;
+	}
+
+	public Vector<Item> resourceHere(Room R, int material)
+	{
+		final Vector<Item> here=new Vector<Item>();
+		for(int i=0;i<R.numItems();i++)
+		{
+			final Item I2=R.getItem(i);
+			if((I2!=null)
+			&&(I2.container()==null)
+			&&(I2 instanceof RawMaterial)
+			&&(((I2.material()&RawMaterial.RESOURCE_MASK)==material)
+				||(((I2.material())&RawMaterial.MATERIAL_MASK)==material))
+			&&(!CMLib.flags().isEnchanted(I2)))
+				here.addElement(I2);
+		}
+		return here;
+	}
+
+	@Override
+	public boolean invoke(MOB mob, List<String> commands, Physical givenTarget, boolean auto, int asLevel)
+	{
+		if(super.checkStop(mob, commands))
+			return true;
 		if((mob.isMonster()
 		&&(!CMLib.flags().isAnimalIntelligence(mob)))
 		&&(commands.size()==0))
-        {
-            if((!fireHere(mob.location()))
-            &&(resourceHere(mob.location(),RawMaterial.MATERIAL_WOODEN).size()>0))
-                commands.addElement(((Environmental)resourceHere(mob.location(),RawMaterial.MATERIAL_WOODEN).firstElement()).Name());
-            else
-    			commands.addElement("fire");
-        }
+		{
+			if((!fireHere(mob.location()))
+			&&(resourceHere(mob.location(),RawMaterial.MATERIAL_WOODEN).size()>0))
+				commands.add(((Environmental)resourceHere(mob.location(),RawMaterial.MATERIAL_WOODEN).firstElement()).Name());
+			else
+				commands.add("fire");
+		}
 
 		if(commands.size()==0)
 		{
-			commonTell(mob,"Light what?  Try light fire, or light torch...");
-			return false;
+			if(mob.isMonster())
+				commands.add("fire");
+			else
+			{
+				commonTell(mob,L("Light what?  Try light fire, or light torch..."));
+				return false;
+			}
 		}
-		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
-			return false;
-
-		String name=CMParms.combine(commands,0);
+		
+		final String name=CMParms.combine(commands,0);
 		int proficiencyAdjustment=0;
 		int duration=6;
 		if(name.equalsIgnoreCase("fire"))
@@ -134,7 +146,7 @@ public class FireBuilding extends CommonSkill
 			lighting=null;
 			if((mob.location().domainType()&Room.INDOORS)>0)
 			{
-				commonTell(mob,"You can't seem to find any deadwood around here.");
+				commonTell(mob,L("You can't seem to find any deadwood around here."));
 				return false;
 			}
 			switch(mob.location().domainType())
@@ -146,68 +158,76 @@ public class FireBuilding extends CommonSkill
 			case Room.DOMAIN_OUTDOORS_WOODS:
 				break;
 			default:
-				commonTell(mob,"You can't seem to find any dry deadwood around here.");
+				commonTell(mob,L("You can't seem to find any dry deadwood around here."));
 				return false;
 			}
 			duration=getDuration(25,mob,1,3);
 			durationOfBurn=150+(xlevel(mob)*5);
-			verb="building a fire";
-			displayText="You are building a fire.";
+			verb=L("building a fire");
+			displayText=L("You are building a fire.");
 		}
 		else
 		{
 			lighting=getTarget(mob,mob.location(),givenTarget,commands,Wearable.FILTER_UNWORNONLY);
-			if(lighting==null) return false;
-			
+			if(lighting==null)
+				return false;
+
 			if((lighting.displayText().length()==0)
 			||(!CMLib.flags().isGettable(lighting)))
 			{
-				commonTell(mob,"For some reason, "+lighting.name()+" just won't catch.");
+				commonTell(mob,L("For some reason, @x1 just won't catch.",lighting.name()));
 				return false;
 			}
 			if(lighting instanceof Light)
 			{
-				Light l=(Light)lighting;
+				final Light l=(Light)lighting;
 				if(l.isLit())
 				{
-					commonTell(mob,l.name()+" is already lit!");
+					commonTell(mob,L("@x1 is already lit!",l.name()));
 					return false;
 				}
 				if(CMLib.flags().isGettable(lighting))
-					commonTell(mob,"Just hold this item to light it.");
+					commonTell(mob,L("Just hold this item to light it."));
 				else
 				{
 					l.light(true);
-					mob.location().show(mob,lighting,CMMsg.TYP_HANDS,"<S-NAME> light(s) <T-NAMESELF>.");
+					mob.location().show(mob,lighting,CMMsg.TYP_HANDS,L("<S-NAME> light(s) <T-NAMESELF>."));
 					return true;
 				}
 				return false;
 			}
+			
+			if(CMLib.flags().isOnFire(lighting))
+			{
+				commonTell(mob,L("@x1 is already on fire!",lighting.name()));
+				return false;
+			}
+			
 			if(!(lighting instanceof RawMaterial))
 			{
-				LandTitle t=CMLib.law().getLandTitle(mob.location());
+				final LandTitle t=CMLib.law().getLandTitle(mob.location());
 				if((t!=null)&&(!CMLib.law().doesHavePriviledgesHere(mob,mob.location())))
 				{
-					mob.tell("You are not allowed to burn anything here.");
+					mob.tell(L("You are not allowed to burn anything here."));
 					return false;
 				}
 			}
-			durationOfBurn=CMLib.flags().burnStatus(lighting); 
+			durationOfBurn=CMLib.materials().getBurnDuration(lighting);
 			if(durationOfBurn<0)
 			{
-				commonTell(mob,"You need to cook that, if you can.");
+				commonTell(mob,L("You need to cook that, if you can."));
 				return false;
 			}
 			else
 			if(durationOfBurn==0)
 			{
-				commonTell(mob,"That won't burn.");
+				commonTell(mob,L("That won't burn."));
 				return false;
 			}
 			if((lighting.material()&RawMaterial.MATERIAL_MASK)==RawMaterial.MATERIAL_WOODEN)
 				duration=getDuration(25,mob,1,3);
-			verb="lighting "+lighting.name();
-			displayText="You are lighting "+lighting.name()+".";
+			verb=L("lighting @x1",lighting.name());
+			displayText=L("You are lighting @x1.",lighting.name());
 		}
 
 		switch(mob.location().getArea().getClimateObj().weatherType(mob.location()))
@@ -233,20 +253,25 @@ public class FireBuilding extends CommonSkill
 			proficiencyAdjustment=-50;
 			break;
 		}
+
+		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
+			return false;
+
 		failed=!proficiencyCheck(mob,proficiencyAdjustment,auto);
 
-		durationOfBurn=durationOfBurn*abilityCode();
-		if(duration<4) duration=4;
+		durationOfBurn=durationOfBurn*(baseYield()+abilityCode());
+		if(duration<4)
+			duration=4;
 
-		CMMsg msg=CMClass.getMsg(mob,null,this,CMMsg.MSG_NOISYMOVEMENT,auto?"":"<S-NAME> start(s) building a fire.");
+		final CMMsg msg=CMClass.getMsg(mob,null,this,getActivityMessageType(),auto?"":L("<S-NAME> start(s) building a fire."));
 		if(mob.location().okMessage(mob,msg))
 		{
 			mob.location().send(mob,msg);
 			beneficialAffect(mob,mob,asLevel,duration);
-			FireBuilding fireBuild = (FireBuilding)mob.fetchEffect(ID());
+			final FireBuilding fireBuild = (FireBuilding)mob.fetchEffect(ID());
 			if(fireBuild!=null)
 				fireBuild.durationOfBurn = this.durationOfBurn;
-			
+
 		}
 		return true;
 	}

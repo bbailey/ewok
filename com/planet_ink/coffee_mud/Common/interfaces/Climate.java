@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Common.interfaces;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,18 +10,19 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2004-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -30,7 +32,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 */
 /**
  * A climate represents the entire weather pattern of an area
- * It does most of the mundane things related to weather 
+ * It does most of the mundane things related to weather
  * changes based on season, area, and other factors.
  */
 public interface Climate extends Tickable, CMCommon
@@ -115,7 +117,7 @@ public interface Climate extends Tickable, CMCommon
 	 */
 	public boolean canSeeTheSun(Room room);
 	/**
-	 * Returns a readable string describing the 
+	 * Returns a readable string describing the
 	 * weather conditions in the given area, assuming
 	 * this climate is the correct one.
 	 * @param A the area to evaluate
@@ -142,21 +144,19 @@ public interface Climate extends Tickable, CMCommon
 	 * thirstiness of the given mob, modified up or down based
 	 * on the room given.
 	 * @param base the water thirst gain to start with
-	 * @param mob the mob getting thirsty
 	 * @param room the room the mob is in
 	 * @return the modified base thirst, after gain or loss
 	 */
-	public int adjustWaterConsumption(int base, MOB mob, Room room);
+	public int adjustWaterConsumption(int base, Room room);
 	/**
 	 * If applicable, thies method will return the base movement
 	 * cost of the given mob, modified up or down based
 	 * on the room given.
 	 * @param base the movement  loss to start with
-	 * @param mob the mob moving
 	 * @param room the room the mob is moving through
 	 * @return the modified movement, after gain or loss
 	 */
-	public int adjustMovement(int base, MOB mob, Room room);
+	public int adjustMovement(int base, Room room);
 	/** constant describing clear or no weather. @see Climate#weatherType(Room) */
 	public final static int WEATHER_CLEAR=0;
 	/** constant describing  cloudy weather. @see Climate#weatherType(Room) */
@@ -186,9 +186,11 @@ public interface Climate extends Tickable, CMCommon
 	/** constant describing the number of weather types. @see Climate#weatherType(Room) */
 	public final static int NUM_WEATHER=13;
 	/** constant defining how often weather changes in the climates */
-    public static final int WEATHER_TICK_DOWN=300; // 300 = 20 minutes * 60 seconds / 4
-    /**  descriptive strings for the Climate.WEATHER_* constants, ordered by their value. @see Climate */
+	public static final int WEATHER_TICK_DOWN=150; // 150 = 10 minutes * 60 seconds / 4
+	/**  descriptive strings for the Climate.WEATHER_* constants, ordered by their value. @see Climate */
 	public final static String[] WEATHER_DESCS=
-	{ "CLEAR","CLOUDY","WINDY","RAIN","THUNDERSTORM","SNOW","HAIL","HEAT","SLEET","BLIZZARD","DUST","DROUGHT","COLD"};
-	
+	{ 
+		"CLEAR","CLOUDY","WINDY","RAIN","THUNDERSTORM","SNOW","HAIL","HEAT","SLEET","BLIZZARD","DUST","DROUGHT","COLD"
+	};
+
 }

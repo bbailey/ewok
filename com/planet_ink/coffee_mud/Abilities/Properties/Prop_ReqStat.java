@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Properties;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,6 +10,7 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -17,13 +19,13 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2000-2010 Bo Zimmerman
+   Copyright 2006-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -31,58 +33,78 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
-public class Prop_ReqStat extends Property
+
+public class Prop_ReqStat extends Property implements TriggeredAffect
 {
-	public String ID() { return "Prop_ReqStat"; }
-	public String name(){ return "Require stat values";}
-	protected int canAffectCode(){return Ability.CAN_ROOMS|Ability.CAN_AREAS|Ability.CAN_EXITS|Ability.CAN_ITEMS;}
+	@Override public String ID() { return "Prop_ReqStat"; }
+	@Override public String name(){ return "Require stat values";}
+	@Override protected int canAffectCode(){return Ability.CAN_ROOMS|Ability.CAN_AREAS|Ability.CAN_EXITS|Ability.CAN_ITEMS;}
 	private boolean noSneak=false;
-	
+
+	@Override public long flags(){return Ability.FLAG_ZAPPER;}
+
+	@Override
+	public int triggerMask()
+	{
+		if((affected instanceof Room)||(affected instanceof Area)||(affected instanceof Exit))
+			return TriggeredAffect.TRIGGER_ENTER;
+		if((affected instanceof Armor)||(affected instanceof Weapon))
+			return TriggeredAffect.TRIGGER_WEAR_WIELD;
+		if((affected instanceof Drink)||(affected instanceof Food))
+			return TriggeredAffect.TRIGGER_USE;
+		if((affected instanceof Room)||(affected instanceof Area)||(affected instanceof Exit))
+			return TriggeredAffect.TRIGGER_ENTER;
+		if(affected instanceof Container)
+			return TriggeredAffect.TRIGGER_DROP_PUTIN;
+		return TriggeredAffect.TRIGGER_WEAR_WIELD;
+	}
+
+	@Override
 	public void setMiscText(String txt)
 	{
 		noSneak=false;
-		Vector parms=CMParms.parse(txt.toUpperCase());
+		final Vector<String> parms=CMParms.parse(txt.toUpperCase());
 		String s;
-		for(Enumeration p=parms.elements();p.hasMoreElements();)
+		for(final Enumeration<String> p=parms.elements();p.hasMoreElements();)
 		{
-			s=(String)p.nextElement();
+			s=p.nextElement();
 			if(s.startsWith("NOSNEAK"))
 				noSneak=true;
 		}
 		super.setMiscText(txt);
 	}
-	
 
+
+	@Override
 	public String accountForYourself()
 	{
 		return "Entry restricted as follows: "+CMLib.masking().maskDesc(miscText);
 	}
-	
+
 	public boolean passesMuster(MOB mob, String msg)
 	{
-		if(mob==null) return false;
+		if(mob==null)
+			return false;
 		if(CMLib.flags().isATrackingMonster(mob))
 			return true;
 		if(CMLib.flags().isSneaking(mob)&&(!noSneak))
 			return true;
-		int[] comp=null;
-		for(int c : CharStats.CODES.ALL())
+		char[] comparator=new char[]{'\0'};
+		for(final int c : CharStats.CODES.ALLCODES())
 		{
-			comp=CMParms.getParmCompare(text(),CharStats.CODES.NAME(c),mob.charStats().getStat(c));
-			if(comp[1]<0)
+			if(!CMParms.getParmCompare(text(),CharStats.CODES.NAME(c),mob.charStats().getStat(c),comparator))
 			{
-				switch(comp[0])
+				switch(comparator[0])
 				{
 				case '=':
 				case '!':
-					mob.tell("You aren't the right "+CMStrings.capitalizeAndLower(CharStats.CODES.NAME(c))+" to "+msg+".");
+					mob.tell(L("You aren't the right @x1 to @x2.",CMStrings.capitalizeAndLower(CharStats.CODES.NAME(c)),msg));
 					break;
 				case '<':
-					mob.tell("You are too "+CMStrings.capitalizeAndLower(CharStats.CODES.ATTDESC(c))+" to "+msg+".");
+					mob.tell(L("You are too @x1 to @x2.",CMStrings.capitalizeAndLower(CharStats.CODES.ATTDESC(c)),msg));
 					break;
 				case '>':
-					mob.tell("You are not "+CMStrings.capitalizeAndLower(CharStats.CODES.ATTDESC(c))+" enough to "+msg+".");
+					mob.tell(L("You are not @x1 enough to @x2.",CMStrings.capitalizeAndLower(CharStats.CODES.ATTDESC(c)),msg));
 					break;
 				}
 				return false;
@@ -90,8 +112,9 @@ public class Prop_ReqStat extends Property
 		}
 		return true;
 	}
-	
-	public boolean okMessage(Environmental myHost, CMMsg msg)
+
+	@Override
+	public boolean okMessage(final Environmental myHost, final CMMsg msg)
 	{
 		if(affected!=null)
 		{
@@ -114,7 +137,7 @@ public class Prop_ReqStat extends Property
 			else
 			if((msg.target()==affected)
 			&&(affected instanceof Container)
-			&&(((Container)affected).hasALid()))
+			&&(((Container)affected).hasADoor()))
 			{
 				switch(msg.targetMinor())
 				{
@@ -129,11 +152,10 @@ public class Prop_ReqStat extends Property
 				}
 			}
 			else
-			if((msg.target()!=null)
-		    &&(((msg.target() instanceof Room)&&(msg.targetMinor()==CMMsg.TYP_ENTER))
+			if((((msg.target() instanceof Room)&&(msg.targetMinor()==CMMsg.TYP_ENTER))
 			  ||((msg.target() instanceof Rideable)&&(msg.targetMinor()==CMMsg.TYP_SIT)))
-		    &&(!CMLib.flags().isFalling(msg.source()))
-		    &&((msg.amITarget(affected))||(msg.tool()==affected)||(affected instanceof Area)))
+			&&(!CMLib.flags().isFalling(msg.source()))
+			&&((msg.amITarget(affected))||(msg.tool()==affected)||(affected instanceof Area)))
 			{
 				if(passesMuster(msg.source(),"go there"))
 					return super.okMessage(myHost,msg);
@@ -143,7 +165,7 @@ public class Prop_ReqStat extends Property
 			if((affected instanceof Item)
 			&&(((Item)affected).owner() instanceof MOB))
 			{
-				Item myItem=(Item)affected;
+				final Item myItem=(Item)affected;
 				if(msg.amISource((MOB)myItem.owner()))
 					switch(msg.sourceMinor())
 					{
@@ -159,7 +181,7 @@ public class Prop_ReqStat extends Property
 						break;
 					case CMMsg.TYP_WEAR:
 						if((myItem instanceof Armor)
-					    &&(msg.amITarget(myItem)))
+						&&(msg.amITarget(myItem)))
 						{
 							if(passesMuster(msg.source(),"wear that"))
 								return super.okMessage(myHost,msg);
@@ -167,6 +189,7 @@ public class Prop_ReqStat extends Property
 						}
 						break;
 					case CMMsg.TYP_PUT:
+					case CMMsg.TYP_INSTALL:
 						if((myItem instanceof Container)
 						&&(msg.amITarget(myItem)))
 						{
@@ -178,9 +201,9 @@ public class Prop_ReqStat extends Property
 					case CMMsg.TYP_WIELD:
 					case CMMsg.TYP_HOLD:
 						if((!(myItem instanceof Drink))
-					    &&(!(myItem instanceof Armor))
-					    &&(!(myItem instanceof Container))
-					    &&(msg.amITarget(myItem)))
+						&&(!(myItem instanceof Armor))
+						&&(!(myItem instanceof Container))
+						&&(msg.amITarget(myItem)))
 						{
 							if(passesMuster(msg.source(),"hold that"))
 								return super.okMessage(myHost,msg);

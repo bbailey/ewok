@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Commands;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -14,16 +15,17 @@ import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
+
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2004-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -31,44 +33,47 @@ import com.planet_ink.coffee_mud.Libraries.interfaces.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
+
 public class Link extends At
 {
 	public Link(){}
 
-	private String[] access={"LINK"};
-	public String[] getAccessWords(){return access;}
-	public boolean execute(MOB mob, Vector commands, int metaFlags)
+	private final String[] access=I(new String[]{"LINK"});
+	@Override public String[] getAccessWords(){return access;}
+	@Override
+	public boolean execute(MOB mob, List<String> commands, int metaFlags)
 		throws java.io.IOException
 	{
-		mob.location().show(mob,null,CMMsg.MSG_OK_VISUAL,"^S<S-NAME> wave(s) <S-HIS-HER> arms...^?");
-		
+		mob.location().show(mob,null,CMMsg.MSG_OK_VISUAL,L("^S<S-NAME> wave(s) <S-HIS-HER> arms...^?"));
+
 		if(commands.size()<3)
 		{
-			mob.tell("You have failed to specify the proper fields.\n\rThe format is LINK [ROOM ID] [DIRECTION]\n\r");
-			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,"<S-NAME> flub(s) a powerful spell.");
+			mob.tell(L("You have failed to specify the proper fields.\n\rThe format is LINK [ROOM ID] [DIRECTION]\n\r"));
+			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a powerful spell."));
 			return false;
 		}
-		String dirStr=(String)commands.lastElement();
-		commands.removeElementAt(commands.size()-1);
-		int direction=Directions.getGoodDirectionCode(dirStr);
+		final String dirStr=commands.get(commands.size()-1);
+		commands.remove(commands.size()-1);
+		final int direction=CMLib.directions().getGoodDirectionCode(dirStr);
 		if(direction<0)
 		{
-			mob.tell("You have failed to specify a direction.  Try "+Directions.DIRECTIONS_DESC()+".\n\r");
-			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,"<S-NAME> flub(s) a powerful spell.");
+			mob.tell(L("You have failed to specify a direction.  Try @x1.\n\r",Directions.LETTERS()));
+			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a powerful spell."));
 			return false;
 		}
 
 		Room thisRoom=null;
-		String RoomID=CMParms.combine(commands,1);
-		thisRoom=CMLib.map().getRoom(RoomID);
+		final String roomID=CMParms.combine(commands,1);
+		thisRoom = mob.location().getArea().getRoom(roomID);
+		if(thisRoom != null)
+			thisRoom=CMLib.map().getRoom(roomID);
 		if(thisRoom==null)
 		{
-			thisRoom=CMLib.map().findWorldRoomLiberally(mob,RoomID,"R",100,120);
+			thisRoom=CMLib.map().findWorldRoomLiberally(mob,roomID,"R",100,120000);
 			if(thisRoom==null)
 			{
-				mob.tell("Room \""+RoomID+"\" is unknown.  Try again.");
-				mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,"<S-NAME> flub(s) a powerful spell.");
+				mob.tell(L("Room \"@x1\" is unknown.  Try again.",roomID));
+				mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a powerful spell."));
 				return false;
 			}
 		}
@@ -77,56 +82,54 @@ public class Link extends At
 		mob.location().getArea().fillInAreaRoom(thisRoom);
 
 		mob.location().recoverRoomStats();
-		mob.location().showHappens(CMMsg.MSG_OK_ACTION,"Suddenly a portal opens up in the landscape.\n\r");
+		mob.location().showHappens(CMMsg.MSG_OK_ACTION,L("Suddenly a portal opens up in the landscape.\n\r"));
 		Log.sysOut("Link",mob.Name()+" linked "+CMLib.map().getExtendedRoomID(mob.location())+" to room "+CMLib.map().getExtendedRoomID(thisRoom)+".");
 		return false;
 	}
-	
-    protected void exitifyNewPortal(MOB mob, Room room, int direction)
+
+	protected void exitifyNewPortal(MOB mob, Room room, int direction)
 	{
 		Room opRoom=mob.location().rawDoors()[direction];
 		if((opRoom!=null)&&(opRoom.roomID().length()==0))
 			opRoom=null;
 		Room reverseRoom=null;
-		int opDir=Directions.getOpDirectionCode(direction);
+		final int opDir=Directions.getOpDirectionCode(direction);
 		if(opRoom!=null)
 			reverseRoom=opRoom.rawDoors()[opDir];
 
 		if((reverseRoom!=null)
 		&&((reverseRoom==mob.location())||(reverseRoom==mob.location().getGridParent())))
-			mob.tell("Opposite room already exists and heads this way.  One-way link created.");
+			mob.tell(L("Opposite room already exists and heads this way.  One-way link created."));
 
 		if(opRoom!=null)
 			mob.location().rawDoors()[direction]=null;
-		
-		WorldMap.CrossExit CE=null;
-		GridLocale hereGL=(mob.location().getGridParent()!=null)?mob.location().getGridParent():null;
-		int hereX=(hereGL!=null)?hereGL.getGridChildX(mob.location()):-1;
-		int hereY=(hereGL!=null)?hereGL.getGridChildY(mob.location()):-1;
-		Vector hereSet=(hereGL!=null)?hereGL.outerExits():null;
-		GridLocale thereGL=(room.getGridParent()!=null)?room.getGridParent():null;
-		int thereX=(thereGL!=null)?thereGL.getGridChildX(room):-1;
-		int thereY=(thereGL!=null)?thereGL.getGridChildY(room):-1;
-		Vector thereSet=(thereGL!=null)?thereGL.outerExits():null;
+
+		GridLocale.CrossExit CE=null;
+		final GridLocale hereGL=(mob.location().getGridParent()!=null)?mob.location().getGridParent():null;
+		final int hereX=(hereGL!=null)?hereGL.getGridChildX(mob.location()):-1;
+		final int hereY=(hereGL!=null)?hereGL.getGridChildY(mob.location()):-1;
+		final GridLocale thereGL=(room.getGridParent()!=null)?room.getGridParent():null;
+		final int thereX=(thereGL!=null)?thereGL.getGridChildX(room):-1;
+		final int thereY=(thereGL!=null)?thereGL.getGridChildY(room):-1;
 		if(hereGL!=null)
 		{
-			for(int v=0;v<hereSet.size();v++)
+			for(final Iterator<GridLocale.CrossExit> hereIter=hereGL.outerExits();hereIter.hasNext();)
 			{
-				CE=(WorldMap.CrossExit)hereSet.elementAt(v);
+				CE=hereIter.next();
 				if((CE.out)
 				&&(CE.dir==direction)
 				&&(CE.x==hereX)&&(CE.y==hereY))
 				   hereGL.delOuterExit(CE);
 			}
-			CE=WorldMap.CrossExit.make(hereX,hereY,direction,CMLib.map().getExtendedRoomID(room),true);
+			CE=GridLocale.CrossExit.make(hereX,hereY,direction,CMLib.map().getExtendedRoomID(room),true);
 			hereGL.addOuterExit(CE);
 		}
-		
+
 		if(thereGL!=null)
 			mob.location().rawDoors()[direction]=thereGL;
 		else
 			mob.location().rawDoors()[direction]=room;
-		
+
 		Exit thisExit=mob.location().getRawExit(direction);
 		if(thisExit==null)
 		{
@@ -135,43 +138,43 @@ public class Link extends At
 		}
 		if(thereGL!=null)
 		{
-			for(int v=0;v<thereSet.size();v++)
+			for(final Iterator<GridLocale.CrossExit> thereIter=thereGL.outerExits();thereIter.hasNext();)
 			{
-				CE=(WorldMap.CrossExit)thereSet.elementAt(v);
+				CE=thereIter.next();
 				if((!CE.out)
 				&&(CE.dir==direction)
 				&&(CE.destRoomID.equals(CMLib.map().getExtendedRoomID(mob.location()))))
-				   thereGL.delOuterExit(CE);
+					thereGL.delOuterExit(CE);
 			}
-			CE=WorldMap.CrossExit.make(thereX,thereY,direction,CMLib.map().getExtendedRoomID(mob.location()),false);
+			CE=GridLocale.CrossExit.make(thereX,thereY,direction,CMLib.map().getExtendedRoomID(mob.location()),false);
 			thereGL.addOuterExit(CE);
-			
+
 			if((room.rawDoors()[opDir]==null)
 			||(thereGL==room.rawDoors()[opDir])
 			||(thereGL.isMyGridChild(room.rawDoors()[opDir])))
 			{
-				for(int v=0;v<thereSet.size();v++)
+				for(final Iterator<GridLocale.CrossExit> thereIter=thereGL.outerExits();thereIter.hasNext();)
 				{
-					CE=(WorldMap.CrossExit)thereSet.elementAt(v);
+					CE=thereIter.next();
 					if((CE.out)
 					&&(CE.dir==opDir)
 					&&(CE.x==thereX)&&(CE.y==thereY))
 					   thereGL.delOuterExit(CE);
 				}
-				CE=WorldMap.CrossExit.make(thereX,thereY,opDir,CMLib.map().getExtendedRoomID(mob.location()),true);
+				CE=GridLocale.CrossExit.make(thereX,thereY,opDir,CMLib.map().getExtendedRoomID(mob.location()),true);
 				thereGL.addOuterExit(CE);
 				if(hereGL!=null)
 				{
 					room.rawDoors()[opDir]=hereGL;
-					for(int v=0;v<hereSet.size();v++)
+					for(final Iterator<GridLocale.CrossExit> hereIter=hereGL.outerExits();hereIter.hasNext();)
 					{
-						CE=(WorldMap.CrossExit)hereSet.elementAt(v);
+						CE=hereIter.next();
 						if((!CE.out)
 						&&(CE.dir==opDir)
 						&&(CE.destRoomID.equals(CMLib.map().getExtendedRoomID(room))))
 						   hereGL.delOuterExit(CE);
 					}
-					CE=WorldMap.CrossExit.make(hereX,hereY,opDir,CMLib.map().getExtendedRoomID(room),false);
+					CE=GridLocale.CrossExit.make(hereX,hereY,opDir,CMLib.map().getExtendedRoomID(room),false);
 					hereGL.addOuterExit(CE);
 				}
 				else
@@ -185,15 +188,15 @@ public class Link extends At
 			if(hereGL!=null)
 			{
 				room.rawDoors()[opDir]=hereGL;
-				for(int v=0;v<hereSet.size();v++)
+				for(final Iterator<GridLocale.CrossExit> hereIter=hereGL.outerExits();hereIter.hasNext();)
 				{
-					CE=(WorldMap.CrossExit)hereSet.elementAt(v);
+					CE=hereIter.next();
 					if((!CE.out)
 					&&(CE.dir==opDir)
 					&&(CE.destRoomID.equals(room.roomID())))
-					   hereGL.delOuterExit(CE);
+						hereGL.delOuterExit(CE);
 				}
-				CE=WorldMap.CrossExit.make(hereX,hereY,opDir,CMLib.map().getExtendedRoomID(room),false);
+				CE=GridLocale.CrossExit.make(hereX,hereY,opDir,CMLib.map().getExtendedRoomID(room),false);
 				hereGL.addOuterExit(CE);
 			}
 			else
@@ -210,10 +213,10 @@ public class Link extends At
 			CMLib.database().DBUpdateExits(room);
 	}
 
-	
-	
-	public boolean canBeOrdered(){return true;}
-	public boolean securityCheck(MOB mob){return CMSecurity.isAllowed(mob,mob.location(),"CMDEXITS");}
 
-	
+
+	@Override public boolean canBeOrdered(){return true;}
+	@Override public boolean securityCheck(MOB mob){return CMSecurity.isAllowed(mob,mob.location(),CMSecurity.SecFlag.CMDEXITS);}
+
+
 }

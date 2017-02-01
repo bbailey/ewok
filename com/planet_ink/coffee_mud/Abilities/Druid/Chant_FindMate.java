@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Druid;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -16,14 +17,14 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2003-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,22 +33,23 @@ import java.util.*;
    limitations under the License.
 */
 
-@SuppressWarnings("unchecked")
 public class Chant_FindMate extends Chant
 {
-	public String ID() { return "Chant_FindMate"; }
-	public String name(){ return "Find Mate";}
-	protected String displayText="(Tracking a mate)";
-	public String displayText(){ return displayText;}
-	protected int canAffectCode(){return CAN_MOBS;}
-	protected int canTargetCode(){return CAN_MOBS;}
-    public int classificationCode(){return Ability.ACODE_CHANT|Ability.DOMAIN_BREEDING;}
-	public int abstractQuality(){return Ability.QUALITY_OK_OTHERS;}
-	public long flags(){return Ability.FLAG_TRACKING;}
+	@Override public String ID() { return "Chant_FindMate"; }
+	private final static String localizedName = CMLib.lang().L("Find Mate");
+	@Override public String name() { return localizedName; }
+	protected String displayText=L("(Tracking a mate)");
+	@Override public String displayText(){ return displayText;}
+	@Override protected int canAffectCode(){return CAN_MOBS;}
+	@Override protected int canTargetCode(){return CAN_MOBS;}
+	@Override public int classificationCode(){return Ability.ACODE_CHANT|Ability.DOMAIN_BREEDING;}
+	@Override public int abstractQuality(){return Ability.QUALITY_OK_OTHERS;}
+	@Override public long flags(){return Ability.FLAG_TRACKING;}
 
-	protected Vector theTrail=null;
+	protected List<Room> theTrail=null;
 	public int nextDirection=-2;
 
+	@Override
 	public boolean tick(Tickable ticking, int tickID)
 	{
 		if(!super.tick(ticking,tickID))
@@ -59,29 +61,31 @@ public class Chant_FindMate extends Chant
 			||(!(affected instanceof MOB)))
 				return false;
 
-			MOB mob=(MOB)affected;
+			final MOB mob=(MOB)affected;
 			if(mob.location()!=null)
 			{
 				MOB mate=null;
 				for(int i=0;i<mob.location().numInhabitants();i++)
 				{
-					MOB M=mob.location().fetchInhabitant(i);
+					final MOB M=mob.location().fetchInhabitant(i);
 					if(isSuitableMate(M,mob))
 					{ mate=M; break;}
 				}
 				if(mate!=null)
 				{
-					mob.tell("You peer longingly at "+mate.name()+".");
+					mob.tell(L("You peer longingly at @x1.",mate.name()));
 
 					Item I=mob.fetchFirstWornItem(Wearable.WORN_WAIST);
-					if(I!=null)	CMLib.commands().postRemove(mob,I,false);
+					if(I!=null)
+						CMLib.commands().postRemove(mob,I,false);
 					I=mob.fetchFirstWornItem(Wearable.WORN_LEGS);
-					if(I!=null)	CMLib.commands().postRemove(mob,I,false);
+					if(I!=null)
+						CMLib.commands().postRemove(mob,I,false);
 
 					if((mob.fetchFirstWornItem(Wearable.WORN_WAIST)!=null)
 					||(mob.fetchFirstWornItem(Wearable.WORN_LEGS)!=null))
 						unInvoke();
-					mob.doCommand(CMParms.parse("MATE \""+mate.name()+"$\""),Command.METAFLAG_FORCED);
+					mob.doCommand(CMParms.parse("MATE \""+mate.name()+"$\""),MUDCmdProcessor.METAFLAG_FORCED);
 					unInvoke();
 				}
 			}
@@ -91,27 +95,27 @@ public class Chant_FindMate extends Chant
 
 			if(nextDirection==999)
 			{
-				mob.tell("Your yearning for a mate seems to fade.");
+				mob.tell(L("Your yearning for a mate seems to fade."));
 				nextDirection=-2;
 				unInvoke();
 			}
 			else
 			if(nextDirection==-1)
 			{
-				mob.tell("You no longer want to continue.");
+				mob.tell(L("You no longer want to continue."));
 				nextDirection=-999;
 				unInvoke();
 			}
 			else
 			if(nextDirection>=0)
 			{
-				mob.tell("You want to continue "+Directions.getDirectionName(nextDirection)+".");
-				Room nextRoom=mob.location().getRoomInDir(nextDirection);
+				mob.tell(L("You want to continue @x1.",CMLib.directions().getDirectionName(nextDirection)));
+				final Room nextRoom=mob.location().getRoomInDir(nextDirection);
 				if((nextRoom!=null)&&(nextRoom.getArea()==mob.location().getArea()))
 				{
-					int dir=nextDirection;
+					final int dir=nextDirection;
 					nextDirection=-2;
-					CMLib.tracking().move(mob,dir,false,false);
+					CMLib.tracking().walk(mob,dir,false,false);
 				}
 				else
 					unInvoke();
@@ -120,14 +124,23 @@ public class Chant_FindMate extends Chant
 		return true;
 	}
 
-	public void executeMsg(Environmental myHost, CMMsg msg)
+
+	@Override
+	public void affectPhyStats(Physical affectedEnv, PhyStats affectableStats)
+	{
+		affectableStats.setSensesMask(affectableStats.sensesMask()|PhyStats.CAN_NOT_TRACK);
+		super.affectPhyStats(affectedEnv, affectableStats);
+	}
+
+	@Override
+	public void executeMsg(final Environmental myHost, final CMMsg msg)
 	{
 		super.executeMsg(myHost,msg);
 
-		if((affected==null)||(!(affected instanceof MOB)))
+		if(!(affected instanceof MOB))
 			return;
 
-		MOB mob=(MOB)affected;
+		final MOB mob=(MOB)affected;
 		if((msg.amISource(mob))
 		&&(msg.amITarget(mob.location()))
 		&&(CMLib.flags().canBeSeenBy(mob.location(),mob))
@@ -137,99 +150,97 @@ public class Chant_FindMate extends Chant
 
 	public boolean isSuitableMate(MOB mate, MOB forMe)
 	{
-		if(mate==forMe) return false;
-		if((mate==null)||(forMe==null)) return false;
+		if(mate==forMe)
+			return false;
+		if((mate==null)||(forMe==null))
+			return false;
 		if(mate.charStats().getStat(CharStats.STAT_GENDER)==forMe.charStats().getStat(CharStats.STAT_GENDER))
 			return false;
 		if((mate.charStats().getStat(CharStats.STAT_GENDER)!='M')
 		&&(mate.charStats().getStat(CharStats.STAT_GENDER)!='F'))
 			return false;
-		String materace=mate.charStats().getMyRace().ID();
-		String merace=mate.charStats().getMyRace().ID();
-		if(((merace.equals("Human"))
-		   ||(materace.equals("Human"))
-		   ||(merace.equals(materace)))
+		if(((mate.charStats().getMyRace().ID().equals("Human"))
+		   ||(mate.charStats().getMyRace().ID().equals("Human"))
+		   ||(mate.charStats().getMyRace().canBreedWith(mate.charStats().getMyRace())))
 		&&(mate.fetchWornItems(Wearable.WORN_LEGS|Wearable.WORN_WAIST,(short)-2048,(short)0).size()==0)
 		&&(CMLib.flags().canBeSeenBy(mate,forMe)))
 			return true;
 		return false;
 	}
 
-	public boolean invoke(MOB mob, Vector commands, Environmental givenTarget, boolean auto, int asLevel)
+	@Override
+	public boolean invoke(MOB mob, List<String> commands, Physical givenTarget, boolean auto, int asLevel)
 	{
-		MOB target=getTarget(mob,commands,givenTarget);
-		if(target==null) return false;
+		final MOB target=getTarget(mob,commands,givenTarget);
+		if(target==null)
+			return false;
 		if((target.charStats().getStat(CharStats.STAT_GENDER)!='M')
 		&&(target.charStats().getStat(CharStats.STAT_GENDER)!='F'))
 		{
-			mob.tell(target.name()+" is incapable of mating!");
+			mob.tell(L("@x1 is incapable of mating!",target.name(mob)));
 			return false;
 		}
 
-		Vector V=CMLib.flags().flaggedAffects(mob,Ability.FLAG_TRACKING);
-		for(int v=0;v<V.size();v++)	((Ability)V.elementAt(v)).unInvoke();
+		final List<Ability> V=CMLib.flags().flaggedAffects(mob,Ability.FLAG_TRACKING);
+		for(final Ability A : V) A.unInvoke();
 		if(V.size()>0)
 		{
-			target.tell("You stop tracking.");
+			target.tell(L("You stop tracking."));
 			return true;
 		}
 
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
 			return false;
 
-		boolean success=proficiencyCheck(mob,0,auto);
+		final boolean success=proficiencyCheck(mob,0,auto);
 
 		TrackingLibrary.TrackingFlags flags;
-		flags = new TrackingLibrary.TrackingFlags()
-				.add(TrackingLibrary.TrackingFlag.OPENONLY);
-		Vector rooms=new Vector();
-		Vector checkSet=CMLib.tracking().getRadiantRooms(mob.location(),flags,50);
-		for(Enumeration r=checkSet.elements();r.hasMoreElements();)
+		flags = CMLib.tracking().newFlags()
+				.plus(TrackingLibrary.TrackingFlag.OPENONLY);
+		final Vector<Room> rooms=new Vector<Room>();
+		int radius = 50 + (10*super.getXMAXRANGELevel(mob)) + super.getXLEVELLevel(mob);
+		List<Room> checkSet=CMLib.tracking().getRadiantRooms(mob.location(),flags,radius);
+		for (final Room R : checkSet)
 		{
-			Room R=(Room)r.nextElement();
 			if(R!=null)
 			for(int i=0;i<R.numInhabitants();i++)
 			{
-				MOB M=R.fetchInhabitant(i);
+				final MOB M=R.fetchInhabitant(i);
 				if(isSuitableMate(M,target))
 				{ rooms.addElement(R); break;}
 			}
 		}
 		checkSet=null;
 		//TrackingLibrary.TrackingFlags flags;
-		flags = new TrackingLibrary.TrackingFlags()
-				.add(TrackingLibrary.TrackingFlag.OPENONLY)
-				.add(TrackingLibrary.TrackingFlag.NOEMPTYGRIDS)
-				.add(TrackingLibrary.TrackingFlag.NOAIR)
-				.add(TrackingLibrary.TrackingFlag.NOWATER);
+		flags = CMLib.tracking().newFlags()
+				.plus(TrackingLibrary.TrackingFlag.OPENONLY)
+				.plus(TrackingLibrary.TrackingFlag.NOEMPTYGRIDS)
+				.plus(TrackingLibrary.TrackingFlag.NOAIR)
+				.plus(TrackingLibrary.TrackingFlag.NOWATER);
 		if(rooms.size()>0)
-			theTrail=CMLib.tracking().findBastardTheBestWay(mob.location(),rooms,flags,50);
+			theTrail=CMLib.tracking().findTrailToAnyRoom(mob.location(),rooms,flags,radius);
 
 		if((success)&&(theTrail!=null))
 		{
-			theTrail.addElement(mob.location());
+			theTrail.add(mob.location());
 
-			// it worked, so build a copy of this ability,
-			// and add it to the affects list of the
-			// affected MOB.  Then tell everyone else
-			// what happened.
-			CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),auto?null:"^S<S-NAME> chant(s) to <T-NAMESELF>.^?");
+			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),auto?null:L("^S<S-NAME> chant(s) to <T-NAMESELF>.^?"));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);
 				beneficialAffect(mob,target,asLevel,0);
-				Chant_FindMate A=(Chant_FindMate)target.fetchEffect(ID());
+				final Chant_FindMate A=(Chant_FindMate)target.fetchEffect(ID());
 				if(A!=null)
 				{
-					target.location().show(target,null,CMMsg.MSG_OK_VISUAL,"<S-NAME> yearn(s) for a mate!");
+					target.location().show(target,null,CMMsg.MSG_OK_VISUAL,L("<S-NAME> yearn(s) for a mate!"));
 					A.makeLongLasting();
 					A.nextDirection=CMLib.tracking().trackNextDirectionFromHere(theTrail,mob.location(),true);
-					target.recoverEnvStats();
+					target.recoverPhyStats();
 				}
 			}
 		}
 		else
-			beneficialWordsFizzle(mob,target,"<S-NAME> chant(s) to <T-NAMESELF>, but nothing happen(s).");
+			beneficialWordsFizzle(mob,target,L("<S-NAME> chant(s) to <T-NAMESELF>, but nothing happen(s)."));
 
 
 		// return whether it worked

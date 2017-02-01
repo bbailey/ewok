@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Fighter;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,20 +10,21 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2003-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -31,29 +33,34 @@ import java.util.*;
    limitations under the License.
 */
 
-@SuppressWarnings("unchecked")
+
 public class Fighter_Warcry extends FighterSkill
 {
-	public String ID() { return "Fighter_Warcry"; }
-	public String name(){ return "War Cry";}
-	public String displayText(){return "(War Cry)";}
-	public int abstractQuality(){ return Ability.QUALITY_BENEFICIAL_OTHERS;}
-	private static final String[] triggerStrings = {"WARCRY"};
-	public String[] triggerStrings(){return triggerStrings;}
-	protected int canAffectCode(){return 0;}
-	protected int canTargetCode(){return Ability.CAN_MOBS;}
-	public int classificationCode(){return Ability.ACODE_SKILL|Ability.DOMAIN_SINGING;}
+	@Override public String ID() { return "Fighter_Warcry"; }
+	private final static String localizedName = CMLib.lang().L("War Cry");
+	@Override public String name() { return localizedName; }
+	private final static String localizedStaticDisplay = CMLib.lang().L("(War Cry)");
+	@Override public String displayText() { return localizedStaticDisplay; }
+	@Override public int abstractQuality(){ return Ability.QUALITY_BENEFICIAL_OTHERS;}
+	private static final String[] triggerStrings =I(new String[] {"WARCRY"});
+	@Override public String[] triggerStrings(){return triggerStrings;}
+	@Override protected int canAffectCode(){return 0;}
+	@Override protected int canTargetCode(){return Ability.CAN_MOBS;}
+	@Override public int classificationCode(){return Ability.ACODE_SKILL|Ability.DOMAIN_SINGING;}
 
 	protected int timesTicking=0;
 
-	public void affectEnvStats(Environmental affected, EnvStats affectableStats)
+	@Override
+	public void affectPhyStats(Physical affected, PhyStats affectableStats)
 	{
-		super.affectEnvStats(affected,affectableStats);
-		if(invoker==null) return;
-		float f=(float)CMath.mul(0.1,(float)getXLEVELLevel(invoker()));
+		super.affectPhyStats(affected,affectableStats);
+		if(invoker==null)
+			return;
+		final float f=(float)CMath.mul(0.1,(float)getXLEVELLevel(invoker()));
 		affectableStats.setDamage(affectableStats.damage()+1+(int)Math.round(CMath.div(affectableStats.damage(),4.0-f)));
 	}
 
+	@Override
 	public boolean tick(Tickable ticking, int tickID)
 	{
 		if(!super.tick(ticking,tickID))
@@ -65,44 +72,47 @@ public class Fighter_Warcry extends FighterSkill
 		return true;
 	}
 
+	@Override
 	public void unInvoke()
 	{
 		// undo the affects of this spell
-		if((affected==null)||(!(affected instanceof MOB)))
+		if(!(affected instanceof MOB))
 			return;
-		MOB mob=(MOB)affected;
+		final MOB mob=(MOB)affected;
 
 		super.unInvoke();
 
 		if(canBeUninvoked())
-			mob.tell("You calm down a bit.");
+			mob.tell(L("You calm down a bit."));
 	}
 
-	public boolean invoke(MOB mob, Vector commands, Environmental givenTarget, boolean auto, int asLevel)
+	@Override
+	public boolean invoke(MOB mob, List<String> commands, Physical givenTarget, boolean auto, int asLevel)
 	{
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
 			return false;
 
-		boolean success=proficiencyCheck(mob,0,auto);
+		final boolean success=proficiencyCheck(mob,0,auto);
 		if(success)
 		{
-			CMMsg msg=CMClass.getMsg(mob,null,this,CMMsg.MSG_SPEAK,auto?"":"^S<S-NAME> scream(s) a mighty WAR CRY!!^?");
+			final CMMsg msg=CMClass.getMsg(mob,null,this,CMMsg.MSG_SPEAK,auto?"":L("^S<S-NAME> scream(s) a mighty WAR CRY!!^?"));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);
-				HashSet h=properTargets(mob,givenTarget,auto);
-				if(h==null) return false;
-				for(Iterator e=h.iterator();e.hasNext();)
+				final Set<MOB> h=properTargets(mob,givenTarget,auto);
+				if(h==null)
+					return false;
+				for (final Object element : h)
 				{
-					MOB target=(MOB)e.next();
-					target.location().show(target,null,CMMsg.MSG_OK_VISUAL,"<S-NAME> get(s) enraged!");
+					final MOB target=(MOB)element;
+					target.location().show(target,null,CMMsg.MSG_OK_VISUAL,L("<S-NAME> get(s) enraged!"));
 					timesTicking=0;
 					beneficialAffect(mob,target,asLevel,0);
 				}
 			}
 		}
 		else
-			beneficialWordsFizzle(mob,null,auto?"":"<S-NAME> mumble(s) a weak war cry.");
+			beneficialWordsFizzle(mob,null,auto?"":L("<S-NAME> mumble(s) a weak war cry."));
 
 		// return whether it worked
 		return success;

@@ -9,13 +9,13 @@
 	<!--
 	function openUp(named)
 	{
-		var strFeatures="top=200,left=50,resizeable=no,height=400,width=650,alwaysRaised=yes,dependent=yes";
+		var strFeatures="top=200,left=50,resizeable=no,height=400,width=750,alwaysRaised=yes,dependent=yes";
 		w=window.open("ability.cmvp?ABILITY="+named,
 		            "Ability",strFeatures, false);
 	}
 	function openEdu(named)
 	{
-		var strFeatures="top=200,left=50,resizeable=no,height=400,width=650,alwaysRaised=yes,dependent=yes";
+		var strFeatures="top=200,left=50,resizeable=no,height=400,width=750,alwaysRaised=yes,dependent=yes";
 		w=window.open("edu.cmvp?EXPERTISE="+named,
 		            "Expertise",strFeatures, false);
 	}
@@ -58,14 +58,14 @@
 			<TR><TD WIDTH=35%>(@AbilityData?typendomain@)</TD>
 			<TD WIDTH=15% ALIGN=RIGHT>@AbilityData?qualifyQ@</TD>
 			<TD WIDTH=50%>&nbsp;
-			<a href="javascript:openUp('@AbilityID@');">@AbilityName@</a> 
+			<a href="javascript:openUp('@AbilityID@');">@if?AbilityData?CLASSONLY@ <B>@AbilityName@</B> @else@ @AbilityName@ @endif@</a> 
 			</TD></TR>
 			@back@
 			@loop@ @ExpertiseNext@ 
 			<TR><TD WIDTH=35%>(Expertise)</TD>
 			<TD WIDTH=15% ALIGN=RIGHT><FONT COLOR=BLACK>(Available)</FONT></TD>
 			<TD WIDTH=50%>&nbsp;
-			<a href="javascript:openEdu('@ExpertiseID@');">(@ExpertiseData?name@)</a> 
+			<a href="javascript:openEdu('@ExpertiseID@');"><FONT COLOR=BLACK>(@ExpertiseData?name@)</FONT></a> 
 			</TD></TR>
 			@back@
 		</TABLE>

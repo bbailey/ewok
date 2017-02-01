@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Skills;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,21 +10,21 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
-
 import java.util.*;
 
 /*
-   Copyright 2000-2010 Bo Zimmerman
+   Copyright 2001-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -31,38 +32,105 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
+
 public class Skill_Trip extends StdSkill
 {
-	boolean doneTicking=false;
-	public String ID() { return "Skill_Trip"; }
-	public String name(){ return "Trip";}
-	public String displayText(){ return "(Tripped)";}
-	protected int canAffectCode(){return CAN_MOBS;}
-	protected int canTargetCode(){return CAN_MOBS;}
-	public int abstractQuality(){return Ability.QUALITY_MALICIOUS;}
-	private static final String[] triggerStrings = {"TRIP"};
-	public String[] triggerStrings(){return triggerStrings;}
-    public int classificationCode(){return Ability.ACODE_SKILL|Ability.DOMAIN_DIRTYFIGHTING;}
-	public long flags(){return Ability.FLAG_MOVING;}
-	protected int enhancement=0;
-	public int abilityCode(){return enhancement;}
-	public void setAbilityCode(int newCode){enhancement=newCode;}
-	public int usageType(){return USAGE_MOVEMENT;}
-
-	public void affectEnvStats(Environmental affected, EnvStats affectableStats)
+	@Override
+	public String ID()
 	{
-		super.affectEnvStats(affected,affectableStats);
-		if(!doneTicking)
-			affectableStats.setDisposition(affectableStats.disposition()|EnvStats.IS_SITTING);
+		return "Skill_Trip";
 	}
 
-	public boolean okMessage(Environmental myHost, CMMsg msg)
+	private final static String	localizedName	= CMLib.lang().L("Trip");
+
+	@Override
+	public String name()
 	{
-		if((affected==null)||(!(affected instanceof MOB)))
+		return localizedName;
+	}
+
+	private final static String	localizedStaticDisplay	= CMLib.lang().L("(Tripped)");
+
+	@Override
+	public String displayText()
+	{
+		return localizedStaticDisplay;
+	}
+
+	@Override
+	protected int canAffectCode()
+	{
+		return CAN_MOBS;
+	}
+
+	@Override
+	protected int canTargetCode()
+	{
+		return CAN_MOBS;
+	}
+
+	@Override
+	public int abstractQuality()
+	{
+		return Ability.QUALITY_MALICIOUS;
+	}
+
+	private static final String[]	triggerStrings	= I(new String[] { "TRIP" });
+
+	@Override
+	public String[] triggerStrings()
+	{
+		return triggerStrings;
+	}
+
+	@Override
+	public int classificationCode()
+	{
+		return Ability.ACODE_SKILL | Ability.DOMAIN_DIRTYFIGHTING;
+	}
+
+	@Override
+	public long flags()
+	{
+		return Ability.FLAG_MOVING;
+	}
+
+	protected int		enhancement	= 0;
+	protected boolean	doneTicking	= false;
+
+	@Override
+	public int abilityCode()
+	{
+		return enhancement;
+	}
+
+	@Override
+	public void setAbilityCode(int newCode)
+	{
+		enhancement = newCode;
+	}
+
+	@Override
+	public int usageType()
+	{
+		return USAGE_MOVEMENT;
+	}
+
+	@Override
+	public void affectPhyStats(Physical affected, PhyStats affectableStats)
+	{
+		super.affectPhyStats(affected,affectableStats);
+		if(!doneTicking)
+			affectableStats.setDisposition(affectableStats.disposition()|PhyStats.IS_SITTING);
+	}
+
+	@Override
+	public boolean okMessage(final Environmental myHost, final CMMsg msg)
+	{
+		if(!(affected instanceof MOB))
 			return true;
 
-		MOB mob=(MOB)affected;
+		final MOB mob=(MOB)affected;
 		if((doneTicking)&&(msg.amISource(mob)))
 			unInvoke();
 		else
@@ -71,37 +139,40 @@ public class Skill_Trip extends StdSkill
 		return true;
 	}
 
+	@Override
 	public void unInvoke()
 	{
-		if((affected==null)||(!(affected instanceof MOB)))
+		if(!(affected instanceof MOB))
 			return;
-		MOB mob=(MOB)affected;
+		final MOB mob=(MOB)affected;
 		if(canBeUninvoked())
 			doneTicking=true;
 		super.unInvoke();
-		if(canBeUninvoked())
+		if(canBeUninvoked() && (mob!=null))
 		{
-			if((mob.location()!=null)&&(!mob.amDead()))
+			final Room R=mob.location();
+			if((R!=null)&&(!mob.amDead()))
 			{
-				CMMsg msg=CMClass.getMsg(mob,null,CMMsg.MSG_NOISYMOVEMENT,"<S-NAME> regain(s) <S-HIS-HER> feet.");
-				if(mob.location().okMessage(mob,msg)&&(!mob.amDead()))
+				final CMMsg msg=CMClass.getMsg(mob,null,CMMsg.MSG_NOISYMOVEMENT,L("<S-NAME> regain(s) <S-HIS-HER> feet."));
+				if(R.okMessage(mob,msg)&&(!mob.amDead()))
 				{
-					mob.location().send(mob,msg);
+					R.send(mob,msg);
 					CMLib.commands().postStand(mob,true);
 				}
 			}
 			else
-				mob.tell("You regain your feet.");
+				mob.tell(L("You regain your feet."));
 		}
 	}
 
-	public int castingQuality(MOB mob, Environmental target)
+	@Override
+	public int castingQuality(MOB mob, Physical target)
 	{
 		if((mob!=null)&&(target!=null))
 		{
 			if((CMLib.flags().isSitting(target)||CMLib.flags().isSleeping(target)))
 				return Ability.QUALITY_INDIFFERENT;
-			if((!CMLib.flags().aliveAwakeMobile(mob,true)||(CMLib.flags().isSitting(mob))))
+			if((!CMLib.flags().isAliveAwakeMobile(mob,true)||(CMLib.flags().isSitting(mob))))
 				return Ability.QUALITY_INDIFFERENT;
 			if(mob.isInCombat()&&(mob.rangeToTarget()>0))
 				return Ability.QUALITY_INDIFFERENT;
@@ -113,62 +184,72 @@ public class Skill_Trip extends StdSkill
 		return super.castingQuality(mob,target);
 	}
 
-	public boolean invoke(MOB mob, Vector commands, Environmental givenTarget, boolean auto, int asLevel)
+	@Override
+	public boolean invoke(MOB mob, List<String> commands, Physical givenTarget, boolean auto, int asLevel)
 	{
-		MOB target=this.getTarget(mob,commands,givenTarget);
-		if(target==null) return false;
+		final MOB target=this.getTarget(mob,commands,givenTarget);
+		if(target==null)
+			return false;
 
 		if((CMLib.flags().isSitting(target)||CMLib.flags().isSleeping(target)))
 		{
-			mob.tell(target,null,null,"<S-NAME> is already on the floor!");
+			mob.tell(target,null,null,L("<S-NAME> is already on the floor!"));
 			return false;
 		}
 
-		if((!CMLib.flags().aliveAwakeMobile(mob,true)||(CMLib.flags().isSitting(mob))))
+		if((!CMLib.flags().isAliveAwakeMobile(mob,true)||(CMLib.flags().isSitting(mob))))
 		{
-			mob.tell("You need to stand up!");
+			mob.tell(L("You need to stand up!"));
 			return false;
 		}
 		if(mob.isInCombat()&&(mob.rangeToTarget()>0))
 		{
-			mob.tell("You are too far away to trip!");
+			mob.tell(L("You are too far away to trip!"));
+			return false;
+		}
+		if((mob.charStats().getBodyPart(Race.BODY_LEG)<=0)&&(mob.charStats().getBodyPart(Race.BODY_TAIL)<=0))
+		{
+			mob.tell(L("You need legs or a tail to trip someone."));
 			return false;
 		}
 		if(target.riding()!=null)
 		{
-			mob.tell("You can't trip someone "+target.riding().stateString(target)+" "+target.riding().name()+"!");
+			mob.tell(L("You can't trip someone @x1 @x2!",target.riding().stateString(target),target.riding().name()));
 			return false;
 		}
 		if(CMLib.flags().isInFlight(target))
 		{
-			mob.tell(target.name()+" is flying and can't be tripped!");
+			mob.tell(L("@x1 is flying and can't be tripped!",target.name(mob)));
 			return false;
 		}
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
 			return false;
 
-		int levelDiff=target.envStats().level()-(mob.envStats().level()+(2*getXLEVELLevel(mob)));
+		int levelDiff=target.phyStats().level()-(mob.phyStats().level()+(2*getXLEVELLevel(mob)));
 		if(levelDiff>0)
 			levelDiff=levelDiff*5;
 		else
 			levelDiff=0;
 		levelDiff-=(abilityCode()*mob.charStats().getStat(CharStats.STAT_DEXTERITY));
-		int adjustment=(-levelDiff)+(-(35+((int)Math.round((target.charStats().getStat(CharStats.STAT_DEXTERITY)-9.0)*3.0))));
+		final int adjustment=(-levelDiff)+(-(35+((int)Math.round((target.charStats().getStat(CharStats.STAT_DEXTERITY)-9.0)*3.0))));
 		boolean success=proficiencyCheck(mob,adjustment,auto);
 		success=success&&(target.charStats().getBodyPart(Race.BODY_LEG)>0);
 		if(success)
 		{
-			CMMsg msg=CMClass.getMsg(mob,target,this,CMMsg.MSK_MALICIOUS_MOVE|CMMsg.TYP_JUSTICE|(auto?CMMsg.MASK_ALWAYS:0),auto?"<T-NAME> trip(s)!":"^F^<FIGHT^><S-NAME> trip(s) <T-NAMESELF>!^</FIGHT^>^?");
-            CMLib.color().fixSourceFightColor(msg);
+			final CMMsg msg=CMClass.getMsg(mob,target,this,CMMsg.MSK_MALICIOUS_MOVE|CMMsg.TYP_JUSTICE|(auto?CMMsg.MASK_ALWAYS:0),auto?L("<T-NAME> trip(s)!"):L("^F^<FIGHT^><S-NAME> trip(s) <T-NAMESELF>!^</FIGHT^>^?"));
+			CMLib.color().fixSourceFightColor(msg);
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);
-				maliciousAffect(mob,target,asLevel,2,-1);
-				target.tell("You hit the floor!");
+				if(msg.value()<=0)
+				{
+					maliciousAffect(mob,target,asLevel,2,-1);
+					target.tell(L("You hit the floor!"));
+				}
 			}
 		}
 		else
-			return maliciousFizzle(mob,target,"<S-NAME> attempt(s) to trip <T-NAMESELF>, but fail(s).");
+			return maliciousFizzle(mob,target,L("<S-NAME> attempt(s) to trip <T-NAMESELF>, but fail(s)."));
 		return success;
 	}
 }

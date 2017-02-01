@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.CharClasses;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,22 +10,24 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
+import java.lang.ref.WeakReference;
 import java.util.*;
 
 
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2003-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,28 +35,67 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
 public class Necromancer extends Cleric
 {
-	public String ID(){return "Necromancer";}
-	public String name(){return "Necromancer";}
-	public String baseClass(){return "Cleric";}
-	public int getAttackAttribute(){return CharStats.STAT_WISDOM;}
-	public int allowedWeaponLevel(){return CharClass.WEAPONS_EVILCLERIC;}
-	private HashSet disallowedWeapons=buildDisallowedWeaponClasses();
-	protected HashSet disallowedWeaponClasses(MOB mob){return disallowedWeapons;}
-	protected int alwaysFlunksThisQuality(){return 1000;}
-	protected boolean registeredAsListener=false;
+	@Override
+	public String ID()
+	{
+		return "Necromancer";
+	}
+
+	private final static String localizedStaticName = CMLib.lang().L("Necromancer");
+
+	@Override
+	public String name()
+	{
+		return localizedStaticName;
+	}
+
+	@Override
+	public String baseClass()
+	{
+		return "Cleric";
+	}
+
+	@Override
+	public int getAttackAttribute()
+	{
+		return CharStats.STAT_WISDOM;
+	}
+
+	@Override
+	public int allowedWeaponLevel()
+	{
+		return CharClass.WEAPONS_EVILCLERIC;
+	}
+
+	private final Set<Integer> disallowedWeapons = buildDisallowedWeaponClasses();
+
+	@Override
+	protected Set<Integer> disallowedWeaponClasses(MOB mob)
+	{
+		return disallowedWeapons;
+	}
+
+	@Override
+	protected int alwaysFlunksThisQuality()
+	{
+		return 1000;
+	}
+
+	protected boolean registeredAsListener = false;
 
 	public Necromancer()
 	{
-        super();
+		super();
 		maxStatAdj[CharStats.STAT_WISDOM]=4;
 		maxStatAdj[CharStats.STAT_CONSTITUTION]=4;
-    }
-    public void initializeClass()
-    {
-        super.initializeClass();
+	}
+
+	@Override
+	public void initializeClass()
+	{
+		super.initializeClass();
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Skill_Recall",100,true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Skill_Swim",false);
 
@@ -80,10 +122,10 @@ public class Necromancer extends Cleric
 		CMLib.ableMapper().addCharAbilityMapping(ID(),5,"Prayer_DarkSenses",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),6,"Prayer_AnimateGhoul",false);
-        CMLib.ableMapper().addCharAbilityMapping(ID(),6,"Prayer_CallUndead",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),6,"Prayer_CallUndead",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),7,"Prayer_Curse",true);
-        CMLib.ableMapper().addCharAbilityMapping(ID(),7,"Prayer_CauseFatigue",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),7,"Prayer_CauseFatigue",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),8,"Prayer_Paralyze",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),8,"Prayer_ProtParalyzation",false);
@@ -92,6 +134,7 @@ public class Necromancer extends Cleric
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),10,"Prayer_SenseMagic",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),10,"Prayer_SenseInvisible",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),10,"Prayer_Silence",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),11,"Prayer_Poison",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),11,"Prayer_ProtPoison",false);
@@ -116,9 +159,10 @@ public class Necromancer extends Cleric
 		CMLib.ableMapper().addCharAbilityMapping(ID(),17,"Skill_AttackHalf",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),18,"Prayer_AnimateGhost",false);
-        CMLib.ableMapper().addCharAbilityMapping(ID(),18,"Prayer_InfuseUnholiness",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),18,"Prayer_InfuseUnholiness",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),19,"Prayer_Hellfire",true);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),19,"Prayer_Designation",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),20,"Prayer_MassParalyze",true,CMParms.parseSemicolons("Prayer_Paralyze",true));
 
@@ -129,13 +173,15 @@ public class Necromancer extends Cleric
 		CMLib.ableMapper().addCharAbilityMapping(ID(),22,"Prayer_Disenchant",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),23,"Prayer_AnimateDead",false);
-        CMLib.ableMapper().addCharAbilityMapping(ID(),23,"Prayer_CauseExhaustion",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),23,"Prayer_CauseExhaustion",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),24,"Prayer_UnholyWord",true,CMParms.parseSemicolons("Prayer_GreatCurse",true));
 		CMLib.ableMapper().addCharAbilityMapping(ID(),24,"Prayer_Nullification",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),25,"Prayer_AnimateVampire",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),25,"Prayer_Regeneration",true);
+
+		CMLib.ableMapper().addCharAbilityMapping(ID(),30,"Prayer_MassGrave",false);
 		
 		if(!registeredAsListener)
 		{
@@ -150,45 +196,55 @@ public class Necromancer extends Cleric
 		}
 	}
 
-	public int availabilityCode(){return Area.THEME_FANTASY;}
-
-	public String getStatQualDesc(){return "Wisdom 9+ Constitution 9+";}
-	public boolean qualifiesForThisClass(MOB mob, boolean quiet)
+	@Override
+	public String[] getRequiredRaceList()
 	{
-		if(mob.baseCharStats().getStat(CharStats.STAT_WISDOM)<=8)
-		{
-			if(!quiet)
-				mob.tell("You need at least a 9 Wisdom to become a Necromancer.");
-			return false;
-		}
-		if(mob.baseCharStats().getStat(CharStats.STAT_CONSTITUTION)<=8)
-		{
-			if(!quiet)
-				mob.tell("You need at least a 9 Constitution to become a Necromancer.");
-			return false;
-		}
-		return super.qualifiesForThisClass(mob,quiet);
+		return super.getRequiredRaceList();
 	}
 
-	public String getOtherBonusDesc(){return "Can sense deaths at Necromancer level 15, and becomes a Lich upon death at 30.  Undead followers will not drain experience.";}
-	public String getOtherLimitsDesc(){return "Always fumbles good prayers.  Qualifies and receives evil prayers.  Using non-aligned prayers introduces failure chance.";}
+	@SuppressWarnings("unchecked")
+	private final Pair<String,Integer>[] minimumStatRequirements=new Pair[]{
+		new Pair<String,Integer>("Wisdom",Integer.valueOf(9)),
+		new Pair<String,Integer>("Constitution",Integer.valueOf(9))
+	};
 
-	public boolean okMessage(Environmental myHost, CMMsg msg)
+	@Override
+	public Pair<String, Integer>[] getMinimumStatRequirements()
 	{
-		if(!(myHost instanceof MOB)) return super.okMessage(myHost,msg);
-		MOB myChar=(MOB)myHost;
+		return minimumStatRequirements;
+	}
+
+	@Override
+	public String getOtherBonusDesc()
+	{
+		return L("Can sense deaths at Necromancer level 15, and becomes a Lich upon death at 30.  Undead followers will not drain experience.");
+	}
+
+	@Override
+	public String getOtherLimitsDesc()
+	{
+		return L("Always fumbles good prayers.  Qualifies and receives evil prayers.  Using non-aligned prayers introduces failure chance.");
+	}
+
+	@Override
+	public boolean okMessage(final Environmental myHost, final CMMsg msg)
+	{
+		if(!(myHost instanceof MOB))
+			return super.okMessage(myHost,msg);
+		final MOB myChar=(MOB)myHost;
 		if(!super.okMessage(myChar, msg))
 			return false;
 
 		if(msg.amISource(myChar)
 		&&(!myChar.isMonster())
+		&&(msg.sourceMinor()==CMMsg.TYP_DEATH)
 		&&(myChar.baseCharStats().getClassLevel(this)>=30)
 		&&(!myChar.baseCharStats().getMyRace().ID().equals("Lich")))
 		{
-			Race newRace=CMClass.getRace("Lich");
+			final Race newRace=CMClass.getRace("Lich");
 			if(newRace!=null)
 			{
-				myChar.tell("The dark powers are transforming you into a "+newRace.name()+"!!");
+				myChar.tell(L("The dark powers are transforming you into a @x1!!",newRace.name()));
 				myChar.baseCharStats().setMyRace(newRace);
 				myChar.recoverCharStats();
 			}
@@ -196,45 +252,53 @@ public class Necromancer extends Cleric
 		return true;
 	}
 
-	public void executeMsg(Environmental myHost, CMMsg msg)
+	@Override
+	public void executeMsg(final Environmental myHost, final CMMsg msg)
 	{
-		if(!(myHost instanceof MOB)){
-			super.executeMsg(myHost,msg);
-		} 
-		else
-		if((msg.sourceMinor()==CMMsg.TYP_DEATH)&&(msg.othersMinor()==CMMsg.TYP_DEATH))
+		if(!(myHost instanceof MOB))
 		{
-			MOB aChar=(MOB)myHost;
+			super.executeMsg(myHost,msg);
+		}
+		else
+		if((msg.sourceCode()==CMMsg.TYP_DEATH)&&(msg.othersCode()==CMMsg.TYP_DEATH))
+		{
+			final MOB aChar=(MOB)myHost;
 			super.executeMsg(myHost,msg);
 			MOB M=null;
-			Room deathRoom=aChar.location();
-			if((deathRoom!=null)&&(deathRoom.getArea()!=null))
-			for(Enumeration e=CMLib.sessions().sessions();e.hasMoreElements();)
+			final Room myRoom=aChar.location();
+			if((myRoom!=null)
+			&&(myRoom.getArea()!=null))
 			{
-				M=((Session)e.nextElement()).mob();
-				if((M!=null)
-				&&(M.baseCharStats().getCurrentClass()==this)
-				&&(aChar!=M)
-				&&(M.baseCharStats().getClassLevel(this)>14)
-				&&(CMLib.flags().isInTheGame(M,true))
-				&&(!CMath.bset(M.getBitmap(),MOB.ATT_QUIET)))
+				for(final Session S : CMLib.sessions().localOnlineIterable())
 				{
-					if(!aChar.isMonster())
-						M.tell("^RYou just felt the death of "+aChar.Name()+".^N");
-					else
-					if((M.location()!=deathRoom)&&(deathRoom.getArea().Name().equals(M.location().getArea().Name())))
-						M.tell("^RYou just felt the death of "+aChar.Name()+" somewhere nearby.^N");
+					M=S.mob();
+					if((M!=null)
+					&&(M.baseCharStats().getCurrentClass()==this)
+					&&(aChar!=M)
+					&&(M.baseCharStats().getClassLevel(this)>14)
+					&&(CMLib.flags().isInTheGame(M,true))
+					&&(!M.isAttributeSet(MOB.Attrib.QUIET)))
+					{
+						if(!aChar.isMonster())
+							M.tell(L("^RYou just felt the death of @x1.^N",aChar.Name()));
+						else
+						if((M.location()!=myRoom)&&(myRoom.getArea().Name().equals(M.location().getArea().Name())))
+							M.tell(L("^RYou just felt the death of @x1 somewhere nearby.^N",aChar.Name()));
+					}
 				}
 			}
 		}
+		else
+			super.executeMsg(myHost,msg);
 	}
-	
-    public boolean isValidClassDivider(MOB killer, MOB killed, MOB mob, HashSet followers)
+
+	@Override
+	public boolean isValidClassDivider(MOB killer, MOB killed, MOB mob, Set<MOB> followers)
 	{
 		if((mob!=null)
-        &&(mob!=killed)
+		&&(mob!=killed)
 		&&(!mob.amDead())
-		&&((!mob.isMonster())||(!mob.charStats().getMyRace().racialCategory().equals("Undead")))
+		&&((!mob.isMonster())||(!CMLib.flags().isUndead(mob)))
 		&&((mob.getVictim()==killed)
 		 ||(followers.contains(mob))
 		 ||(mob==killer)))
@@ -242,15 +306,18 @@ public class Necromancer extends Cleric
 		return false;
 	}
 
-	public Vector outfit(MOB myChar)
+	@Override
+	public List<Item> outfit(MOB myChar)
 	{
 		if(outfitChoices==null)
 		{
-			outfitChoices=new Vector();
-			Weapon w=CMClass.getWeapon("Shortsword");
-			outfitChoices.addElement(w);
+			final Weapon w=CMClass.getWeapon("Shortsword");
+			if(w == null)
+				return new Vector<Item>();
+			outfitChoices=new Vector<Item>();
+			outfitChoices.add(w);
 		}
 		return outfitChoices;
 	}
-	
+
 }

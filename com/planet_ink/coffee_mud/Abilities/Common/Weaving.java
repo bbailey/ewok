@@ -1,6 +1,9 @@
 package com.planet_ink.coffee_mud.Abilities.Common;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
+import com.planet_ink.coffee_mud.Abilities.Common.CraftingSkill.CraftParms;
+import com.planet_ink.coffee_mud.Abilities.Common.CraftingSkill.CraftingActivity;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,22 +12,23 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.AchievementLibrary;
+import com.planet_ink.coffee_mud.Libraries.interfaces.ListingLibrary;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
-
 
 import java.util.*;
 
 
 /*
-   Copyright 2000-2010 Bo Zimmerman
+   Copyright 2003-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -33,266 +37,429 @@ import java.util.*;
    limitations under the License.
 */
 
-@SuppressWarnings("unchecked")
 public class Weaving extends EnhancedCraftingSkill implements ItemCraftor, MendingSkill
 {
-	public String ID() { return "Weaving"; }
-	public String name(){ return "Weaving";}
-	private static final String[] triggerStrings = {"WEAVING","WEAVE"};
-	public String[] triggerStrings(){return triggerStrings;}
-    public String supportedResourceString(){return "WHEAT|VINE|SEAWEED|HEMP|SILK|COTTON";}
-    public String parametersFormat(){ return 
-        "ITEM_NAME\tITEM_LEVEL\tBUILD_TIME_TICKS\tAMOUNT_MATERIAL_REQUIRED\tITEM_BASE_VALUE\t"
-        +"ITEM_CLASS_ID\tWEAPON_CLASS||CODED_WEAR_LOCATION||RIDE_BASIS||LID_LOCK\t"
-        +"CONTAINER_CAPACITY||WEAPON_HANDS_REQUIRED\tBASE_ARMOR_AMOUNT||BASE_DAMAGE\t"
-        +"CONTAINER_TYPE\tCODED_SPELL_LIST";}
+	@Override
+	public String ID()
+	{
+		return "Weaving";
+	}
 
-	protected static final int RCP_FINALNAME=0;
-	protected static final int RCP_LEVEL=1;
-	protected static final int RCP_TICKS=2;
-	protected static final int RCP_WOOD=3;
-	protected static final int RCP_VALUE=4;
-	protected static final int RCP_CLASSTYPE=5;
-	protected static final int RCP_MISCTYPE=6;
-	protected static final int RCP_CAPACITY=7;
-	protected static final int RCP_ARMORDMG=8;
-	protected static final int RCP_CONTAINMASK=9;
-	protected static final int RCP_SPELL=10;
+	private final static String	localizedName	= CMLib.lang().L("Weaving");
+
+	@Override
+	public String name()
+	{
+		return localizedName;
+	}
+
+	private static final String[]	triggerStrings	= I(new String[] { "WEAVING", "WEAVE" });
+
+	@Override
+	public String[] triggerStrings()
+	{
+		return triggerStrings;
+	}
+
+	@Override
+	public String supportedResourceString()
+	{
+		return "WHEAT|VINE|SEAWEED|HEMP|SILK|COTTON|FLOWERS|BAMBOO";
+	}
+
+	@Override
+	public String parametersFormat()
+	{
+		return
+		"ITEM_NAME\tITEM_LEVEL\tBUILD_TIME_TICKS\tMATERIALS_REQUIRED\tITEM_BASE_VALUE\t"
+		+"ITEM_CLASS_ID\tWEAPON_CLASS||CODED_WEAR_LOCATION||RIDE_BASIS||LID_LOCK\t"
+		+"CONTAINER_CAPACITY||WEAPON_HANDS_REQUIRED\tBASE_ARMOR_AMOUNT||BASE_DAMAGE\t"
+		+"CONTAINER_TYPE\tCODED_SPELL_LIST";
+	}
+
+	//protected static final int RCP_FINALNAME=0;
+	//protected static final int RCP_LEVEL=1;
+	//protected static final int RCP_TICKS=2;
+	protected static final int	RCP_WOOD		= 3;
+	protected static final int	RCP_VALUE		= 4;
+	protected static final int	RCP_CLASSTYPE	= 5;
+	protected static final int	RCP_MISCTYPE	= 6;
+	protected static final int	RCP_CAPACITY	= 7;
+	protected static final int	RCP_ARMORDMG	= 8;
+	protected static final int	RCP_CONTAINMASK	= 9;
+	protected static final int	RCP_SPELL		= 10;
 
 	protected Item key=null;
 
 	public Weaving()
 	{
-	    super();
+		super();
 
-	    building = null;
-	    mending = false;
-	    refitting = false;
-	    messedUp = false;
+		buildingI = null;
+		activity = CraftingActivity.CRAFTING;
+		messedUp = false;
 	}
 
-
+	@Override
 	public boolean tick(Tickable ticking, int tickID)
 	{
 		if((affected!=null)&&(affected instanceof MOB)&&(tickID==Tickable.TICKID_MOB))
 		{
-			if(building==null)
+			if(buildingI==null)
 				unInvoke();
 		}
 		return super.tick(ticking,tickID);
 	}
 
-    public String parametersFile(){ return "weaving.txt";}
-    protected Vector loadRecipes(){return super.loadRecipes(parametersFile());}
+	@Override
+	public String parametersFile()
+	{
+		return "weaving.txt";
+	}
 
+	@Override
+	protected List<List<String>> loadRecipes()
+	{
+		return super.loadRecipes(parametersFile());
+	}
+
+	@Override
 	public void unInvoke()
 	{
 		if(canBeUninvoked())
 		{
-			if((affected!=null)&&(affected instanceof MOB))
+			if(affected instanceof MOB)
 			{
-				MOB mob=(MOB)affected;
-				if((building!=null)&&(!aborted))
+				final MOB mob=(MOB)affected;
+				if((buildingI!=null)&&(!aborted))
 				{
 					if(messedUp)
 					{
-						if(mending)
+						if(activity == CraftingActivity.MENDING)
 							messedUpCrafting(mob);
 						else
-						if(refitting)
-							commonEmote(mob,"<S-NAME> mess(es) up refitting "+building.name()+".");
+						if(activity == CraftingActivity.LEARNING)
+						{
+							commonEmote(mob,L("<S-NAME> fail(s) to learn how to make @x1.",buildingI.name()));
+							buildingI.destroy();
+						}
 						else
-							commonEmote(mob,"<S-NAME> mess(es) up weaving "+building.name()+".");
+						if(activity == CraftingActivity.REFITTING)
+							commonEmote(mob,L("<S-NAME> mess(es) up refitting @x1.",buildingI.name()));
+						else
+							commonEmote(mob,L("<S-NAME> mess(es) up weaving @x1.",buildingI.name()));
 					}
 					else
 					{
-						if(mending)
-							building.setUsesRemaining(100);
-						else
-						if(refitting)
+						if(activity == CraftingActivity.MENDING)
 						{
-							building.baseEnvStats().setHeight(0);
-							building.recoverEnvStats();
+							buildingI.setUsesRemaining(100);
+							CMLib.achievements().possiblyBumpAchievement(mob, AchievementLibrary.Event.MENDER, 1, this);
+						}
+						else
+						if(activity==CraftingActivity.LEARNING)
+						{
+							deconstructRecipeInto( buildingI, recipeHolder );
+							buildingI.destroy();
+						}
+						else
+						if(activity == CraftingActivity.REFITTING)
+						{
+							buildingI.basePhyStats().setHeight(0);
+							buildingI.recoverPhyStats();
 						}
 						else
 						{
-							dropAWinner(mob,building);
+							dropAWinner(mob,buildingI);
+							CMLib.achievements().possiblyBumpAchievement(mob, AchievementLibrary.Event.CRAFTING, 1, this);
 							if(key!=null)
 							{
 								dropAWinner(mob,key);
-								key.setContainer(building);
+								if(buildingI instanceof Container)
+									key.setContainer((Container)buildingI);
 							}
 						}
 					}
 				}
-				building=null;
+				buildingI=null;
 				key=null;
-				mending=false;
+				activity = CraftingActivity.CRAFTING;
 			}
 		}
 		super.unInvoke();
 	}
 
-	public boolean supportsMending(Environmental E){ return canMend(null,E,true);}
+	@Override
+	public boolean supportsDeconstruction()
+	{
+		return true;
+	}
+
+	@Override
+	public double getItemWeightMultiplier(boolean bundling)
+	{
+		return bundling ? 1.0 : 0.5;
+	}
+
+	@Override
+	public boolean mayICraft(final Item I)
+	{
+		if(I==null)
+			return false;
+		if(!super.mayBeCrafted(I))
+			return false;
+		if(I.material()==RawMaterial.RESOURCE_PAPER)
+			return false;
+		if((I.material()!=RawMaterial.RESOURCE_COTTON)
+		&&(I.material()!=RawMaterial.RESOURCE_SILK)
+		&&(I.material()!=RawMaterial.RESOURCE_HEMP)
+		&&(I.material()!=RawMaterial.RESOURCE_VINE)
+		&&(I.material()!=RawMaterial.RESOURCE_WHEAT)
+		&&(I.material()!=RawMaterial.RESOURCE_FLOWERS)
+		&&(I.material()!=RawMaterial.RESOURCE_BAMBOO)
+		&&(I.material()!=RawMaterial.RESOURCE_SEAWEED)
+		&&(((I.material()&RawMaterial.MATERIAL_MASK)!=RawMaterial.MATERIAL_VEGETATION)))
+			return false;
+		if(CMLib.flags().isDeadlyOrMaliciousEffect(I))
+			return false;
+		if(I instanceof Rideable)
+		{
+			final Rideable R=(Rideable)I;
+			final int rideType=R.rideBasis();
+			switch(rideType)
+			{
+			case Rideable.RIDEABLE_LADDER:
+			case Rideable.RIDEABLE_SLEEP:
+			case Rideable.RIDEABLE_SIT:
+			case Rideable.RIDEABLE_TABLE:
+				return true;
+			default:
+				return false;
+			}
+		}
+		if(I instanceof Shield)
+			return true;
+		if(I instanceof Weapon)
+			return true;
+		if(I instanceof Light)
+			return true;
+		if(I instanceof Armor)
+			return (isANativeItem(I.Name()));
+		if(I instanceof Container)
+			return true;
+		if((I instanceof Drink)&&(!(I instanceof Potion)))
+			return true;
+		if(I instanceof FalseLimb)
+			return true;
+		if(I instanceof Wand)
+			return true;
+		if(I.rawProperLocationBitmap()==Wearable.WORN_HELD)
+			return true;
+		return (isANativeItem(I.Name()));
+	}
+
+	@Override
+	public boolean supportsMending(Physical I)
+	{
+		return canMend(null, I, true);
+	}
+
+	@Override
 	protected boolean canMend(MOB mob, Environmental E, boolean quiet)
 	{
-		if(!super.canMend(mob,E,quiet)) return false;
-		Item IE=(Item)E;
-		if((IE.material()!=RawMaterial.RESOURCE_COTTON)
-		&&(IE.material()!=RawMaterial.RESOURCE_SILK)
-		&&(IE.material()!=RawMaterial.RESOURCE_HEMP)
-		&&(IE.material()!=RawMaterial.RESOURCE_VINE)
-		&&(IE.material()!=RawMaterial.RESOURCE_WHEAT)
-		&&(IE.material()!=RawMaterial.RESOURCE_SEAWEED))
+		if(!super.canMend(mob,E,quiet))
+			return false;
+		if((!(E instanceof Item))
+		||(!mayICraft((Item)E)))
 		{
 			if(!quiet)
-				commonTell(mob,"That's not made of any sort of weavable material.  It can't be mended.");
+				commonTell(mob,L("That's not a weaved item."));
 			return false;
 		}
 		return true;
 	}
 
-	public boolean invoke(MOB mob, Vector commands, Environmental givenTarget, boolean auto, int asLevel)
+	@Override
+	public String getDecodedComponentsDescription(final MOB mob, final List<String> recipe)
 	{
-		int autoGenerate=0;
-		if((auto)&&(givenTarget==this)&&(commands.size()>0)&&(commands.firstElement() instanceof Integer))
-		{
-			autoGenerate=((Integer)commands.firstElement()).intValue();
-			commands.removeElementAt(0);
-			givenTarget=null;
-		}
-		DVector enhancedTypes=enhancedTypes(mob,commands);
+		return super.getComponentDescription( mob, recipe, RCP_WOOD );
+	}
+
+	@Override
+	public boolean invoke(MOB mob, List<String> commands, Physical givenTarget, boolean auto, int asLevel)
+	{
+		return autoGenInvoke(mob,commands,givenTarget,auto,asLevel,0,false,new Vector<Item>(0));
+	}
+	
+	@Override
+	protected boolean autoGenInvoke(final MOB mob, List<String> commands, Physical givenTarget, final boolean auto, 
+								 final int asLevel, int autoGenerate, boolean forceLevels, List<Item> crafted)
+	{
+		if(super.checkStop(mob, commands))
+			return true;
+
+		if(super.checkInfo(mob, commands))
+			return true;
+		
+		final PairVector<EnhancedExpertise,Integer> enhancedTypes=enhancedTypes(mob,commands);
 		randomRecipeFix(mob,addRecipes(mob,loadRecipes()),commands,autoGenerate);
 		if(commands.size()==0)
 		{
-			commonTell(mob,"Weave what? Enter \"weave list\" for a list, \"weave refit <item>\" to resize, \"weave scan\", or \"weave mend <item>\".");
+			commonTell(mob,L("Weave what? Enter \"weave list\" for a list, \"weave info <item>\", \"weave refit <item>\" to resize,"
+						+ " \"weave learn <item>\", \"weave scan\", \"weave mend <item>\", or \"weave stop\" to cancel."));
 			return false;
 		}
-        if((!auto)
-        &&(commands.size()>0)
-        &&(((String)commands.firstElement()).equalsIgnoreCase("bundle")))
-        {
-            bundling=true;
-            if(super.invoke(mob,commands,givenTarget,auto,asLevel))
-                return super.bundle(mob,commands);
-            return false;
-        }
-		Vector recipes=addRecipes(mob,loadRecipes());
-		String str=(String)commands.elementAt(0);
-        bundling=false;
+		if((!auto)
+		&&(commands.size()>0)
+		&&((commands.get(0)).equalsIgnoreCase("bundle")))
+		{
+			bundling=true;
+			if(super.invoke(mob,commands,givenTarget,auto,asLevel))
+				return super.bundle(mob,commands);
+			return false;
+		}
+		final List<List<String>> recipes=addRecipes(mob,loadRecipes());
+		final String str=commands.get(0);
+		bundling=false;
 		String startStr=null;
 		int duration=4;
 		if(str.equalsIgnoreCase("list"))
 		{
 			String mask=CMParms.combine(commands,1);
-			StringBuffer buf=new StringBuffer("");
+			boolean allFlag=false;
+			if(mask.equalsIgnoreCase("all"))
+			{
+				allFlag=true;
+				mask="";
+			}
+			final StringBuffer buf=new StringBuffer("");
 			int toggler=1;
-			int toggleTop=3;
+			final int toggleTop=2;
+			final int[] cols={
+				CMLib.lister().fixColWidth(22,mob.session()),
+				CMLib.lister().fixColWidth(3,mob.session()),
+				CMLib.lister().fixColWidth(10,mob.session())
+			};
 			for(int r=0;r<toggleTop;r++)
-				buf.append(CMStrings.padRight("Item",10)+" "+CMStrings.padRight("Lvl",3)+" "+CMStrings.padRight("Material",10)+" ");
+				buf.append((r>0?" ":"")+CMStrings.padRight(L("Item"),cols[0])+" "+CMStrings.padRight(L("Lvl"),cols[1])+" "+CMStrings.padRight(L("Material"),cols[2]));
 			buf.append("\n\r");
 			for(int r=0;r<recipes.size();r++)
 			{
-				Vector V=(Vector)recipes.elementAt(r);
+				final List<String> V=recipes.get(r);
 				if(V.size()>0)
 				{
-					String item=replacePercent((String)V.elementAt(RCP_FINALNAME),"");
-					int level=CMath.s_int((String)V.elementAt(RCP_LEVEL));
-					int wood=CMath.s_int((String)V.elementAt(RCP_WOOD));
-                    wood=adjustWoodRequired(wood,mob);
-					if((level<=xlevel(mob))
-					&&((mask==null)||(mask.length()==0)||mask.equalsIgnoreCase("all")||CMLib.english().containsString(item,mask)))
+					final String item=replacePercent(V.get(RCP_FINALNAME),"");
+					final int level=CMath.s_int(V.get(RCP_LEVEL));
+					final String wood=getComponentDescription(mob,V,RCP_WOOD);
+					if(wood.length()>5)
 					{
-						buf.append(CMStrings.padRight(item,10)+" "+CMStrings.padRight(""+level,3)+" "+CMStrings.padRight(""+wood,10)+((toggler!=toggleTop)?" ":"\n\r"));
-						if(++toggler>toggleTop) toggler=1;
+						if(toggler>1)
+							buf.append("\n\r");
+						toggler=toggleTop;
+					}
+					if(((level<=xlevel(mob))||allFlag)
+					&&((mask.length()==0)||mask.equalsIgnoreCase("all")||CMLib.english().containsString(item,mask)))
+					{
+						buf.append(CMStrings.padRight(item,cols[0])+" "+CMStrings.padRight(""+level,cols[1])+" "+CMStrings.padRightPreserve(""+wood,cols[2])+((toggler!=toggleTop)?" ":"\n\r"));
+						if(++toggler>toggleTop)
+							toggler=1;
 					}
 				}
 			}
-			if(toggler!=1) buf.append("\n\r");
+			if(toggler!=1)
+				buf.append("\n\r");
 			commonTell(mob,buf.toString());
 			enhanceList(mob);
 			return true;
 		}
+		else
+		if(((commands.get(0))).equalsIgnoreCase("learn"))
+		{
+			return doLearnRecipe(mob, commands, givenTarget, auto, asLevel);
+		}
+		else
 		if(str.equalsIgnoreCase("scan"))
 			return publicScan(mob,commands);
 		else
 		if(str.equalsIgnoreCase("mend"))
 		{
-			building=null;
-			mending=false;
+			buildingI=null;
+			activity = CraftingActivity.CRAFTING;
 			messedUp=false;
 			key=null;
-			Vector newCommands=CMParms.parse(CMParms.combine(commands,1));
-			building=getTarget(mob,mob.location(),givenTarget,newCommands,Wearable.FILTER_UNWORNONLY);
-			if(!canMend(mob,building,false)) return false;
-			mending=true;
+			final Vector<String> newCommands=CMParms.parse(CMParms.combine(commands,1));
+			buildingI=getTarget(mob,mob.location(),givenTarget,newCommands,Wearable.FILTER_UNWORNONLY);
+			if(!canMend(mob,buildingI,false))
+				return false;
+			activity = CraftingActivity.MENDING;
 			if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
 				return false;
-			startStr="<S-NAME> start(s) mending "+building.name()+".";
-			displayText="You are mending "+building.name();
-			verb="mending "+building.name();
+			startStr=L("<S-NAME> start(s) mending @x1.",buildingI.name());
+			displayText=L("You are mending @x1",buildingI.name());
+			verb=L("mending @x1",buildingI.name());
 		}
 		else
 		if(str.equalsIgnoreCase("refit"))
 		{
-			building=null;
-			mending=false;
+			buildingI=null;
+			activity = CraftingActivity.CRAFTING;
 			key=null;
-			refitting=false;
 			messedUp=false;
-			Vector newCommands=CMParms.parse(CMParms.combine(commands,1));
-			building=getTarget(mob,mob.location(),givenTarget,newCommands,Wearable.FILTER_UNWORNONLY);
-			if(building==null) return false;
-			if((building.material()!=RawMaterial.RESOURCE_COTTON)
-			&&(building.material()!=RawMaterial.RESOURCE_SILK)
-			&&(building.material()!=RawMaterial.RESOURCE_HEMP)
-			&&(building.material()!=RawMaterial.RESOURCE_VINE)
-			&&(building.material()!=RawMaterial.RESOURCE_WHEAT)
-			&&(building.material()!=RawMaterial.RESOURCE_SEAWEED))
+			final Vector<String> newCommands=CMParms.parse(CMParms.combine(commands,1));
+			buildingI=getTarget(mob,mob.location(),givenTarget,newCommands,Wearable.FILTER_UNWORNONLY);
+			if(buildingI==null)
+				return false;
+			if((buildingI.material()!=RawMaterial.RESOURCE_COTTON)
+			&&(buildingI.material()!=RawMaterial.RESOURCE_SILK)
+			&&(buildingI.material()!=RawMaterial.RESOURCE_HEMP)
+			&&(buildingI.material()!=RawMaterial.RESOURCE_VINE)
+			&&(buildingI.material()!=RawMaterial.RESOURCE_WHEAT)
+			&&(buildingI.material()!=RawMaterial.RESOURCE_BAMBOO)
+			&&(buildingI.material()!=RawMaterial.RESOURCE_FLOWERS)
+			&&(buildingI.material()!=RawMaterial.RESOURCE_SEAWEED))
 			{
-				commonTell(mob,"That's not made of any sort of weavable material.  It can't be refitted.");
+				commonTell(mob,L("That's not made of any sort of weavable material.  It can't be refitted."));
 				return false;
 			}
-			if(!(building instanceof Armor))
-		    {
-				commonTell(mob,"You don't know how to refit that sort of thing.");
-				return false;
-			}
-			if(building.envStats().height()==0)
+			if(!(buildingI instanceof Armor))
 			{
-				commonTell(mob,building.name()+" is already the right size.");
+				commonTell(mob,L("You don't know how to refit that sort of thing."));
 				return false;
 			}
-			refitting=true;
+			if(buildingI.phyStats().height()==0)
+			{
+				commonTell(mob,L("@x1 is already the right size.",buildingI.name(mob)));
+				return false;
+			}
+			activity = CraftingActivity.REFITTING;
 			if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
 				return false;
-			startStr="<S-NAME> start(s) refitting "+building.name()+".";
-			displayText="You are refitting "+building.name();
-			verb="refitting "+building.name();
+			startStr=L("<S-NAME> start(s) refitting @x1.",buildingI.name());
+			displayText=L("You are refitting @x1",buildingI.name());
+			verb=L("refitting @x1",buildingI.name());
 		}
 		else
 		{
-			building=null;
-			mending=false;
+			buildingI=null;
+			activity = CraftingActivity.CRAFTING;
 			messedUp=false;
-            refitting=false;
-            aborted=false;
+			aborted=false;
 			key=null;
 			int amount=-1;
-			if((commands.size()>1)&&(CMath.isNumber((String)commands.lastElement())))
+			if((commands.size()>1)&&(CMath.isNumber(commands.get(commands.size()-1))))
 			{
-				amount=CMath.s_int((String)commands.lastElement());
-				commands.removeElementAt(commands.size()-1);
+				amount=CMath.s_int(commands.get(commands.size()-1));
+				commands.remove(commands.size()-1);
 			}
-			String recipeName=CMParms.combine(commands,0);
-			Vector foundRecipe=null;
-			Vector matches=matchingRecipeNames(recipes,recipeName,true);
+			final String recipeName=CMParms.combine(commands,0);
+			List<String> foundRecipe=null;
+			final List<List<String>> matches=matchingRecipeNames(recipes,recipeName,true);
 			for(int r=0;r<matches.size();r++)
 			{
-				Vector V=(Vector)matches.elementAt(r);
+				final List<String> V=matches.get(r);
 				if(V.size()>0)
 				{
-					int level=CMath.s_int((String)V.elementAt(RCP_LEVEL));
+					final int level=CMath.s_int(V.get(RCP_LEVEL));
 					if(level<=xlevel(mob))
 					{
 						foundRecipe=V;
@@ -302,41 +469,56 @@ public class Weaving extends EnhancedCraftingSkill implements ItemCraftor, Mendi
 			}
 			if(foundRecipe==null)
 			{
-				commonTell(mob,"You don't know how to weave a '"+recipeName+"'.  Try \"weave list\" for a list.");
+				commonTell(mob,L("You don't know how to weave a '@x1'.  Try \"weave list\" for a list.",recipeName));
 				return false;
 			}
-			int woodRequired=CMath.s_int((String)foundRecipe.elementAt(RCP_WOOD));
-            woodRequired=adjustWoodRequired(woodRequired,mob);
-			if(amount>woodRequired) woodRequired=amount;
-			int[] pm={RawMaterial.RESOURCE_COTTON,
-					  RawMaterial.RESOURCE_SILK,
-					  RawMaterial.RESOURCE_HEMP,
-					  RawMaterial.RESOURCE_VINE,
-					  RawMaterial.RESOURCE_WHEAT,
-					  RawMaterial.RESOURCE_SEAWEED};
-			String misctype=(String)foundRecipe.elementAt(RCP_MISCTYPE);
-            String spell=(foundRecipe.size()>RCP_SPELL)?((String)foundRecipe.elementAt(RCP_SPELL)).trim():"";
-            bundling=spell.equalsIgnoreCase("BUNDLE")||misctype.equalsIgnoreCase("BUNDLE");
-			int[][] data=fetchFoundResourceData(mob,
-												woodRequired,"weavable material",pm,
-												0,null,null,
-												false,
-												autoGenerate,
-												enhancedTypes);
-			if(data==null) return false;
+
+			final String woodRequiredStr = foundRecipe.get(RCP_WOOD);
+			final int[] compData = new int[CF_TOTAL];
+			final List<Object> componentsFoundList=getAbilityComponents(mob, woodRequiredStr, "make "+CMLib.english().startWithAorAn(recipeName),autoGenerate,compData);
+			if(componentsFoundList==null)
+				return false;
+			int woodRequired=CMath.s_int(woodRequiredStr);
+			woodRequired=adjustWoodRequired(woodRequired,mob);
+
+			if(amount>woodRequired)
+				woodRequired=amount;
+			final int[] pm={RawMaterial.RESOURCE_COTTON,
+							RawMaterial.RESOURCE_SILK,
+							RawMaterial.RESOURCE_HEMP,
+							RawMaterial.RESOURCE_VINE,
+							RawMaterial.RESOURCE_FLOWERS,
+							RawMaterial.RESOURCE_BAMBOO,
+							RawMaterial.RESOURCE_WHEAT,
+							RawMaterial.RESOURCE_SEAWEED
+							};
+			final String misctype=foundRecipe.get(RCP_MISCTYPE);
+			final String spell=(foundRecipe.size()>RCP_SPELL)?foundRecipe.get(RCP_SPELL).trim():"";
+			bundling=spell.equalsIgnoreCase("BUNDLE")||misctype.equalsIgnoreCase("BUNDLE");
+			final int[][] data=fetchFoundResourceData(mob,
+													woodRequired,"weavable material",pm,
+													0,null,null,
+													false,
+													autoGenerate,
+													enhancedTypes);
+			if(data==null)
+				return false;
+			fixDataForComponents(data,componentsFoundList);
 			woodRequired=data[0][FOUND_AMT];
 			if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
 				return false;
-			int lostValue=autoGenerate>0?0:
-                CMLib.materials().destroyResources(mob.location(),woodRequired,data[0][FOUND_CODE],0,null);
-			building=CMClass.getItem((String)foundRecipe.elementAt(RCP_CLASSTYPE));
-			if(building==null)
+			final int lostValue=autoGenerate>0?0:
+				CMLib.materials().destroyResourcesValue(mob.location(),woodRequired,data[0][FOUND_CODE],0,null)
+				+CMLib.ableComponents().destroyAbilityComponents(componentsFoundList);
+			buildingI=CMClass.getItem(foundRecipe.get(RCP_CLASSTYPE));
+			if(buildingI==null)
 			{
-				commonTell(mob,"There's no such thing as a "+foundRecipe.elementAt(RCP_CLASSTYPE)+"!!!");
+				commonTell(mob,L("There's no such thing as a @x1!!!",foundRecipe.get(RCP_CLASSTYPE)));
 				return false;
 			}
-			duration=getDuration(CMath.s_int((String)foundRecipe.elementAt(RCP_TICKS)),mob,CMath.s_int((String)foundRecipe.elementAt(RCP_LEVEL)),4);
-			String itemName=replacePercent((String)foundRecipe.elementAt(RCP_FINALNAME),RawMaterial.CODES.NAME(data[0][FOUND_CODE])).toLowerCase();
+			duration=getDuration(CMath.s_int(foundRecipe.get(RCP_TICKS)),mob,CMath.s_int(foundRecipe.get(RCP_LEVEL)),4);
+			buildingI.setMaterial(super.getBuildingMaterial(woodRequired, data, compData));
+			String itemName=replacePercent(foundRecipe.get(RCP_FINALNAME),RawMaterial.CODES.NAME(buildingI.material())).toLowerCase();
 			if(bundling)
 				itemName="a "+woodRequired+"# "+itemName;
 			else
@@ -344,82 +526,81 @@ public class Weaving extends EnhancedCraftingSkill implements ItemCraftor, Mendi
 				itemName="some "+itemName;
 			else
 				itemName=CMLib.english().startWithAorAn(itemName);
-			building.setName(itemName);
-			startStr="<S-NAME> start(s) weaving "+building.name()+".";
-			displayText="You are weaving "+building.name();
-			verb="weaving "+building.name();
-			building.setDisplayText(itemName+" lies here");
-			building.setDescription(itemName+". ");
-			building.baseEnvStats().setWeight(woodRequired/2);
-			building.setBaseValue(CMath.s_int((String)foundRecipe.elementAt(RCP_VALUE)));
-			building.setMaterial(data[0][FOUND_CODE]);
-			building.baseEnvStats().setLevel(CMath.s_int((String)foundRecipe.elementAt(RCP_LEVEL)));
-			building.setSecretIdentity("This is the work of "+mob.Name()+".");
-			int capacity=CMath.s_int((String)foundRecipe.elementAt(RCP_CAPACITY));
-			int canContain=CMath.s_int((String)foundRecipe.elementAt(RCP_CONTAINMASK));
-			int armordmg=CMath.s_int((String)foundRecipe.elementAt(RCP_ARMORDMG));
+			buildingI.setName(itemName);
+			startStr=L("<S-NAME> start(s) weaving @x1.",buildingI.name());
+			displayText=L("You are weaving @x1",buildingI.name());
+			verb=L("weaving @x1",buildingI.name());
+			buildingI.setDisplayText(L("@x1 lies here",itemName));
+			buildingI.setDescription(itemName+". ");
+			buildingI.basePhyStats().setWeight(getStandardWeight(woodRequired+compData[CF_AMOUNT],bundling));
+			buildingI.setBaseValue(CMath.s_int(foundRecipe.get(RCP_VALUE)));
+			buildingI.basePhyStats().setLevel(CMath.s_int(foundRecipe.get(RCP_LEVEL)));
+			buildingI.setSecretIdentity(getBrand(mob));
+			final int capacity=CMath.s_int(foundRecipe.get(RCP_CAPACITY));
+			final long canContain=getContainerType(foundRecipe.get(RCP_CONTAINMASK));
+			final int armordmg=CMath.s_int(foundRecipe.get(RCP_ARMORDMG));
 			if(bundling)
 			{
-			    building.setBaseValue(lostValue);
-				building.baseEnvStats().setWeight(woodRequired);
+				buildingI.setBaseValue(lostValue);
+				buildingI.basePhyStats().setWeight(woodRequired);
 			}
-			addSpells(building,spell);
-			if(building instanceof Weapon)
+			addSpells(buildingI,spell);
+			if(buildingI instanceof Weapon)
 			{
-				((Weapon)building).setWeaponClassification(Weapon.CLASS_FLAILED);
+				((Weapon)buildingI).setWeaponClassification(Weapon.CLASS_FLAILED);
 				for(int cl=0;cl<Weapon.CLASS_DESCS.length;cl++)
 				{
 					if(misctype.equalsIgnoreCase(Weapon.CLASS_DESCS[cl]))
-						((Weapon)building).setWeaponClassification(cl);
+						((Weapon)buildingI).setWeaponClassification(cl);
 				}
-				building.baseEnvStats().setDamage(armordmg);
-				((Weapon)building).setRawProperLocationBitmap(Wearable.WORN_WIELD|Wearable.WORN_HELD);
-				((Weapon)building).setRawLogicalAnd((capacity>1));
+				buildingI.basePhyStats().setDamage(armordmg);
+				((Weapon)buildingI).setRawProperLocationBitmap(Wearable.WORN_WIELD|Wearable.WORN_HELD);
+				((Weapon)buildingI).setRawLogicalAnd((capacity>1));
 			}
 			key=null;
-			if(building instanceof Armor)
+			if((buildingI instanceof Armor)&&(!(buildingI instanceof FalseLimb)))
 			{
-				if(capacity>0)
+				if((capacity>0)&&(buildingI instanceof Container))
 				{
-					((Armor)building).setCapacity(capacity+woodRequired);
-					((Armor)building).setContainTypes(canContain);
+					((Container)buildingI).setCapacity(capacity+woodRequired);
+					((Container)buildingI).setContainTypes(canContain);
 				}
-                ((Armor)building).baseEnvStats().setArmor(0);
-                if(armordmg!=0)
-                    ((Armor)building).baseEnvStats().setArmor(armordmg+(abilityCode()-1));
-                setWearLocation(building,misctype,0);
+				((Armor)buildingI).basePhyStats().setArmor(0);
+				if(armordmg!=0)
+					((Armor)buildingI).basePhyStats().setArmor(armordmg+(baseYield()+abilityCode()-1));
+				setWearLocation(buildingI,misctype,0);
 			}
 			else
-			if(building instanceof Container)
+			if(buildingI instanceof Container)
 			{
 				if(capacity>0)
 				{
-					((Container)building).setCapacity(capacity+woodRequired);
-					((Container)building).setContainTypes(canContain);
+					((Container)buildingI).setCapacity(capacity+woodRequired);
+					((Container)buildingI).setContainTypes(canContain);
 				}
 				if(misctype.equalsIgnoreCase("LID"))
-					((Container)building).setLidsNLocks(true,false,false,false);
+					((Container)buildingI).setDoorsNLocks(true,false,true,false,false,false);
 				else
 				if(misctype.equalsIgnoreCase("LOCK"))
 				{
-					((Container)building).setLidsNLocks(true,false,true,false);
-					((Container)building).setKeyName(Double.toString(Math.random()));
+					((Container)buildingI).setDoorsNLocks(true,false,true,true,false,true);
+					((Container)buildingI).setKeyName(Double.toString(Math.random()));
 					key=CMClass.getItem("GenKey");
-					((Key)key).setKey(((Container)building).keyName());
-					key.setName("a key");
-					key.setDisplayText("a small key sits here");
-					key.setDescription("looks like a key to "+building.name());
-					key.recoverEnvStats();
+					((DoorKey)key).setKey(((Container)buildingI).keyName());
+					key.setName(L("a key"));
+					key.setDisplayText(L("a small key sits here"));
+					key.setDescription(L("looks like a key to @x1",buildingI.name()));
+					key.recoverPhyStats();
 					key.text();
 				}
 			}
-			if(building instanceof Rideable)
+			if(buildingI instanceof Rideable)
 			{
-                setRideBasis((Rideable)building,misctype);
+				setRideBasis((Rideable)buildingI,misctype);
 			}
-			building.recoverEnvStats();
-			building.text();
-			building.recoverEnvStats();
+			buildingI.recoverPhyStats();
+			buildingI.text();
+			buildingI.recoverPhyStats();
 		}
 
 		messedUp=!proficiencyCheck(mob,0,auto);
@@ -428,25 +609,26 @@ public class Weaving extends EnhancedCraftingSkill implements ItemCraftor, Mendi
 		{
 			messedUp=false;
 			duration=1;
-			verb="bundling "+RawMaterial.CODES.NAME(building.material()).toLowerCase();
-			startStr="<S-NAME> start(s) "+verb+".";
-			displayText="You are "+verb;
+			verb=L("bundling @x1",RawMaterial.CODES.NAME(buildingI.material()).toLowerCase());
+			startStr=L("<S-NAME> start(s) @x1.",verb);
+			displayText=L("You are @x1",verb);
 		}
 
 		if(autoGenerate>0)
 		{
-			if(key!=null) commands.addElement(key);
-			commands.addElement(building);
+			if(key!=null)
+				crafted.add(key);
+			crafted.add(buildingI);
 			return true;
 		}
 
-		CMMsg msg=CMClass.getMsg(mob,building,this,CMMsg.MSG_NOISYMOVEMENT,startStr);
+		final CMMsg msg=CMClass.getMsg(mob,buildingI,this,getActivityMessageType(),startStr);
 		if(mob.location().okMessage(mob,msg))
 		{
 			mob.location().send(mob,msg);
-			building=(Item)msg.target();
+			buildingI=(Item)msg.target();
 			beneficialAffect(mob,mob,asLevel,duration);
-			enhanceItem(mob,building,enhancedTypes);
+			enhanceItem(mob,buildingI,enhancedTypes);
 		}
 		else
 		if(bundling)

@@ -10,7 +10,7 @@
 	<title>Forums</title>
 	<script language=JavaScript>
 	<!--
-	    var abort=false;
+		var abort=false;
 		function DoReply(which)
 		{
 			if(abort) return;
@@ -20,6 +20,12 @@
 			document.FORUM.action="forumnew.cmvp";
 			document.FORUM.submit();
 		}
+        function Register()
+        {
+            document.FORUM.LASTPAGE.value='forummsg.cmvp?@RequestParametersEncoded@';
+            document.FORUM.action='register.cmvp';
+            document.FORUM.submit();
+        }
 		function QuoteReply(which)
 		{
 			if(abort) return;
@@ -52,6 +58,12 @@
 		{
 			if(abort) return; abort=true;
 			document.FORUM.action="forum.cmvp";
+			document.FORUM.submit();
+		}
+		function CancelTo(which)
+		{
+			if(abort) return; abort=true;
+			document.FORUM.action=which;
 			document.FORUM.submit();
 		}
 		function DeleteReply(which)
@@ -110,7 +122,7 @@
 </head>
 
 <body>
-<FORM NAME=FORUM TARGET=_top METHOD=POST ACTION="forummsg.cmvp">
+<FORM  ACCEPT-CHARSET="UTF-8" NAME=FORUM TARGET=_top METHOD=POST ACTION="forummsg.cmvp">
 @if?CheckReqParm?FUNCTION=DELETEREPLY@ 
 	@AddRequestParameter?DELMSG=@@JournalFunction?DELETEREPLY@@ @
 @endif@
@@ -123,21 +135,30 @@
 <INPUT TYPE=HIDDEN NAME=JOURNALPAGE VALUE="@RequestParameter?JOURNALPAGE@">
 <INPUT TYPE=HIDDEN NAME=MESSAGEPAGE VALUE="@RequestParameter?MESSAGEPAGE@">
 <INPUT TYPE=HIDDEN NAME=JOURNALPARENT VALUE="">
+<INPUT TYPE=HIDDEN NAME=DBSEARCH VALUE="@RequestParameter?DBSEARCH@">
 <INPUT TYPE=HIDDEN NAME=FUNCTION VALUE="">
 <INPUT TYPE=HIDDEN NAME=QUOTEDMESSAGE VALUE="">
 <TABLE WIDTH=100% BORDER=0 CELLSPACING=0 CELLPADDING=0>
 	<TR>
 	<TD WIDTH=10px>&nbsp;</TD>
-	<TD><a href="@if?!Authenticate?SETPLAYER@index.cmvp@else@access.cmvp@endif@?AUTH=@Authenticate?AUTH@">
-		<IMG BORDER=0 SRC=images/cm50.gif>
-		</a>
-	</TD>
+    <TD>@if?CheckReqParm?CLAN=@
+        <a href="@if?!Authenticate?SETPLAYER@index.cmvp@else@access.cmvp@endif@?AUTH=@Authenticate?AUTH@">
+        @else@
+        <a href="index.cmvp?AUTH=@Authenticate?AUTH@">
+        @endif@
+        <IMG BORDER=0 src=images/cm50.gif>
+        </a>
+    </TD>
 	<TD ALIGN=RIGHT VALIGN=TOP>
 		<FONT COLOR=BLACK SIZE=-1>
 	@if?!Authenticate?SETPLAYER@ 
 		Login<INPUT TYPE=TEXT SIZE=10 VALUE="" NAME=LOGIN>&nbsp;
 		Password<INPUT TYPE=PASSWORD NAME=PASSWORD SIZE=10 VALUE="">
 		<INPUT TYPE=SUBMIT VALUE=Login>
+        @if?IsAccountSystem@
+            <INPUT TYPE=HIDDEN NAME=LASTPAGE VALUE="">
+            <INPUT TYPE=BUTTON VALUE=Register ONCLICK="Register()">
+        @endif@
 	@else@
 		Logged in as <B>@PlayerData?NAME@</B>
 	@endif@
@@ -155,7 +176,7 @@
 	<CENTER><FONT COLOR=RED><B>@RequestParameter?DELMSG@</B></FONT></CENTER>
 @endif@
 <TABLE WIDTH=100% BORDER=1 CELLSPACING=0 CELLPADDING=0 BGCOLOR=LIGHTGREY>
-<TR BGCOLOR=BLACK><TD COLSPAN=6>&nbsp;<FONT COLOR=WHITE SIZE=-1><B>Forum : @JournalName@</B></FONT>&nbsp;</TD></TR>
+<TR BGCOLOR=BLACK><TD COLSPAN=6>&nbsp;<FONT COLOR=WHITE SIZE=-1><B>Forum : @JournalName?NOCOLOR@</B></FONT>&nbsp;</TD></TR>
 <TR><TD><FONT COLOR=BLACK SIZE=-1>@ForumInfo?LONGDESC@</TD></TR>
 </TABLE>
 <TABLE WIDTH=100% BORDER=0 CELLSPACING=1 CELLPADDING=1>
@@ -171,17 +192,27 @@
 			<TD WIDTH=100px BGCOLOR=BLACK VALIGN=CENTER HEIGHT=15 ONCLICK="javascript:DoReply('')">
 			<a href="javascript:DoReply('')" style="text-decoration:none">
 				<FONT COLOR=WHITE SIZE=-1>
-				&nbsp;<IMG BORDER=0 WIDTH=14 HEIGHT=14 SRC=images/docbulb.gif>&nbsp;&nbsp;<B>Post Reply</B>
+				&nbsp;<IMG BORDER=0 WIDTH=14 HEIGHT=14 src=images/docbulb.gif>&nbsp;&nbsp;<B>Post Reply</B>
 				</FONT>
 			</a>
 			</TD>
 			@endif@
-			<TD ALIGN=RIGHT><FONT COLOR=WHITE SIZE=-1>&nbsp;</FONT>
-			</TD>
+			<TD ALIGN=RIGHT><FONT COLOR=WHITE SIZE=-1>&nbsp;</FONT></TD>
+			@if?CheckReqParm?FORUMREFERER=@
+			@else@
+				<TD WIDTH=160px BGCOLOR=BLACK VALIGN=CENTER HEIGHT=15 ONCLICK="javascript:CancelTo('@RequestParameter?FORUMREFERER@')">
+				
+					<a href="javascript:CancelTo('@RequestParameter?FORUMREFERER@')" style="text-decoration:none">
+						<FONT COLOR=WHITE SIZE=-1>
+						&nbsp;<IMG BORDER=0 WIDTH=14 HEIGHT=14 src=images/docbback.gif>&nbsp;&nbsp;<B>All Search Results</B>
+						</FONT>
+					</a>
+				</TD>
+			@endif@
 			<TD WIDTH=100px BGCOLOR=BLACK VALIGN=CENTER HEIGHT=15 ONCLICK="javascript:Cancel('')">
 			<a href="javascript:Cancel('')" style="text-decoration:none">
 				<FONT COLOR=WHITE SIZE=-1>
-				&nbsp;<IMG BORDER=0 WIDTH=14 HEIGHT=14 SRC=images/docbback.gif>&nbsp;&nbsp;<B>Forum</B>
+				&nbsp;<IMG BORDER=0 WIDTH=14 HEIGHT=14 src=images/docbback.gif>&nbsp;&nbsp;<B>Forum</B>
 				</FONT>
 			</a>
 			</TD>
@@ -206,7 +237,7 @@
 	<TR BGCOLOR=LIGHTBLUE>
 		<TD VALIGN=TOP><FONT COLOR=BLUE>@JournalInfo?FROM@</FONT></TD>
 		<TD><FONT COLOR=BLACK SIZE=-1>
-		    @AddRequestParameter?MSGICON=@@JournalInfo?MSGICON@@ @
+			@AddRequestParameter?MSGICON=@@JournalInfo?MSGICON@@ @
 			@if?CheckReqParm?!MSGICON=@
 				<IMG WIDTH=15 HEIGHT=15 SRC=@JournalInfo?MSGICON@>
 			@endif@
@@ -221,7 +252,7 @@
 					<TD WIDTH=60px BGCOLOR=BLACK VALIGN=CENTER HEIGHT=15 ONCLICK="javascript:EditMsg('@JournalInfo?KEY@')">
 					<a href="javascript:EditMsg('@JournalInfo?KEY@')" style="text-decoration:none">
 						<FONT COLOR=LIGHTBLUE SIZE=-1>
-						&nbsp;<IMG BORDER=0 WIDTH=14 HEIGHT=14 SRC=images/docgear.gif>&nbsp;&nbsp;<B>Edit</B>
+						&nbsp;<IMG BORDER=0 WIDTH=14 HEIGHT=14 src=images/docgear.gif>&nbsp;&nbsp;<B>Edit</B>
 						</FONT>
 					</a>
 					&nbsp;&nbsp;
@@ -231,7 +262,7 @@
 					<TD WIDTH=60px BGCOLOR=BLACK VALIGN=CENTER HEIGHT=15 ONCLICK="javascript:DeleteMsg('@JournalInfo?KEY@')">
 					<a href="javascript:DeleteMsg('@JournalInfo?KEY@')" style="text-decoration:none">
 						<FONT COLOR=LIGHTBLUE SIZE=-1>
-						&nbsp;<IMG BORDER=0 WIDTH=14 HEIGHT=14 SRC=images/docx.gif>&nbsp;&nbsp;<B>Delete</B>
+						&nbsp;<IMG BORDER=0 WIDTH=14 HEIGHT=14 src=images/docx.gif>&nbsp;&nbsp;<B>Delete</B>
 						</FONT>
 					</a>
 					</TD>
@@ -240,7 +271,7 @@
 				<TD WIDTH=60px BGCOLOR=BLACK VALIGN=CENTER HEIGHT=15 ONCLICK="javascript:QuoteReply('@JournalInfo?KEY@')">
 				<a href="javascript:QuoteReply('@JournalInfo?KEY@')" style="text-decoration:none">
 					<FONT COLOR=LIGHTBLUE SIZE=-1>
-					&nbsp;<IMG BORDER=0 WIDTH=14 HEIGHT=14 SRC=images/docclip.gif>&nbsp;&nbsp;<B>Quote</B>
+					&nbsp;<IMG BORDER=0 WIDTH=14 HEIGHT=14 src=images/docclip.gif>&nbsp;&nbsp;<B>Quote</B>
 					</FONT>
 				</a>
 				</TD>
@@ -269,7 +300,7 @@
 	<TR BGCOLOR=@RequestParameter?BGCOLOR@>
 		<TD VALIGN=TOP><FONT COLOR=BLUE>@JournalInfo?FROM@</FONT></TD>
 		<TD><FONT COLOR=BLACK SIZE=-1>
-		    @AddRequestParameter?MSGICON=@@JournalInfo?MSGICON@@ @
+			@AddRequestParameter?MSGICON=@@JournalInfo?MSGICON@@ @
 			@if?CheckReqParm?!MSGICON=@
 				<IMG WIDTH=15 HEIGHT=15 SRC=@JournalInfo?MSGICON@>
 			@endif@
@@ -283,7 +314,7 @@
 				<TD WIDTH=60px BGCOLOR=BLACK VALIGN=CENTER HEIGHT=15 ONCLICK="javascript:EditReply('@JournalInfo?KEY@')">
 				<a href="javascript:EditReply('@JournalInfo?KEY@')" style="text-decoration:none">
 					<FONT COLOR=@RequestParameter?BGCOLOR@ SIZE=-1>
-					&nbsp;<IMG BORDER=0 WIDTH=14 HEIGHT=14 SRC=images/docgear.gif>&nbsp;&nbsp;<B>Edit</B>
+					&nbsp;<IMG BORDER=0 WIDTH=14 HEIGHT=14 src=images/docgear.gif>&nbsp;&nbsp;<B>Edit</B>
 					</FONT>
 				</a>
 				&nbsp;&nbsp;
@@ -293,7 +324,7 @@
 				<TD WIDTH=60px BGCOLOR=BLACK VALIGN=CENTER HEIGHT=15 ONCLICK="javascript:DeleteReply('@JournalInfo?KEY@')">
 				<a href="javascript:DeleteReply('@JournalInfo?KEY@')" style="text-decoration:none">
 					<FONT COLOR=@RequestParameter?BGCOLOR@ SIZE=-1>
-					&nbsp;<IMG BORDER=0 WIDTH=14 HEIGHT=14 SRC=images/docx.gif>&nbsp;&nbsp;<B>Delete</B>
+					&nbsp;<IMG BORDER=0 WIDTH=14 HEIGHT=14 src=images/docx.gif>&nbsp;&nbsp;<B>Delete</B>
 					</FONT>
 				</a>
 				</TD>
@@ -302,7 +333,7 @@
 			<TD WIDTH=60px BGCOLOR=BLACK VALIGN=CENTER HEIGHT=15 ONCLICK="javascript:QuoteReply('@JournalInfo?KEY@')">
 			<a href="javascript:QuoteReply('@JournalInfo?KEY@')" style="text-decoration:none">
 				<FONT COLOR=@RequestParameter?BGCOLOR@ SIZE=-1>
-				&nbsp;<IMG BORDER=0 WIDTH=14 HEIGHT=14 SRC=images/docclip.gif>&nbsp;&nbsp;<B>Quote</B>
+				&nbsp;<IMG BORDER=0 WIDTH=14 HEIGHT=14 src=images/docclip.gif>&nbsp;&nbsp;<B>Quote</B>
 				</FONT>
 			</a>
 			</TD>
@@ -333,7 +364,7 @@
 			<TD WIDTH=70px BGCOLOR=BLACK VALIGN=CENTER HEIGHT=15 ONCLICK="javascript:PrevPage('')">
 			<a href="javascript:PrevPage('')" style="text-decoration:none">
 				<FONT COLOR=WHITE SIZE=-1>
-				<IMG BORDER=0 WIDTH=14 HEIGHT=14 SRC=images/docback.gif><B>Previous</B>
+				<IMG BORDER=0 WIDTH=14 HEIGHT=14 src=images/docback.gif><B>Previous</B>
 				</FONT>
 			</a>
 			</TD>
@@ -344,7 +375,7 @@
 			<TD WIDTH=50px BGCOLOR=BLACK VALIGN=CENTER HEIGHT=15 ONCLICK="javascript:NextPage('@RequestParameter?LASTENTRYTIME@')">
 			<a href="javascript:NextPage('')" style="text-decoration:none">
 				<FONT COLOR=WHITE SIZE=-1>
-				<B>Next</B>&nbsp;&nbsp;<IMG BORDER=0 WIDTH=14 HEIGHT=14 SRC=images/docforward.gif>
+				<B>Next</B>&nbsp;&nbsp;<IMG BORDER=0 WIDTH=14 HEIGHT=14 src=images/docforward.gif>
 				</FONT>
 			</a>
 			</TD>

@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Druid;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,21 +10,21 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
-
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2004-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,103 +33,119 @@ import java.util.*;
    limitations under the License.
 */
 
-@SuppressWarnings("unchecked")
+
 public class Chant_Brittle extends Chant
 {
-	public String ID() { return "Chant_Brittle"; }
-	public String name(){return "Brittle";}
-	protected int canTargetCode(){return CAN_MOBS|CAN_ITEMS;}
-	protected int canAffectCode(){return CAN_ITEMS;}
-	public int classificationCode(){return Ability.ACODE_CHANT|Ability.DOMAIN_ENDURING;}
-	public int abstractQuality(){return Ability.QUALITY_MALICIOUS;}
+	@Override public String ID() { return "Chant_Brittle"; }
+	private final static String localizedName = CMLib.lang().L("Brittle");
+	@Override public String name() { return localizedName; }
+	@Override protected int canTargetCode(){return CAN_MOBS|CAN_ITEMS;}
+	@Override protected int canAffectCode(){return CAN_ITEMS;}
+	@Override public int classificationCode(){return Ability.ACODE_CHANT|Ability.DOMAIN_ENDURING;}
+	@Override public int abstractQuality(){return Ability.QUALITY_MALICIOUS;}
 	protected int oldCondition=-1;
 	protected boolean noRecurse=true;
-    
-	public void affectEnvStats(Environmental E, EnvStats stats)
+
+	public void checkBritality(final Physical E)
 	{
-		super.affectEnvStats(E,stats);
-		if((E instanceof Item)&&(!noRecurse)&&(((Item)E).subjectToWearAndTear()))
+		synchronized(this)
 		{
-			noRecurse=true;
-			if(oldCondition==-1)
-				oldCondition=((Item)E).usesRemaining();
-			if(((Item)E).usesRemaining()<oldCondition)
+			if((E instanceof Item)&&(!noRecurse)&&(((Item)E).subjectToWearAndTear()))
 			{
-				Room R=CMLib.map().roomLocation(E);
-				if(R!=null)
-					R.showHappens(CMMsg.MSG_OK_ACTION,E.name()+" is destroyed!");
-				((Item)E).destroy();
+				noRecurse=true;
+				if(oldCondition<((Item)E).usesRemaining())
+					oldCondition=((Item)E).usesRemaining();
+				if(((Item)E).usesRemaining()<oldCondition)
+				{
+					final Room R=CMLib.map().roomLocation(E);
+					if(R!=null)
+						R.showHappens(CMMsg.MSG_OK_ACTION,L("@x1 is destroyed!",E.name()));
+					((Item)E).destroy();
+				}
+				noRecurse=false;
 			}
-			else
-				((Item)E).setUsesRemaining(oldCondition);
-			noRecurse=false;
 		}
 	}
-    
-    private Item getItem(MOB mobTarget) {
-        Vector goodPossibilities=new Vector();
-        Vector possibilities=new Vector();
-        for(int i=0;i<mobTarget.inventorySize();i++)
-        {
-            Item item=mobTarget.fetchInventory(i);
-            if((item!=null)
-               &&(item.subjectToWearAndTear()))
-            {
-                if(item.amWearingAt(Wearable.IN_INVENTORY))
-                    possibilities.addElement(item);
-                else
-                    goodPossibilities.addElement(item);
-            }
-        }
-        if(goodPossibilities.size()>0)
-            return (Item)goodPossibilities.elementAt(CMLib.dice().roll(1,goodPossibilities.size(),-1));
-        else
-        if(possibilities.size()>0)
-            return (Item)possibilities.elementAt(CMLib.dice().roll(1,possibilities.size(),-1));
-        return null;
-    }
 
-    public int castingQuality(MOB mob, Environmental target)
-    {
-        if(!(target instanceof MOB)) return Ability.QUALITY_INDIFFERENT;
-        if((mob!=null)&&(mob!=target))
-        {
-            Item I=getItem((MOB)target);
-            if(I==null)
-                return Ability.QUALITY_INDIFFERENT;
-        }
-        return super.castingQuality(mob,target);
-    }
-
-	public boolean invoke(MOB mob, Vector commands, Environmental givenTarget, boolean auto, int asLevel)
+	@Override
+	public void affectPhyStats(Physical E, PhyStats stats)
 	{
-		MOB mobTarget=getTarget(mob,commands,givenTarget,true,false);
+		super.affectPhyStats(E,stats);
+		checkBritality(affected);
+	}
+
+	@Override
+	public void executeMsg(Environmental host, CMMsg msg)
+	{
+		super.executeMsg(host, msg);
+		//checkBritality(affected);
+	}
+
+	private Item getItem(MOB mobTarget)
+	{
+		final Vector<Item> goodPossibilities=new Vector<Item>();
+		final Vector<Item> possibilities=new Vector<Item>();
+		for(int i=0;i<mobTarget.numItems();i++)
+		{
+			final Item item=mobTarget.getItem(i);
+			if((item!=null)
+			   &&(item.subjectToWearAndTear()))
+			{
+				if(item.amWearingAt(Wearable.IN_INVENTORY))
+					possibilities.addElement(item);
+				else
+					goodPossibilities.addElement(item);
+			}
+		}
+		if(goodPossibilities.size()>0)
+			return goodPossibilities.elementAt(CMLib.dice().roll(1,goodPossibilities.size(),-1));
+		else
+		if(possibilities.size()>0)
+			return possibilities.elementAt(CMLib.dice().roll(1,possibilities.size(),-1));
+		return null;
+	}
+
+	@Override
+	public int castingQuality(MOB mob, Physical target)
+	{
+		if(!(target instanceof MOB))
+			return Ability.QUALITY_INDIFFERENT;
+		if((mob!=null)&&(mob!=target))
+		{
+			final Item I=getItem((MOB)target);
+			if(I==null)
+				return Ability.QUALITY_INDIFFERENT;
+		}
+		return super.castingQuality(mob,target);
+	}
+
+	@Override
+	public boolean invoke(MOB mob, List<String> commands, Physical givenTarget, boolean auto, int asLevel)
+	{
+		final MOB mobTarget=getTarget(mob,commands,givenTarget,true,false);
 		Item target=null;
 		if(mobTarget!=null)
 		{
-            target=getItem(mobTarget);
+			target=getItem(mobTarget);
 			if(target==null)
-				return maliciousFizzle(mob,mobTarget,"<S-NAME> chant(s) at <T-NAMESELF>, but nothing happens.");
+				return maliciousFizzle(mob,mobTarget,L("<S-NAME> chant(s) at <T-NAMESELF>, but nothing happens."));
 		}
 
 		if(target==null)
 			target=getTarget(mob,mob.location(),givenTarget,commands,Wearable.FILTER_ANY);
 
-		if(target==null) return false;
+		if(target==null)
+			return false;
 
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
 			return false;
 
-		boolean success=proficiencyCheck(mob,0,auto);
+		final boolean success=proficiencyCheck(mob,0,auto);
 		oldCondition=-1;
 		if(success)
 		{
-			// it worked, so build a copy of this ability,
-			// and add it to the affects list of the
-			// affected MOB.  Then tell everyone else
-			// what happened.
-			CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),auto?"<T-NAME> starts vibrating!":"^S<S-NAME> chant(s), causing <T-NAMESELF> to grow brittle!^?");
-			CMMsg msg2=CMClass.getMsg(mob,mobTarget,this,verbalCastCode(mob,mobTarget,auto),null);
+			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),auto?L("<T-NAME> becomes brittle!"):L("^S<S-NAME> chant(s), causing <T-NAMESELF> to grow brittle!^?"));
+			final CMMsg msg2=CMClass.getMsg(mob,mobTarget,this,verbalCastCode(mob,mobTarget,auto),null);
 			if((mob.location().okMessage(mob,msg))&&((mobTarget==null)||(mob.location().okMessage(mob,msg2))))
 			{
 				mob.location().send(mob,msg);
@@ -143,7 +160,7 @@ public class Chant_Brittle extends Chant
 			}
 		}
 		else
-			return maliciousFizzle(mob,null,"<S-NAME> chant(s), but nothing happens.");
+			return maliciousFizzle(mob,null,L("<S-NAME> chant(s), but nothing happens."));
 
 
 		// return whether it worked

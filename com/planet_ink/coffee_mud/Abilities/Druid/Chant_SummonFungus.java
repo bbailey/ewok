@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Druid;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,22 +10,22 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
-
 import java.util.*;
 
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2003-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -35,98 +36,134 @@ import java.util.*;
 
 public class Chant_SummonFungus extends Chant_SummonPlants
 {
-	public String ID() { return "Chant_SummonFungus"; }
-	public String name(){ return "Summon Fungus";}
-	public int classificationCode(){return Ability.ACODE_CHANT|Ability.DOMAIN_PLANTGROWTH;}
-    public int abstractQuality(){return Ability.QUALITY_INDIFFERENT;}
-	protected int canAffectCode(){return CAN_ITEMS;}
-	protected int canTargetCode(){return 0;}
-	protected boolean processing=false;
-
-	public void executeMsg(Environmental myHost, CMMsg msg)
+	@Override
+	public String ID()
 	{
-		if((msg.amITarget(littlePlants))
+		return "Chant_SummonFungus";
+	}
+
+	private final static String localizedName = CMLib.lang().L("Summon Fungus");
+
+	@Override
+	public String name()
+	{
+		return localizedName;
+	}
+
+	@Override
+	public int classificationCode()
+	{
+		return Ability.ACODE_CHANT | Ability.DOMAIN_PLANTGROWTH;
+	}
+
+	@Override
+	public int abstractQuality()
+	{
+		return Ability.QUALITY_INDIFFERENT;
+	}
+
+	@Override
+	protected int canAffectCode()
+	{
+		return CAN_ITEMS;
+	}
+
+	@Override
+	protected int canTargetCode()
+	{
+		return 0;
+	}
+
+	protected boolean processing = false;
+
+	@Override
+	public void executeMsg(final Environmental myHost, final CMMsg msg)
+	{
+		if((msg.amITarget(littlePlantsI))
 		&&(!processing)
-		&&(msg.targetMinor()==CMMsg.TYP_GET))
+		&&((msg.targetMinor()==CMMsg.TYP_GET)||(msg.targetMinor()==CMMsg.TYP_PUSH)||(msg.targetMinor()==CMMsg.TYP_PULL)))
 		{
 			processing=true;
-			Ability A=littlePlants.fetchEffect(ID());
+			final Ability A=littlePlantsI.fetchEffect(ID());
 			if(A!=null)
 			{
 				CMLib.threads().deleteTick(A,-1);
-				littlePlants.delEffect(A);
-				littlePlants.setSecretIdentity("");
+				littlePlantsI.delEffect(A);
+				littlePlantsI.setSecretIdentity("");
 			}
-			if(littlePlants.fetchBehavior("Decay")==null)
+			if(littlePlantsI.fetchBehavior("Decay")==null)
 			{
-				Behavior B=CMClass.getBehavior("Decay");
-				B.setParms("min="+CMProps.getIntVar(CMProps.SYSTEMI_TICKSPERMUDMONTH)+" max="+CMProps.getIntVar(CMProps.SYSTEMI_TICKSPERMUDMONTH)+" chance=100");
-				littlePlants.addBehavior(B);
+				final Behavior B=CMClass.getBehavior("Decay");
+				B.setParms("min="+CMProps.getIntVar(CMProps.Int.TICKSPERMUDMONTH)+" max="+CMProps.getIntVar(CMProps.Int.TICKSPERMUDMONTH)+" chance=100");
+				littlePlantsI.addBehavior(B);
 				B.executeMsg(myHost,msg);
 			}
 			processing=false;
 		}
 	}
+	@Override
 	public boolean rightPlace(MOB mob,boolean auto)
 	{
 		if((!auto)
-		&&(mob.location().domainType()!=Room.DOMAIN_INDOORS_CAVE))
+		&&(mob.location().domainType()!=Room.DOMAIN_INDOORS_CAVE)
+		&&((mob.location().getAtmosphere()&RawMaterial.MATERIAL_ROCK)==0))
 		{
-			mob.tell("This is not the place for fungus.");
+			mob.tell(L("This is not the place for fungus."));
 			return false;
 		}
 		return true;
 	}
 
-	public static Item buildFungus(MOB mob, Room room)
+	public Item buildFungus(MOB mob, Room room)
 	{
-		Item newItem=CMClass.getItem("GenFoodResource");
+		final Item newItem=CMClass.getItem("GenFoodResource");
 		newItem.setMaterial(RawMaterial.RESOURCE_MUSHROOMS);
 		switch(CMLib.dice().roll(1,6,0))
 		{
 		case 1:
-			newItem.setName("a mushroom");
-			newItem.setDisplayText("a mushroom is here.");
+			newItem.setName(L("a mushroom"));
+			newItem.setDisplayText(L("a mushroom is here."));
 			newItem.setDescription("");
 			break;
 		case 2:
-			newItem.setName("a shiitake mushroom");
-			newItem.setDisplayText("a shiitake mushroom grows here.");
+			newItem.setName(L("a shiitake mushroom"));
+			newItem.setDisplayText(L("a shiitake mushroom grows here."));
 			newItem.setDescription("");
 			break;
 		case 3:
-			newItem.setName("a cremini mushroom");
-			newItem.setDisplayText("a cremini mushroom grows here");
+			newItem.setName(L("a cremini mushroom"));
+			newItem.setDisplayText(L("a cremini mushroom grows here"));
 			newItem.setDescription("");
 			break;
 		case 4:
-			newItem.setName("a white mushroom");
-			newItem.setDisplayText("a white mushroom grows here.");
+			newItem.setName(L("a white mushroom"));
+			newItem.setDisplayText(L("a white mushroom grows here."));
 			newItem.setDescription("");
 			break;
 		case 5:
-			newItem.setName("a portabello mushroom");
-			newItem.setDisplayText("a portabello mushroom grows here.");
+			newItem.setName(L("a portabello mushroom"));
+			newItem.setDisplayText(L("a portabello mushroom grows here."));
 			newItem.setDescription("");
 			break;
 		case 6:
-			newItem.setName("a wood ear");
-			newItem.setDisplayText("a wood ear grows here.");
+			newItem.setName(L("a wood ear"));
+			newItem.setDisplayText(L("a wood ear grows here."));
 			newItem.setDescription("");
 			break;
 		}
 		newItem.setSecretIdentity(mob.Name());
 		newItem.setMiscText(newItem.text());
+		Druid_MyPlants.addNewPlant(mob, newItem);
 		room.addItem(newItem);
-		Chant_SummonFungus newChant=new Chant_SummonFungus();
-		newItem.baseEnvStats().setLevel(10+newChant.getX1Level(mob));
-		newItem.baseEnvStats().setWeight(1);
+		final Chant_SummonFungus newChant=new Chant_SummonFungus();
+		newItem.basePhyStats().setLevel(10+newChant.getX1Level(mob));
+		newItem.basePhyStats().setWeight(1);
 		newItem.setExpirationDate(0);
 		CMLib.materials().addEffectsToResource(newItem);
-		room.showHappens(CMMsg.MSG_OK_ACTION,"Suddenly, "+newItem.name()+" sprouts up here.");
-		newChant.PlantsLocation=room;
-		newChant.littlePlants=newItem;
-		if(CMLib.law().doesOwnThisProperty(mob,room))
+		room.showHappens(CMMsg.MSG_OK_ACTION,CMLib.lang().L("Suddenly, @x1 sprouts up here.",newItem.name()));
+		newChant.plantsLocationR=room;
+		newChant.littlePlantsI=newItem;
+		if(CMLib.law().doesOwnThisLand(mob,room))
 		{
 			newChant.setInvoker(mob);
 			newChant.setMiscText(mob.Name());
@@ -134,11 +171,12 @@ public class Chant_SummonFungus extends Chant_SummonPlants
 		}
 		else
 			newChant.beneficialAffect(mob,newItem,0,(newChant.adjustedLevel(mob,0)*240)+450);
-		room.recoverEnvStats();
+		room.recoverPhyStats();
 		return newItem;
 	}
 
-    protected Item buildMyPlant(MOB mob, Room room)
+	@Override
+	protected Item buildMyPlant(MOB mob, Room room)
 	{
 		return buildFungus(mob,room);
 	}

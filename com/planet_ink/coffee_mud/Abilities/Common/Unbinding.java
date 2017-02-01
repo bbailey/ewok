@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Common;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,21 +10,21 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
-
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2005-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,38 +33,40 @@ import java.util.*;
    limitations under the License.
 */
 
-@SuppressWarnings("unchecked")
+
 public class Unbinding extends CommonSkill
 {
-	public String ID() { return "Unbinding"; }
-	public String name(){ return "Unbinding";}
-	private static final String[] triggerStrings = {"UNBIND","UNTIE"};
-	public String[] triggerStrings(){return triggerStrings;}
-    public int classificationCode() {   return Ability.ACODE_COMMON_SKILL|Ability.DOMAIN_BINDING; }
-	protected int canAffectCode(){return 0;}
-	protected int canTargetCode(){return Ability.CAN_MOBS;}
+	@Override public String ID() { return "Unbinding"; }
+	private final static String localizedName = CMLib.lang().L("Unbinding");
+	@Override public String name() { return localizedName; }
+	private static final String[] triggerStrings =I(new String[] {"UNBIND","UNTIE"});
+	@Override public String[] triggerStrings(){return triggerStrings;}
+	@Override public int classificationCode() {   return Ability.ACODE_COMMON_SKILL|Ability.DOMAIN_BINDING; }
+	@Override protected int canAffectCode(){return 0;}
+	@Override protected int canTargetCode(){return Ability.CAN_MOBS;}
 	MOB found=null;
 	Ability removing=null;
-	
+
+	@Override
 	public boolean tick(Tickable ticking, int tickID)
 	{
 		if((affected!=null)&&(affected instanceof MOB)&&(tickID==Tickable.TICKID_MOB))
 		{
-			MOB mob=(MOB)affected;
+			final MOB mob=(MOB)affected;
 			if(tickUp==3)
 			{
-			    Vector affects=null;
-			    if(found!=null)
+				List<Ability> affects=null;
+				if(found!=null)
 				   affects=CMLib.flags().flaggedAffects(found,Ability.FLAG_BINDING);
 				if((affects!=null)&&(affects.size()>0))
 				{
-				    removing=(Ability)affects.firstElement();
-					displayText="You are removing "+removing.name()+" from "+found.name();
-					verb="removing "+removing.name()+" from "+found.name();
+					removing=affects.get(0);
+					displayText=L("You are removing @x1 from @x2",removing.name(),found.name());
+					verb=L("removing @x1 from @x2",removing.name(),found.name());
 				}
 				else
 				{
-					StringBuffer str=new StringBuffer("You can't seem to remove any of the bindings.\n\r");
+					final StringBuffer str=new StringBuffer(L("You can't seem to remove any of the bindings.\n\r"));
 					commonTell(mob,str.toString());
 					unInvoke();
 				}
@@ -71,45 +74,46 @@ public class Unbinding extends CommonSkill
 			else
 			if((found!=null)&&(mob!=null))
 			{
-			    if(found.location()!=mob.location())
-                {
-                    aborted=true;
-				    unInvoke();
-                }
-			    if(!CMLib.flags().canBeSeenBy(found,mob))
-                {
-                    aborted=true;
-                    unInvoke();
-                }
-			    if(!CMLib.flags().aliveAwakeMobileUnbound(mob,false))
-                {
-                    aborted=true;
-                    unInvoke();
-                }
-			    if((removing!=null)&&(found.fetchEffect(removing.ID())!=removing))
-                {
-                    aborted=true;
-                    unInvoke();
-                }
+				if(found.location()!=mob.location())
+				{
+					aborted=true;
+					unInvoke();
+				}
+				if(!CMLib.flags().canBeSeenBy(found,mob))
+				{
+					aborted=true;
+					unInvoke();
+				}
+				if(!CMLib.flags().isAliveAwakeMobileUnbound(mob,false))
+				{
+					aborted=true;
+					unInvoke();
+				}
+				if((removing!=null)&&(found.fetchEffect(removing.ID())!=removing))
+				{
+					aborted=true;
+					unInvoke();
+				}
 			}
 		}
 		return super.tick(ticking,tickID);
 	}
 
+	@Override
 	public void unInvoke()
 	{
 		if(canBeUninvoked())
 		{
-			if((affected!=null)&&(affected instanceof MOB))
+			if(affected instanceof MOB)
 			{
-				MOB mob=(MOB)affected;
+				final MOB mob=(MOB)affected;
 				if((found!=null)&&(removing!=null)&&(!aborted))
 				{
-				    removing.unInvoke();
-				    if(found.fetchEffect(removing.ID())==null)
-						mob.location().show(mob,null,CMMsg.MSG_NOISYMOVEMENT,"<S-NAME> manage(s) to remove "+removing.name()+" from "+found.name()+".");
-				    else
-						mob.location().show(mob,null,CMMsg.MSG_NOISYMOVEMENT,"<S-NAME> fail(s) to remove "+removing.name()+" from "+found.name()+".");
+					removing.unInvoke();
+					if(found.fetchEffect(removing.ID())==null)
+						mob.location().show(mob,null,getActivityMessageType(),L("<S-NAME> manage(s) to remove @x1 from @x2.",removing.name(),found.name()));
+					else
+						mob.location().show(mob,null,getActivityMessageType(),L("<S-NAME> fail(s) to remove @x1 from @x2.",removing.name(),found.name()));
 				}
 			}
 		}
@@ -117,47 +121,51 @@ public class Unbinding extends CommonSkill
 	}
 
 
-	public boolean invoke(MOB mob, Vector commands, Environmental givenTarget, boolean auto, int asLevel)
+	@Override
+	public boolean invoke(MOB mob, List<String> commands, Physical givenTarget, boolean auto, int asLevel)
 	{
+		if(super.checkStop(mob, commands))
+			return true;
+		final MOB target=getTarget(mob,commands,givenTarget);
+		if(target==null)
+			return false;
+		if((!auto)&&(target==mob))
+		{
+			mob.tell(L("You can't unbind yourself!"));
+			return false;
+		}
+		if((!auto)&&mob.isInCombat())
+		{
+			mob.tell(L("Not while you are fighting!"));
+			return false;
+		}
+		final List<Ability> affects=CMLib.flags().flaggedAffects(target,Ability.FLAG_BINDING);
+		if(affects.size()==0)
+		{
+			mob.tell(L("@x1 does not have any bindings you can remove.",target.name(mob)));
+			return false;
+		}
+		final Ability A=affects.get(0);
 
-	    MOB target=getTarget(mob,commands,givenTarget);
-	    if(target==null) return false;
-	    if((!auto)&&(target==mob))
-	    {
-	        mob.tell("You can't unbind yourself!");
-	        return false;
-	    }
-	    if((!auto)&&mob.isInCombat())
-	    {
-	        mob.tell("Not while you are fighting!");
-	        return false;
-	    }
-	    Vector affects=CMLib.flags().flaggedAffects(target,Ability.FLAG_BINDING);
-	    if(affects.size()==0)
-	    {
-	        mob.tell(target.name()+" does not have any bindings you can remove.");
-	        return false;
-	    }
-	    Ability A=(Ability)affects.firstElement();
-	    
-		verb="unbinding";
+		verb=L("unbinding");
 		found=null;
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
 			return false;
-		
+
 		int duration=CMLib.ableMapper().lowestQualifyingLevel(A.ID())-(CMLib.ableMapper().qualifyingLevel(mob,A)+(2*getXLEVELLevel(mob)));
-		if(duration<5) duration=4;
-		CMMsg msg=CMClass.getMsg(mob,target,this,CMMsg.MSG_DELICATE_HANDS_ACT,"<S-NAME> begin(s) to unbind <T-NAMESELF>.");
+		if(duration<5)
+			duration=4;
+		final CMMsg msg=CMClass.getMsg(mob,target,this,CMMsg.MSG_DELICATE_HANDS_ACT,L("<S-NAME> begin(s) to unbind <T-NAMESELF>."));
 		if(mob.location().okMessage(mob,msg))
 		{
 			mob.location().send(mob,msg);
 			found=target;
-            verb="unbinding "+found.name();
-            displayText="You are "+verb;
-            found=proficiencyCheck(mob,0,auto)?found:null;
-            beneficialAffect(mob,mob,asLevel,duration);
+			verb=L("unbinding @x1",found.name());
+			displayText=L("You are @x1",verb);
+			found=proficiencyCheck(mob,0,auto)?found:null;
+			beneficialAffect(mob,mob,asLevel,duration);
 		}
 		return true;
-		
+
 	}
 }

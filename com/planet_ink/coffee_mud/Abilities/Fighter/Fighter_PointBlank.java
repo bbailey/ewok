@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Fighter;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,6 +10,7 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -16,14 +18,14 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2004-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,110 +34,131 @@ import java.util.*;
    limitations under the License.
 */
 
-@SuppressWarnings("unchecked")
 public class Fighter_PointBlank extends FighterSkill
 {
-	public String ID() { return "Fighter_PointBlank"; }
-	public String name(){ return "Point Blank Shot";}
-	public String displayText(){ return "";}
-	public int abstractQuality(){return Ability.QUALITY_INDIFFERENT;}
-	protected int canAffectCode(){return Ability.CAN_MOBS;}
-	protected int canTargetCode(){return 0;}
-	public boolean isAutoInvoked(){return true;}
-	public boolean canBeUninvoked(){return false;}
-    public int classificationCode(){return Ability.ACODE_SKILL|Ability.DOMAIN_MARTIALLORE;}
+	@Override public String ID() { return "Fighter_PointBlank"; }
+	private final static String localizedName = CMLib.lang().L("Point Blank Shot");
+	@Override public String name() { return localizedName; }
+	@Override public String displayText(){ return "";}
+	@Override public int abstractQuality(){return Ability.QUALITY_INDIFFERENT;}
+	@Override protected int canAffectCode(){return Ability.CAN_MOBS;}
+	@Override protected int canTargetCode(){return 0;}
+	@Override public boolean isAutoInvoked(){return true;}
+	@Override public boolean canBeUninvoked(){return false;}
+	@Override public int classificationCode(){return Ability.ACODE_SKILL|Ability.DOMAIN_MARTIALLORE;}
 	public int checkDown=4;
 
-	protected Vector qualifiedWeapons=new Vector();
+	protected List<Weapon> qualifiedWeapons=new Vector<Weapon>();
 
-    protected void cloneFix(Ability E)
-    {
-        super.cloneFix(E);
-        qualifiedWeapons=((Vector)((Fighter_PointBlank)E).qualifiedWeapons.clone());
-    }
-    
-    public void setMiscText(String newText)
-    {
-        super.setMiscText(newText);
-        qualifiedWeapons=new Vector();
-    }
-    
+	@Override
+	protected void cloneFix(Ability E)
+	{
+		super.cloneFix(E);
+		qualifiedWeapons=new XVector<Weapon>(((Fighter_PointBlank)E).qualifiedWeapons);
+	}
+
+	@Override
+	public void setMiscText(String newText)
+	{
+		super.setMiscText(newText);
+		qualifiedWeapons=new Vector<Weapon>();
+	}
+
+	@Override
 	public void executeMsg(Environmental host, CMMsg msg)
 	{
 		super.executeMsg(host,msg);
-		if((msg.source()==affected)
-		&&(msg.target() instanceof Weapon)
-		&&(((Weapon)msg.target()).weaponClassification()==Weapon.CLASS_RANGED)
-		&&(((Weapon)msg.target()).ammunitionType().length()>0))
+		if((affected instanceof Weapon)
+		&&((Weapon)affected).amWearingAt(Wearable.IN_INVENTORY))
 		{
-			if(((msg.targetMinor()==CMMsg.TYP_WEAR)
-			   ||(msg.targetMinor()==CMMsg.TYP_WIELD)
-			   ||(msg.targetMinor()==CMMsg.TYP_HOLD))
-			&&(!qualifiedWeapons.contains(msg.target()))
-			&&((msg.source().fetchAbility(ID())==null)||proficiencyCheck(null,0,false)))
+			final Weapon targetW=(Weapon)affected;
+			qualifiedWeapons.remove(targetW);
+			targetW.delEffect(targetW.fetchEffect(ID()));
+			targetW.recoverPhyStats();
+		}
+		else
+		if((msg.source()==affected)
+		&&(msg.target() instanceof AmmunitionWeapon))
+		{
+			final AmmunitionWeapon W=(AmmunitionWeapon)msg.target();
+			if((W.weaponClassification()==Weapon.CLASS_RANGED)
+			&&(W.ammunitionType().length()>0))
 			{
-				qualifiedWeapons.addElement(msg.target());
-				Ability A=(Ability)this.copyOf();
-				A.setSavable(false);
-				msg.target().addEffect(A);
-				msg.target().recoverEnvStats();
-			}
-			else
-			if(((msg.targetMinor()==CMMsg.TYP_REMOVE)
-				||(msg.targetMinor()==CMMsg.TYP_DROP))
-			&&(qualifiedWeapons.contains(msg.target())))
-			{
-				qualifiedWeapons.removeElement(msg.target());
-				msg.target().delEffect(msg.target().fetchEffect(ID()));
-				msg.target().recoverEnvStats();
+				if(((msg.targetMinor()==CMMsg.TYP_WEAR)
+				   ||(msg.targetMinor()==CMMsg.TYP_WIELD)
+				   ||(msg.targetMinor()==CMMsg.TYP_HOLD))
+				&&(!qualifiedWeapons.contains(W))
+				&&((msg.source().fetchAbility(ID())==null)||proficiencyCheck(null,0,false)))
+				{
+					qualifiedWeapons.add(W);
+					final Ability A=(Ability)this.copyOf();
+					A.setInvoker(invoker());
+					A.setSavable(false);
+					W.addEffect(A);
+					W.recoverPhyStats();
+				}
+				else
+				if(((msg.targetMinor()==CMMsg.TYP_REMOVE)
+					||(msg.targetMinor()==CMMsg.TYP_DROP))
+				&&(qualifiedWeapons.contains(msg.target())))
+				{
+					qualifiedWeapons.remove(msg.target());
+					W.delEffect(W.fetchEffect(ID()));
+					W.recoverPhyStats();
+				}
 			}
 		}
 	}
 
-	public void affectEnvStats(Environmental affected, EnvStats affectableStats)
+	@Override
+	public void affectPhyStats(Physical affected, PhyStats affectableStats)
 	{
-		super.affectEnvStats(affected,affectableStats);
+		super.affectPhyStats(affected,affectableStats);
 		if(affected instanceof Item)
-			affectableStats.setSensesMask(affectableStats.sensesMask()|EnvStats.SENSE_ITEMNOMINRANGE);
+			affectableStats.setSensesMask(affectableStats.sensesMask()|PhyStats.SENSE_ITEMNOMINRANGE);
 	}
 
+	@Override
 	public boolean tick(Tickable ticking, int tickID)
 	{
-		if(!super.tick(ticking,tickID)) return false;
-		if((affected==null)||(!(affected instanceof MOB)))
+		if(!super.tick(ticking,tickID))
+			return false;
+		if(!(affected instanceof MOB))
 			return true;
 
-		MOB mob=(MOB)affected;
+		final MOB mob=(MOB)affected;
 		if(--checkDown<=0)
 		{
 			checkDown=5;
-			Item w=mob.fetchWieldedItem();
+			final Item w=mob.fetchWieldedItem();
 			if((w!=null)
-			&&(w instanceof Weapon)
+			&&(w instanceof AmmunitionWeapon)
 			&&(((Weapon)w).weaponClassification()==Weapon.CLASS_RANGED)
-			&&(((Weapon)w).ammunitionType().length()>0)
+			&&(((AmmunitionWeapon)w).ammunitionType().length()>0)
 			&&((mob.fetchAbility(ID())==null)||proficiencyCheck(null,0,false)))
 			{
-				if((CMLib.dice().rollPercentage()<10)&&(mob.isInCombat())&&(mob.rangeToTarget() > 0))
-					helpProficiency(mob);
-				if(!qualifiedWeapons.contains(w))
+				if((CMLib.dice().rollPercentage()<5)&&(mob.isInCombat())&&(mob.rangeToTarget() == 0))
+					helpProficiency(mob, 0);
+				if(w.fetchEffect(ID())==null)
 				{
-					qualifiedWeapons.addElement(w);
-					Ability A=(Ability)this.copyOf();
+					if(!qualifiedWeapons.contains(w))
+						qualifiedWeapons.add((Weapon)w);
+					final Ability A=(Ability)this.copyOf();
 					A.setSavable(false);
+					A.setInvoker(invoker());
 					w.addEffect(A);
-					w.recoverEnvStats();
+					w.recoverPhyStats();
 				}
 			}
 			for(int i=qualifiedWeapons.size()-1;i>=0;i--)
 			{
-				Item I=(Item)qualifiedWeapons.elementAt(i);
+				final Item I=qualifiedWeapons.get(i);
 				if((I.amWearingAt(Wearable.IN_INVENTORY))
 				||(I.owner()!=affected))
 				{
-					qualifiedWeapons.removeElement(I);
+					qualifiedWeapons.remove(I);
 					I.delEffect(I.fetchEffect(ID()));
-					I.recoverEnvStats();
+					I.recoverPhyStats();
 				}
 			}
 		}

@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Spells;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,21 +10,21 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
-
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2003-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -31,35 +32,39 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
+
 public class Spell_Siphon extends Spell
 {
 	private static Random randomizer = null;
 	public Spell_Siphon()
 	{
-        super();
+		super();
 		if(randomizer==null)
 		   randomizer = new Random(System.currentTimeMillis());
 	}
-	public String ID() { return "Spell_Siphon"; }
-	public String name(){return "Siphon";}
-	public String displayText(){return "(Siphon spell)";}
-	public int maxRange(){return adjustedMaxInvokerRange(1);}
-	public int abstractQuality(){return Ability.QUALITY_BENEFICIAL_OTHERS;}
-	public int classificationCode(){ return Ability.ACODE_SPELL|Ability.DOMAIN_ENCHANTMENT;}
+	@Override public String ID() { return "Spell_Siphon"; }
+	private final static String localizedName = CMLib.lang().L("Siphon");
+	@Override public String name() { return localizedName; }
+	private final static String localizedStaticDisplay = CMLib.lang().L("(Siphon spell)");
+	@Override public String displayText() { return localizedStaticDisplay; }
+	@Override public int maxRange(){return adjustedMaxInvokerRange(1);}
+	@Override public int abstractQuality(){return Ability.QUALITY_BENEFICIAL_OTHERS;}
+	@Override public int classificationCode(){ return Ability.ACODE_SPELL|Ability.DOMAIN_ENCHANTMENT;}
 
-	public boolean invoke(MOB mob, Vector commands, Environmental givenTarget, boolean auto, int asLevel)
+	@Override
+	public boolean invoke(MOB mob, List<String> commands, Physical givenTarget, boolean auto, int asLevel)
 	{
-		MOB target=getTarget(mob,commands,givenTarget);
-		if(target==null) return false;
+		final MOB target=getTarget(mob,commands,givenTarget);
+		if(target==null)
+			return false;
 
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
 			return false;
 
-		boolean success=proficiencyCheck(mob,0,auto);
+		final boolean success=proficiencyCheck(mob,0,auto);
 		if(success)
 		{
-			CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),auto?"<T-NAME> feel(s) a thirst for the energy of others.":"^S<S-NAME> invoke(s) an area deprived of energy around <T-NAMESELF>.^?");
+			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),auto?L("<T-NAME> feel(s) a thirst for the energy of others."):L("^S<S-NAME> invoke(s) an area deprived of energy around <T-NAMESELF>.^?"));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);
@@ -67,45 +72,45 @@ public class Spell_Siphon extends Spell
 			}
 		}
 		else
-			beneficialWordsFizzle(mob,target,"<S-NAME> attempt(s) to invoke an energy thirst, but fail(s).");
+			beneficialWordsFizzle(mob,target,L("<S-NAME> attempt(s) to invoke an energy thirst, but fail(s)."));
 
 		return success;
 	}
 
-   public void unInvoke()
+   @Override
+public void unInvoke()
 	{
 		// undo the affects of this spell
-		if((affected==null)||(!(affected instanceof MOB)))
+		if(!(affected instanceof MOB))
 			return;
-		MOB mob=(MOB)affected;
+		final MOB mob=(MOB)affected;
 		super.unInvoke();
 
-		mob.tell("You no longer feel a thirst for the energy of others.");
+		mob.tell(L("You no longer feel a thirst for the energy of others."));
 	}
 
-	public boolean okMessage(Environmental myHost, CMMsg msg)
+	@Override
+	public boolean okMessage(final Environmental myHost, final CMMsg msg)
 	{
-		if((affected==null)||(!(affected instanceof MOB)))
+		if(!(affected instanceof MOB))
 			return true;
 
-		MOB mob=(MOB)affected;
+		final MOB mob=(MOB)affected;
 
 		if((msg.amITarget(mob))
 		&&(!msg.amISource(mob))
 		&&(msg.targetMinor()==CMMsg.TYP_DAMAGE)
 		&&((msg.value())>0)
-		&&(msg.tool()!=null)
 		&&(msg.tool() instanceof Weapon)
 		&&(CMLib.dice().rollPercentage()>50)
 		&&(msg.source().curState().getMana()>0))
 		{
-
-			CMMsg msg2=CMClass.getMsg(mob,msg.source(),null,CMMsg.MSG_QUIETMOVEMENT,"<S-NAME> siphon(s) mana from <T-NAME>!");
+			final MOB sourceM = msg.source();
+			final CMMsg msg2=CMClass.getMsg(mob,sourceM,null,CMMsg.MSG_QUIETMOVEMENT,L("<S-NAME> siphon(s) mana from <T-NAME>!"));
 			if(mob.location().okMessage(mob,msg2))
 			{
-				int maxManaRestore = 3;
-				MOB source = msg.source();
-				int curSourceMana = source.curState().getMana();
+				final int maxManaRestore = 3;
+				final int curSourceMana = sourceM.curState().getMana();
 				int manaDrain = 0;
 				if(maxManaRestore <= curSourceMana)
 				{
@@ -116,7 +121,7 @@ public class Spell_Siphon extends Spell
 				   manaDrain = curSourceMana;
 				}
 				mob.curState().adjMana(manaDrain, mob.maxState());
-				source.curState().adjMana(manaDrain * -1, source.maxState());
+				sourceM.curState().adjMana(manaDrain * -1, sourceM.maxState());
 				mob.location().send(mob,msg2);
 			}
 		}

@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Behaviors;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,6 +10,7 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -17,13 +19,13 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2000-2010 Bo Zimmerman
+   Copyright 2003-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -33,27 +35,37 @@ import java.util.*;
 */
 public class Mime extends ActiveTicker
 {
-	public String ID(){return "Mime";}
-	public long flags(){return Behavior.FLAG_MOBILITY;}
+	protected volatile boolean disabled=false;
+	protected volatile CMMsg lastMsg=null;
+
+	@Override public String ID(){return "Mime";}
+	@Override public long flags(){return Behavior.FLAG_MOBILITY;}
+
+	@Override
+	public String accountForYourself()
+	{
+		return "miming";
+	}
+
 	public Mime()
 	{
 		super();
 		minTicks=1; maxTicks=1; chance=100;
 		tickReset();
 	}
+	@Override
 	protected int canImproveCode(){return Behavior.CAN_MOBS
 										  |Behavior.CAN_EXITS
 										  |Behavior.CAN_ITEMS
-									      |Behavior.CAN_ROOMS;}
-	protected boolean disabled=false;
-	protected CMMsg lastMsg=null;
-
+										  |Behavior.CAN_ROOMS;}
+	@Override
 	public void executeMsg(Environmental affecting, CMMsg msg)
 	{
 		super.executeMsg(affecting,msg);
 		if((affecting instanceof MOB)&&(!canFreelyBehaveNormal(affecting)))
 			return;
-		if(disabled) return;
+		if(disabled)
+			return;
 		if(((!(affecting instanceof MOB))||(!msg.amISource((MOB)affecting)))
 		&&(msg.sourceMinor()==CMMsg.TYP_EMOTE)
 		||(msg.tool() instanceof Social))
@@ -68,41 +80,55 @@ public class Mime extends ActiveTicker
 		//if(src!=null) src=CMStrings.replaceAll(src,"<S-NAME>",ticking.name());
 		//if(src!=null) src=CMStrings.replaceAll(src,"You ",ticking.name()+" ");
 		//if(src!=null) src=CMStrings.replaceAll(src,"Your ",ticking.name()+"`s ");
-		if(trg!=null) trg=CMStrings.replaceAll(trg,"<S-NAME>",ticking.name());
-		if(oth!=null) oth=CMStrings.replaceAll(oth,"<S-NAME>",ticking.name());
+		if(trg!=null)
+			trg=CMStrings.replaceAll(trg,"<S-NAME>",ticking.name());
+		if(oth!=null)
+			oth=CMStrings.replaceAll(oth,"<S-NAME>",ticking.name());
 		//if(src!=null) src=CMStrings.replaceAll(src,"<S-HIM-HERSELF>","itself");
-		if(trg!=null) trg=CMStrings.replaceAll(trg,"<S-HIM-HERSELF>","itself");
-		if(oth!=null) oth=CMStrings.replaceAll(oth,"<S-HIM-HERSELF>","itself");
+		if(trg!=null)
+			trg=CMStrings.replaceAll(trg,"<S-HIM-HERSELF>","itself");
+		if(oth!=null)
+			oth=CMStrings.replaceAll(oth,"<S-HIM-HERSELF>","itself");
 		//if(src!=null) src=CMStrings.replaceAll(src,"<S-HIS-HERSELF>","itself");
-		if(trg!=null) trg=CMStrings.replaceAll(trg,"<S-HIS-HERSELF>","itself");
-		if(oth!=null) oth=CMStrings.replaceAll(oth,"<S-HIS-HERSELF>","itself");
+		if(trg!=null)
+			trg=CMStrings.replaceAll(trg,"<S-HIS-HERSELF>","itself");
+		if(oth!=null)
+			oth=CMStrings.replaceAll(oth,"<S-HIS-HERSELF>","itself");
 		//if(src!=null) src=CMStrings.replaceAll(src,"<S-HIM-HER>","it");
-		if(trg!=null) trg=CMStrings.replaceAll(trg,"<S-HIM-HER>","it");
-		if(oth!=null) oth=CMStrings.replaceAll(oth,"<S-HIM-HER>","it");
+		if(trg!=null)
+			trg=CMStrings.replaceAll(trg,"<S-HIM-HER>","it");
+		if(oth!=null)
+			oth=CMStrings.replaceAll(oth,"<S-HIM-HER>","it");
 		//if(src!=null) src=CMStrings.replaceAll(src,"<S-HE-SHE>","it");
-		if(trg!=null) trg=CMStrings.replaceAll(trg,"<S-HE-SHE>","it");
-		if(oth!=null) oth=CMStrings.replaceAll(oth,"<S-HE-SHE>","it");
+		if(trg!=null)
+			trg=CMStrings.replaceAll(trg,"<S-HE-SHE>","it");
+		if(oth!=null)
+			oth=CMStrings.replaceAll(oth,"<S-HE-SHE>","it");
 		//if(src!=null) src=CMStrings.replaceAll(src,"<S-HIS-HER>","its");
-		if(trg!=null) trg=CMStrings.replaceAll(trg,"<S-HIS-HER>","its");
-		if(oth!=null) oth=CMStrings.replaceAll(oth,"<S-HIS-HER>","its");
+		if(trg!=null)
+			trg=CMStrings.replaceAll(trg,"<S-HIS-HER>","its");
+		if(oth!=null)
+			oth=CMStrings.replaceAll(oth,"<S-HIS-HER>","its");
 		msg.modify(sMOB,sMOB,msg.tool(),
 				   msg.sourceCode(),oth,
 				   msg.targetCode(),trg,
 				   msg.othersCode(),oth);
 	}
 
+	@Override
 	public boolean tick(Tickable ticking, int tickID)
 	{
 		super.tick(ticking,tickID);
 		CMMsg msg=lastMsg;
-		if(msg==null) return true;
+		if(msg==null)
+			return true;
 		lastMsg=null;
 		if(((ticking instanceof MOB)&&(!canFreelyBehaveNormal(ticking)))
-		||(CMSecurity.isDisabled("EMOTERS"))
+		||(CMSecurity.isDisabled(CMSecurity.DisFlag.EMOTERS))
 		||(!canAct(ticking,tickID)))
 			return true;
 		msg=(CMMsg)msg.copyOf();
-		MOB sMOB=msg.source();
+		final MOB sMOB=msg.source();
 		if(msg.sourceMinor()==CMMsg.TYP_EMOTE)
 		{
 			if(ticking instanceof MOB)
@@ -112,7 +138,7 @@ public class Mime extends ActiveTicker
 						   msg.othersCode(),msg.othersMessage());
 			else
 			{
-				MOB newSMOB=CMClass.getMOB("StdMOB");
+				final MOB newSMOB=CMClass.getFactoryMOB();
 				newSMOB.baseCharStats().setStat(CharStats.STAT_GENDER,'N');
 				newSMOB.setName(ticking.name());
 				newSMOB.recoverCharStats();
@@ -123,10 +149,10 @@ public class Mime extends ActiveTicker
 			}
 		}
 		else
-		if((msg.tool()!=null)&&(msg.tool().ID().equals("Social")))
+		if(msg.tool() instanceof Social)
 		{
 			MOB target=null;
-			if((msg.target()!=null)&&(msg.target() instanceof MOB))
+			if(msg.target() instanceof MOB)
 				target=msg.source();
 			if(ticking instanceof MOB)
 				msg.modify((MOB)ticking,target,msg.tool(),
@@ -135,7 +161,7 @@ public class Mime extends ActiveTicker
 						   msg.othersCode(),msg.othersMessage());
 			else
 			{
-				MOB newSMOB=CMClass.getMOB("StdMOB");
+				final MOB newSMOB=CMClass.getFactoryMOB();
 				newSMOB.baseCharStats().setStat(CharStats.STAT_GENDER,'N');
 				newSMOB.setName(ticking.name());
 				newSMOB.recoverCharStats();

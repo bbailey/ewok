@@ -7,9 +7,23 @@
 	<meta name="ROBOTS" content="NOINDEX, NOFOLLOW">
 	<link rel="STYLESHEET" TYPE="TEXT/CSS" HREF="coffeemud.css">
 	<link rel="STYLESHEET" TYPE="TEXT/CSS" HREF="forums.css">
+    <style type="text/css">
+        .nicEdit-selected {
+            border: 2px solid #0000ff !important;
+        }
+    
+        .nicEdit-panel {
+            background-color: #fff !important;
+        }
+        .nicEdit-main {
+            background-color: #fff !important;
+            border: 1px solid #000000 !important;
+        }
+    </style>
 	<title>Forums</title>
 	<script language=JavaScript>
 	<!--
+	    var forumEditors=[];
 		var abort=false;
 		function Cancel()
 		{
@@ -30,6 +44,12 @@
 				document.FORUM.JOURNALPARENT.value='';
 			document.FORUM.submit();
 		}
+        function Register()
+        {
+            document.FORUM.LASTPAGE.value='forumnew.cmvp?@RequestParametersEncoded@';
+            document.FORUM.action='register.cmvp';
+            document.FORUM.submit();
+        }
 		function Submit()
 		{
 			document.FORUM.FUNCTION.value='NEWPOST';
@@ -58,7 +78,9 @@
 				@endif@
 				document.FORUM.action='forummsg.cmvp';
 			@endif@
-			updateTextArea('NEWTEXT');
+			for(var i=0;i<forumEditors.length;i++)
+                for(var i2=0;i2<forumEditors[i].nicInstances.length;i2++)
+    			    forumEditors[i].nicInstances[i2].saveContent();
 			document.FORUM.submit();
 		}
 		
@@ -67,8 +89,8 @@
 </head>
 
 <body>
-<script language="JavaScript" type="text/javascript" src="textedit/wysiwyg.js"></script>
-<FORM NAME=FORUM TARGET=_top METHOD=POST ACTION="forumnew.cmvp">
+<script language="JavaScript" type="text/javascript" src="textedit/nicEdit.js"></script>
+<FORM  ACCEPT-CHARSET="UTF-8" NAME=FORUM TARGET=_top METHOD=POST ACTION="forumnew.cmvp">
 @if?CheckReqParm?!JOURNALMESSAGE=@
 <INPUT TYPE=HIDDEN NAME=JOURNALMESSAGE VALUE="@RequestParameter?JOURNALMESSAGE@">
 <INPUT TYPE=HIDDEN NAME=JOURNALPARENT VALUE="@RequestParameter?JOURNALPARENT@">
@@ -84,16 +106,24 @@
 <TABLE WIDTH=100% BORDER=0 CELLSPACING=0 CELLPADDING=0>
 	<TR>
 	<TD WIDTH=10px>&nbsp;</TD>
-	<TD><a href="@if?!Authenticate?SETPLAYER@index.cmvp@else@access.cmvp@endif@?AUTH=@Authenticate?AUTH@">
-		<IMG BORDER=0 SRC=images/cm50.gif>
-		</a>
-	</TD>
+    <TD>@if?CheckReqParm?CLAN=@
+        <a href="@if?!Authenticate?SETPLAYER@index.cmvp@else@access.cmvp@endif@?AUTH=@Authenticate?AUTH@">
+        @else@
+        <a href="index.cmvp?AUTH=@Authenticate?AUTH@">
+        @endif@
+        <IMG BORDER=0 src=images/cm50.gif>
+        </a>
+    </TD>
 	<TD ALIGN=RIGHT VALIGN=TOP>
 		<FONT COLOR=BLACK SIZE=-1>
 	@if?!Authenticate?SETPLAYER@ 
 		Login<INPUT TYPE=TEXT SIZE=10 VALUE="" NAME=LOGIN>&nbsp;
 		Password<INPUT TYPE=PASSWORD NAME=PASSWORD SIZE=10 VALUE="">
 		<INPUT TYPE=SUBMIT VALUE=Login>
+        @if?IsAccountSystem@
+            <INPUT TYPE=HIDDEN NAME=LASTPAGE VALUE="">
+            <INPUT TYPE=BUTTON VALUE=Register ONCLICK="Register()">
+        @endif@
 	@else@
 		Logged in as <B>@PlayerData?NAME@</B>
 	@endif@
@@ -117,7 +147,7 @@
 		@endif@
 		</TD>
 		<TD ALIGN=CENTER>&nbsp;@if?!Authenticate@&nbsp;&nbsp;<FONT COLOR=LIGHTBLUE SIZE=-1><B>*** Posting Anonymously ***</B></FONT>@endif@</TD>
-		<TD AlIGN=RIGHT><FONT COLOR=WHITE SIZE=-1><B>Forum : @JournalName@</B></FONT></TD>
+		<TD AlIGN=RIGHT><FONT COLOR=WHITE SIZE=-1><B>Forum : @JournalName?NOCOLOR@</B></FONT></TD>
 		</TR></TABLE>
 	</TD>
 </TR>
@@ -158,9 +188,9 @@
 <TR BGCOLOR=LIGHTGREY VALIGN=TOP>
 	<TD ALIGN=LEFT WIDTH=200px VALIGN=TOP>&nbsp;&nbsp;<FONT SIZE=6><B>Message:</B></FONT></TD>
 	<TD ALIGN=LEFT VALIGN=TOP>
-<textarea id="NEWTEXT" name="NEWTEXT" style="height: 170px; width: 500px;">@if?CheckReqParm?!NEWTEXT=@ @RequestParameter?NEWTEXT@ @else@ @if?CheckReqParm?!QUOTEDMESSAGE=@ @JournalInfo?QUOTEDTEXT@<BR> @else@ @if?CheckReqParm?FUNCTION=EDITPOST@ @JournalInfo?MESSAGE@ @endif@ @endif@ @endif@</textarea>
-		<script language="javascript1.2">
-			generate_wysiwyg('NEWTEXT');
+<textarea id="NEWTEXT" name="NEWTEXT" style="height: 170px; width: 500px; background: white;">@if?CheckReqParm?!NEWTEXT=@ @RequestParameter?NEWTEXT@ @else@ @if?CheckReqParm?!QUOTEDMESSAGE=@ @JournalInfo?QUOTEDTEXT@<BR> @else@ @if?CheckReqParm?FUNCTION=EDITPOST@ @JournalInfo?MESSAGE@ @endif@ @endif@ @endif@</textarea>
+		<script language="javascript">
+            forumEditors.push(new nicEditor({iconsPath : 'textedit/nicEditorIcons.gif', fullPanel: true}).panelInstance('NEWTEXT'));
 		</script>
 	</TD>
 </TR>

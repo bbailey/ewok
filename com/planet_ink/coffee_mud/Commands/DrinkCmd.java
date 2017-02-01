@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Commands;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,20 +10,21 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2004-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -30,69 +32,95 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
+
 public class DrinkCmd extends StdCommand
 {
-	public DrinkCmd(){}
+	public DrinkCmd()
+	{
+	}
 
-	private String[] access={"DRINK","DR","DRI"};
-	public String[] getAccessWords(){return access;}
-	public boolean execute(MOB mob, Vector commands, int metaFlags)
+	private final String[]	access	= I(new String[] { "DRINK", "DR", "DRI" });
+
+	@Override
+	public String[] getAccessWords()
+	{
+		return access;
+	}
+
+	@Override
+	public boolean execute(MOB mob, List<String> commands, int metaFlags)
 		throws java.io.IOException
 	{
+		Vector<String> origCmds=new XVector<String>(commands);
 		if((commands.size()<2)&&(!(mob.location() instanceof Drink)))
 		{
-			mob.tell("Drink what?");
+			CMLib.commands().doCommandFail(mob,origCmds,L("Drink what?"));
 			return false;
 		}
-		commands.removeElementAt(0);
-        if((commands.size()>1)&&(((String)commands.firstElement()).equalsIgnoreCase("from")))
-            commands.removeElementAt(0);
-        
+		commands.remove(0);
+		if((commands.size()>1)&&(commands.get(0).equalsIgnoreCase("from")))
+			commands.remove(0);
+
 		Environmental thisThang=null;
 		if((commands.size()==0)&&(mob.location() instanceof Drink))
 			thisThang=mob.location();
 		else
 		{
-			thisThang=mob.location().fetchFromMOBRoomFavorsItems(mob,null,CMParms.combine(commands,0),Wearable.FILTER_ANY);
+			String drinkWhat = CMParms.combine(commands,0);
+			thisThang=mob.location().fetchFromMOBRoomFavorsItems(mob,null,drinkWhat,Wearable.FILTER_ANY);
+			if((thisThang == null)&&(drinkWhat.equalsIgnoreCase("here")||drinkWhat.equalsIgnoreCase("room")))
+				thisThang=mob.location();
 			if((thisThang==null)
 			||((!mob.isMine(thisThang))
 			   &&(!CMLib.flags().canBeSeenBy(thisThang,mob))))
 			{
-				mob.tell("You don't see '"+CMParms.combine(commands,0)+"' here.");
+				CMLib.commands().doCommandFail(mob,origCmds,L("You don't see '@x1' here.",CMParms.combine(commands,0)));
 				return false;
 			}
 		}
-		String str="<S-NAME> take(s) a drink from <T-NAMESELF>.";
+		String str=L("<S-NAME> take(s) a drink from <T-NAMESELF>.");
 		Environmental tool=null;
 		if((thisThang instanceof Drink)
 		&&(((Drink)thisThang).liquidRemaining()>0)
 		&&(((Drink)thisThang).liquidType()!=RawMaterial.RESOURCE_FRESHWATER))
-			str="<S-NAME> take(s) a drink of "+RawMaterial.CODES.NAME(((Drink)thisThang).liquidType()).toLowerCase()+" from <T-NAMESELF>.";
+			str=L("<S-NAME> take(s) a drink of @x1 from <T-NAMESELF>.",RawMaterial.CODES.NAME(((Drink)thisThang).liquidType()).toLowerCase());
 		else
 		if(thisThang instanceof Container)
 		{
-			Vector V=((Container)thisThang).getContents();
+			final List<Item> V=((Container)thisThang).getContents();
 			for(int v=0;v<V.size();v++)
 			{
-				Item I=(Item)V.elementAt(v);
+				final Item I=V.get(v);
 				if((I instanceof Drink)&&(I instanceof RawMaterial))
 				{
 					tool=thisThang;
 					thisThang=I;
-					str="<S-NAME> take(s) a drink of <T-NAMESELF> from <O-NAMESELF>.";
+					str=L("<S-NAME> take(s) a drink of <T-NAMESELF> from <O-NAMESELF>.");
 					break;
 				}
 			}
 		}
-		CMMsg newMsg=CMClass.getMsg(mob,thisThang,tool,CMMsg.MSG_DRINK,str+CMProps.msp("drink.wav",10));
+		final CMMsg newMsg=CMClass.getMsg(mob,thisThang,tool,CMMsg.MSG_DRINK,str+CMLib.protocol().msp("drink.wav",10));
 		if(mob.location().okMessage(mob,newMsg))
 			mob.location().send(mob,newMsg);
 		return false;
 	}
-    public double combatActionsCost(MOB mob, Vector cmds){return CMath.div(CMProps.getIntVar(CMProps.SYSTEMI_DEFCOMCMDTIME),100.0);}
-    public double actionsCost(MOB mob, Vector cmds){return CMath.div(CMProps.getIntVar(CMProps.SYSTEMI_DEFCMDTIME),100.0);}
-	public boolean canBeOrdered(){return true;}
 
-	
+	@Override
+	public double combatActionsCost(final MOB mob, final List<String> cmds)
+	{
+		return CMProps.getCommandCombatActionCost(ID());
+	}
+
+	@Override
+	public double actionsCost(final MOB mob, final List<String> cmds)
+	{
+		return CMProps.getCommandActionCost(ID());
+	}
+
+	@Override
+	public boolean canBeOrdered()
+	{
+		return true;
+	}
 }

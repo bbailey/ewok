@@ -2,6 +2,7 @@ package com.planet_ink.coffee_mud.Abilities.Misc;
 import com.planet_ink.coffee_mud.Abilities.StdAbility;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -10,20 +11,21 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2003-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,60 +34,91 @@ import java.util.*;
    limitations under the License.
 */
 
-@SuppressWarnings("unchecked")
+
 public class Sinking extends StdAbility
 {
-	public String ID() { return "Sinking"; }
-	public String name(){ return "Sinking";}
-	public String displayText(){ return "";}
-	protected int canAffectCode(){return CAN_ITEMS|Ability.CAN_MOBS;}
-	protected int canTargetCode(){return 0;}
-    protected boolean isTreading=false;
-	public Room room=null;
-	protected int sinkTickDown=1;
-
-    protected boolean reversed(){return proficiency()==100;}
-
-    protected boolean isWaterSurface(Room R)
+	@Override
+	public String ID()
 	{
-		if(R==null) return false;
-		if((R.domainType()==Room.DOMAIN_INDOORS_WATERSURFACE)
-		||(R.domainType()==Room.DOMAIN_OUTDOORS_WATERSURFACE))
-			return true;
-		return false;
-	}
-    protected boolean isUnderWater(Room R)
-	{
-		if(R==null) return false;
-		if((R.domainType()==Room.DOMAIN_INDOORS_UNDERWATER)
-		||(R.domainType()==Room.DOMAIN_OUTDOORS_UNDERWATER))
-			return true;
-		return false;
+		return "Sinking";
 	}
 
-    protected boolean canSinkFrom(Room fromHere, int direction)
+	private final static String	localizedName	= CMLib.lang().L("Sinking");
+
+	@Override
+	public String name()
+	{
+		return localizedName;
+	}
+
+	@Override
+	public String displayText()
+	{
+		return "";
+	}
+
+	@Override
+	protected int canAffectCode()
+	{
+		return CAN_ITEMS | Ability.CAN_MOBS;
+	}
+
+	@Override
+	protected int canTargetCode()
+	{
+		return 0;
+	}
+
+	protected boolean	isTreading		= false;
+	public Room			room			= null;
+	protected int		sinkTickDown	= 1;
+
+	protected boolean reversed()
+	{
+		return proficiency() == 100;
+	}
+
+	protected boolean canSinkFrom(Room fromHere, int direction)
 	{
 		if((fromHere==null)||(direction<0)||(direction>=Directions.NUM_DIRECTIONS()))
 			return false;
 
-		Room toHere=fromHere.getRoomInDir(direction);
+		final Room toHere=fromHere.getRoomInDir(direction);
 		if((toHere==null)
 		||(fromHere.getExitInDir(direction)==null)
 		||(!fromHere.getExitInDir(direction).isOpen()))
 			return false;
-		if((!isWaterSurface(toHere))&&(!isUnderWater(toHere)))
+		if((!CMLib.flags().isWaterySurfaceRoom(toHere))&&(!CMLib.flags().isUnderWateryRoom(toHere)))
 			return false;
 		return true;
 	}
 
-    protected boolean stopSinking(MOB mob)
+	protected boolean stopSinking(MOB mob)
 	{
 		unInvoke();
 		mob.delEffect(this);
 		return false;
 	}
 
-	public boolean okMessage(Environmental myHost, CMMsg msg)
+	@Override
+	public void setMiscText(String newMiscText)
+	{
+		super.setMiscText(newMiscText);
+		if((newMiscText!=null) && (newMiscText.length()>0))
+		{
+			for(final String parm : CMParms.parse(newMiscText.toUpperCase()))
+			{
+				if(parm.equals("REVERSED"))
+					this.setProficiency(100);
+				else
+				if(parm.equals("NORMAL"))
+					this.setProficiency(0);
+			}
+		}
+	}
+	
+	@Override
+	public boolean okMessage(final Environmental myHost, final CMMsg msg)
 	{
 		if(!super.okMessage(myHost,msg))
 			return false;
@@ -97,28 +130,30 @@ public class Sinking extends StdAbility
 			   ||(((Room)msg.target()).domainType()==Room.DOMAIN_OUTDOORS_AIR))
 			&&(!CMLib.flags().isFlying(msg.source())))
 			{
-				msg.source().tell("You can't seem to get there from here.");
+				msg.source().tell(L("You can't seem to get there from here."));
 				return false;
 			}
 		}
 		return true;
 	}
-	public void executeMsg(Environmental myHost, CMMsg msg)
+
+	@Override
+	public void executeMsg(final Environmental myHost, final CMMsg msg)
 	{
 		super.executeMsg(myHost,msg);
-		MOB mob=msg.source();
+		final MOB mob=msg.source();
 		if((affected!=null)&&(affected instanceof MOB)&&(msg.amISource((MOB)affected)))
 		{
 			if(msg.sourceMinor()==CMMsg.TYP_RECALL)
 				stopSinking(mob);
 			else
-			if((msg.tool()!=null)
-			&&(msg.tool() instanceof Ability)
+			if((msg.tool() instanceof Ability)
 			&&(CMath.bset(((Ability)msg.tool()).flags(),Ability.FLAG_TRANSPORTING)))
 				stopSinking(mob);
 		}
 	}
 
+	@Override
 	public boolean tick(Tickable ticking, int tickID)
 	{
 		if(!super.tick(ticking,tickID))
@@ -133,46 +168,48 @@ public class Sinking extends StdAbility
 		if((--sinkTickDown)>0)
 			return true;
 		sinkTickDown=1;
-		
+
 		int direction=Directions.DOWN;
-		String addStr="down";
+		String addStr=L("down");
 		if(reversed())
 		{
 			direction=Directions.UP;
-			addStr="upwards";
+			addStr=L("upwards");
 		}
 		if(affected instanceof MOB)
 		{
-			MOB mob=(MOB)affected;
-			if(mob==null) return false;
+			final MOB mob=(MOB)affected;
+			if(mob==null)
+				return false;
 			Room R=mob.location();
-			if(R==null) return false;
+			if(R==null)
+				return false;
 
-			if(!isWaterSurface(R)
+			if(!CMLib.flags().isWaterySurfaceRoom(R)
 			||(CMLib.flags().isWaterWorthy(mob))
 			||(CMLib.flags().isInFlight(mob))
-			||(mob.envStats().weight()<1)
+			||(mob.phyStats().weight()<1)
 			||(!canSinkFrom(R,direction)))
 				return stopSinking(mob);
-			
-			Ability A=mob.fetchAbility("Skill_Swim");
+
+			final Ability A=mob.fetchAbility("Skill_Swim");
 			if(((direction==Directions.DOWN)&&(A!=null))
 			&&(A.proficiencyCheck(mob,25,(A.proficiency()>=75))
 			&&(mob.curState().getMovement()>0)))
 			{
-				if((R.show(mob,null,CMMsg.MSG_NOISYMOVEMENT,"<S-NAME> tread(s) water."))
+				if((R.show(mob,A,CMMsg.MSG_NOISYMOVEMENT,L("<S-NAME> tread(s) water.")))
 				&&(!mob.isMonster()))
 				{
-                    isTreading=true;
-					mob.curState().expendEnergy(mob,mob.maxState(),true);
-                    mob.recoverEnvStats();
+					isTreading=true;
+					CMLib.combat().expendEnergy(mob,true);
+					mob.recoverPhyStats();
 					return true;
 				}
 			}
-            isTreading=false;
-            mob.recoverEnvStats();
-			mob.tell("\n\r\n\rYOU ARE SINKING "+addStr.toUpperCase()+"!!\n\r\n\r");
-			CMLib.tracking().move(mob,direction,false,false);
+			isTreading=false;
+			mob.recoverPhyStats();
+			mob.tell(L("\n\r\n\rYOU ARE SINKING @x1!!\n\r\n\r",addStr.toUpperCase()));
+			CMLib.tracking().walk(mob,direction,false,false);
 			R=mob.location();
 			if((R!=null)&&(!canSinkFrom(R,direction)))
 			{
@@ -183,18 +220,26 @@ public class Sinking extends StdAbility
 		else
 		if(affected instanceof Item)
 		{
-			Item item=(Item)affected;
+			final Item item=(Item)affected;
 			if((room==null)
-			   &&(item.owner()!=null)
-			   &&(item.owner() instanceof Room))
+			&&(item.owner()!=null)
+			&&(item.owner() instanceof Room))
 				room=(Room)item.owner();
 
 			if((room==null)
 			||((room!=null)&&(!room.isContent(item)))
-			||(!CMLib.flags().isGettable(item))
-			||CMLib.flags().isInFlight(item.ultimateContainer())
-			||(CMLib.flags().isWaterWorthy(item.ultimateContainer()))
-			||(item.envStats().weight()<1))
+			||((!CMLib.flags().isGettable(item)&&(!(item instanceof BoardableShip)))))
+			{
+				unInvoke();
+				return false;
+			}
+
+			final Item ultContainerI=item.ultimateContainer(null);
+
+			if(CMLib.flags().isInFlight(ultContainerI)
+			||(CMLib.flags().isWaterWorthy(ultContainerI))
+			||(item.container()!=null)
+			||(item.phyStats().weight()<1))
 			{
 				unInvoke();
 				return false;
@@ -205,21 +250,34 @@ public class Sinking extends StdAbility
 				if((--sinkTickDown)>0)
 					return true;
 			}
-			Room nextRoom=room.getRoomInDir(direction);
+			final Room nextRoom=room.getRoomInDir(direction);
 			if((nextRoom!=null)&&(canSinkFrom(room,direction)))
 			{
-				room.show(invoker,null,item,CMMsg.MSG_OK_ACTION,"<O-NAME> sinks "+addStr+".");
-				Vector V=new Vector();
-				recursiveRoomItems(V,item,room);
-				for(int v=0;v<V.size();v++)
+				final MOB mob;
+				if((item instanceof Rideable)&&(item instanceof BoardableShip))
 				{
-					Item thisItem=(Item)V.elementAt(v);
-					room.delItem(thisItem);
-					nextRoom.addItemRefuse(thisItem,CMProps.getIntVar(CMProps.SYSTEMI_EXPIRE_PLAYER_DROP));
+					mob = CMClass.getFactoryMOB(item.name(),item.phyStats().level(),room);
+					mob.setRiding((Rideable)item);
 				}
-				room=nextRoom;
-				nextRoom.show(invoker,null,item,CMMsg.MSG_OK_ACTION,"<O-NAME> sinks in from "+(reversed()?"below":"above")+".");
-				return true;
+				else
+					mob = invoker;
+				try
+				{
+					room.show(mob,null,item,CMMsg.MSG_OK_ACTION,L("<O-NAME> sinks @x1.",addStr));
+					nextRoom.moveItemTo(item,ItemPossessor.Expire.Player_Drop);
+					room=nextRoom;
+					nextRoom.show(mob,null,item,CMMsg.MSG_OK_ACTION,L("<O-NAME> sinks in from @x1.",(reversed()?L("below"):L("above"))));
+					return true;
+				}
+				finally
+				{
+					if((mob != invoker)
+					&&(mob.isMonster())
+					&&(mob.Name().equals(item.name())))
+						mob.destroy();
+				}
+				
+				
 			}
 			if(reversed())
 				return true;
@@ -229,55 +287,80 @@ public class Sinking extends StdAbility
 		return false;
 	}
 
-	public void recursiveRoomItems(Vector V, Item item, Room room)
+	@Override
+	public void affectPhyStats(Physical affected, PhyStats affectableStats)
 	{
-		V.addElement(item);
-		for(int i=0;i<room.numItems();i++)
-		{
-			Item newItem=room.fetchItem(i);
-			if((newItem!=null)&&(newItem.container()==item))
-				recursiveRoomItems(V,newItem,room);
-		}
-	}
-
-	public void affectEnvStats(Environmental affected, EnvStats affectableStats)
-	{
-		super.affectEnvStats(affected,affectableStats);
+		super.affectPhyStats(affected,affectableStats);
 		if((!CMLib.flags().isWaterWorthy(affected))
 		&&(!CMLib.flags().isInFlight(affected))
-        &&(!isTreading)
-		&&(affected.envStats().weight()>=1))
-			affectableStats.setDisposition(affectableStats.disposition()|EnvStats.IS_FALLING);
+		&&(!isTreading)
+		&&(affected.phyStats().weight()>=1))
+			affectableStats.setDisposition(affectableStats.disposition()|PhyStats.IS_FALLING);
 	}
-	public void setAffectedOne(Environmental being)
+
+	@Override
+	public void setAffectedOne(Physical P)
 	{
-		if(being instanceof Room)
-			room=(Room)being;
+		if(P instanceof Room)
+			room=(Room)P;
 		else
-			super.setAffectedOne(being);
+			super.setAffectedOne(P);
 	}
-	public boolean invoke(MOB mob, Vector commands, Environmental target, boolean auto, int asLevel)
+
+	@Override
+	public boolean invoke(MOB mob, List<String> commands, Physical givenTarget, boolean auto, int asLevel)
 	{
-		if(!auto) return false;
-		Environmental E=target;
-		if(E==null) return false;
-		if((E instanceof Item)&&(room==null)) return false;
-		if(E.fetchEffect("Sinking")==null)
+		if(!auto)
+			return false;
+		final Physical target=givenTarget;
+		if(target==null)
+			return false;
+		if((target instanceof Item)&&(room==null))
+			return false;
+		if(target.fetchEffect("Sinking")==null)
 		{
-			Sinking F=new Sinking();
-			F.setProficiency(proficiency());
+			final Sinking F=new Sinking();
+			F.setMiscText(this.reversed()?"REVERSED":"NORMAL");
 			F.invoker=null;
-			if(E instanceof MOB)
-				F.invoker=(MOB)E;
+			if(target instanceof MOB)
+				F.invoker=(MOB)target;
 			else
 				F.invoker=CMClass.getMOB("StdMOB");
-			E.addEffect(F);
+			target.addEffect(F);
 			F.setSavable(false);
 			F.makeLongLasting();
-			if(!(E instanceof MOB))
+			if(!(target instanceof MOB))
 				CMLib.threads().startTickDown(F,Tickable.TICKID_MOB,1);
-			E.recoverEnvStats();
+			target.recoverPhyStats();
 		}
 		return true;
+	}
+	
+	@Override
+	public void setStat(String code, String val)
+	{
+		if(code==null)
+			return;
+		if(code.equalsIgnoreCase("REVERSED"))
+			this.setProficiency(CMath.s_bool(val)?100:0);
+		else
+		if(code.equalsIgnoreCase("NORMAL"))
+			this.setProficiency(CMath.s_bool(val)?0:100);
+		else
+			super.setStat(code, val);
+	}
+	
+	@Override
+	public String getStat(String code)
+	{
+		if(code==null)
+			return "";
+		if(code.equalsIgnoreCase("REVERSED"))
+			return ""+(this.proficiency()==100);
+		else
+		if(code.equalsIgnoreCase("NORMAL"))
+			return ""+(this.proficiency()==0);
+		else
+			return super.getStat(code);
 	}
 }

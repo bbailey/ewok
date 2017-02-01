@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Properties;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,21 +10,21 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
-
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2002-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -33,58 +34,111 @@ import java.util.*;
 */
 public class Prop_WizInvis extends Property
 {
-	public String ID() { return "Prop_WizInvis"; }
-	public String displayText() 
+	@Override
+	public String ID()
 	{
-	    if(CMath.bset(abilityCode(),EnvStats.IS_CLOAKED|EnvStats.IS_NOT_SEEN))
-		    return "(Wizard Invisibility)";
-	    else
-	    if(CMath.bset(abilityCode(),EnvStats.IS_NOT_SEEN))
-		    return "(WizUndetectable)";
-	    else
-	    if(CMath.bset(abilityCode(),EnvStats.IS_CLOAKED))
-		    return "(Cloaked)";
-	    else
-	        return "";
+		return "Prop_WizInvis";
 	}
-	public String name(){ return "Wizard Invisibility";}
-	protected int canAffectCode(){return Ability.CAN_MOBS;}
-	protected boolean disabled=false;
-	protected int abilityCode=EnvStats.IS_NOT_SEEN|EnvStats.IS_CLOAKED;
-	public int abilityCode(){return abilityCode;}
-	public void setAbilityCode(int newCode){abilityCode=newCode;}
 
-	public String accountForYourself()
-	{ return "Wizard Invisibile";	}
-
-
-	public boolean canBeUninvoked(){return true;}
-	public boolean isAnAutoEffect(){return false;}
-
-	public void affectEnvStats(Environmental affected, EnvStats affectableStats)
+	@Override
+	public long flags()
 	{
-		super.affectEnvStats(affected,affectableStats);
+		return Ability.FLAG_ADJUSTER;
+	}
+
+	@Override
+	public String displayText()
+	{
+		if(CMath.bset(abilityCode(),PhyStats.IS_CLOAKED|PhyStats.IS_NOT_SEEN))
+			return "(Wizard Invisibility)";
+		else
+		if(CMath.bset(abilityCode(),PhyStats.IS_NOT_SEEN))
+			return "(WizUndetectable)";
+		else
+		if(CMath.bset(abilityCode(),PhyStats.IS_CLOAKED))
+			return "(Cloaked)";
+		else
+			return "";
+	}
+
+	@Override
+	public String name()
+	{
+		return "Wizard Invisibility";
+	}
+
+	@Override
+	protected int canAffectCode()
+	{
+		return Ability.CAN_MOBS;
+	}
+
+	protected boolean	disabled	= false;
+	protected boolean	unInvokable	= false;
+	protected int		abilityCode	= PhyStats.IS_NOT_SEEN | PhyStats.IS_CLOAKED;
+
+	@Override
+	public int abilityCode()
+	{
+		return abilityCode;
+	}
+
+	@Override
+	public void setAbilityCode(int newCode)
+	{
+		abilityCode = newCode;
+	}
+
+	@Override
+	public String accountForYourself()
+	{
+		return "Wizard Invisibile";
+	}
+
+	@Override
+	public boolean canBeUninvoked()
+	{
+		return true;
+	}
+
+	public boolean isAnAutoEffect()
+	{
+		return false;
+	}
+
+	@Override
+	public void setMiscText(String newMiscText)
+	{
+		super.setMiscText(newMiscText);
+		List<String> ps=CMParms.parse(newMiscText.toUpperCase());
+		unInvokable = ps.contains("UNINVOKABLE");
+	}
+	
+	@Override
+	public void affectPhyStats(Physical affected, PhyStats affectableStats)
+	{
+		super.affectPhyStats(affected,affectableStats);
 		// when this spell is on a MOBs Affected list,
 		// it should consistantly put the mob into
 		// a sleeping state, so that nothing they do
 		// can get them out of it.
 		affectableStats.setDisposition(affectableStats.disposition()|abilityCode);
-		if(CMath.bset(abilityCode(),EnvStats.IS_NOT_SEEN))
+		if(CMath.bset(abilityCode(),PhyStats.IS_NOT_SEEN))
 		{
-			affectableStats.setDisposition(affectableStats.disposition()|EnvStats.IS_INVISIBLE);
-			affectableStats.setDisposition(affectableStats.disposition()|EnvStats.IS_HIDDEN);
-			affectableStats.setDisposition(affectableStats.disposition()|EnvStats.IS_SNEAKING);
-			affectableStats.setDisposition(affectableStats.disposition()|EnvStats.IS_FLYING);
-			affectableStats.setDisposition(affectableStats.disposition()|EnvStats.IS_CLIMBING);
-			affectableStats.setDisposition(affectableStats.disposition()|EnvStats.IS_SWIMMING);
+			affectableStats.setDisposition(affectableStats.disposition()|PhyStats.IS_INVISIBLE);
+			affectableStats.setDisposition(affectableStats.disposition()|PhyStats.IS_HIDDEN);
+			affectableStats.setDisposition(affectableStats.disposition()|PhyStats.IS_SNEAKING);
+			affectableStats.setDisposition(affectableStats.disposition()|PhyStats.IS_FLYING);
+			affectableStats.setDisposition(affectableStats.disposition()|PhyStats.IS_CLIMBING);
+			affectableStats.setDisposition(affectableStats.disposition()|PhyStats.IS_SWIMMING);
 		}
-		if((affected instanceof MOB)&&(!CMLib.flags().canBreathe((MOB)affected)))
-			affectableStats.setSensesMask(affectableStats.sensesMask()-EnvStats.CAN_NOT_BREATHE);
-		affectableStats.setSensesMask(affectableStats.sensesMask()|EnvStats.CAN_SEE_HIDDEN);
-		affectableStats.setSensesMask(affectableStats.sensesMask()|EnvStats.CAN_SEE_DARK);
-		affectableStats.setSensesMask(affectableStats.sensesMask()|EnvStats.CAN_SEE_INVISIBLE);
+		affectableStats.setSensesMask(affectableStats.sensesMask()|PhyStats.CAN_SEE_HIDDEN);
+		affectableStats.setSensesMask(affectableStats.sensesMask()|PhyStats.CAN_SEE_SNEAKERS);
+		affectableStats.setSensesMask(affectableStats.sensesMask()|PhyStats.CAN_SEE_DARK);
+		affectableStats.setSensesMask(affectableStats.sensesMask()|PhyStats.CAN_SEE_INVISIBLE);
 	}
 
+	@Override
 	public void affectCharStats(MOB affected, CharStats affectableStats)
 	{
 		super.affectCharStats(affected,affectableStats);
@@ -92,14 +146,16 @@ public class Prop_WizInvis extends Property
 		affected.curState().setThirst(affected.maxState().maxThirst(affected.baseWeight()));
 	}
 
+	@Override
 	public void unInvoke()
 	{
-		if((affected==null)||(!(affected instanceof MOB)))
+		if(!(affected instanceof MOB))
 			return;
-		MOB mob=(MOB)affected;
+		final MOB mob=(MOB)affected;
 
-		if(affected==null) return;
-		Environmental being=affected;
+		if(affected==null)
+			return;
+		final Physical being=affected;
 
 		if(this.canBeUninvoked())
 		{
@@ -113,42 +169,55 @@ public class Prop_WizInvis extends Property
 					((MOB)being).location().recoverRoomStats();
 				else
 				{
-					being.recoverEnvStats();
+					being.recoverPhyStats();
 					((MOB)being).recoverCharStats();
 					((MOB)being).recoverMaxState();
 				}
 			}
 			else
-				being.recoverEnvStats();
-			mob.tell("You begin to fade back into view.");
+				being.recoverPhyStats();
+			mob.tell(L("You begin to fade back into view."));
 		}
 	}
 
-	public boolean okMessage(Environmental myHost, CMMsg msg)
+	@Override
+	public boolean okMessage(final Environmental myHost, final CMMsg msg)
 	{
-		if((CMath.bset(msg.targetCode(),CMMsg.MASK_MALICIOUS)&&(msg.amITarget(affected))&&(affected!=null)&&(!disabled)))
+		if((CMath.bset(msg.targetMajor(),CMMsg.MASK_MALICIOUS)
+		&&(msg.amITarget(affected))
+		&&(affected!=null)
+		&&(!disabled)))
 		{
 			if(msg.source()!=msg.target())
 			{
-				msg.source().tell("Ah, leave "+affected.name()+" alone.");
+				msg.source().tell(L("Ah, leave @x1 alone.",affected.name()));
 				if(affected instanceof MOB)
-					((MOB)affected).makePeace();
+					((MOB)affected).makePeace(true);
 			}
 			return false;
 		}
 		else
-		if((affected!=null)&&(affected instanceof MOB))
+		if(affected instanceof MOB)
 		{
-			if((CMath.bset(msg.targetCode(),CMMsg.MASK_MALICIOUS))&&(msg.amISource((MOB)affected)))
+			if((CMath.bset(msg.targetMajor(),CMMsg.MASK_MALICIOUS))&&(msg.amISource((MOB)affected)))
 				disabled=true;
 			else
-			if((msg.amISource((MOB)affected))
-			&&(CMath.bset(msg.source().getBitmap(),MOB.ATT_SYSOPMSGS))
-			&&(msg.source().location()!=null)
-			&&(!CMSecurity.isAllowed(msg.source(),msg.source().location(),"SYSMSGS")))
-				msg.source().setBitmap(CMath.unsetb(msg.source().getBitmap(),MOB.ATT_SYSOPMSGS));
+			if(msg.amISource((MOB)affected))
+			{
+				final Room R=msg.source().location();
+				if(R!=null)
+				{
+					if((msg.source().isAttributeSet(MOB.Attrib.SYSOPMSGS))
+					&&(!CMSecurity.isAllowed(msg.source(),R,CMSecurity.SecFlag.SYSMSGS)))
+						msg.source().setAttribute(MOB.Attrib.SYSOPMSGS,false);
+					else
+					if( unInvokable
+					&&(!CMSecurity.isAllowed(msg.source(),R,CMSecurity.SecFlag.WIZINV)))
+						unInvoke();
+				}
+				
+			}
 		}
-
 		return super.okMessage(myHost,msg);
 	}
 }

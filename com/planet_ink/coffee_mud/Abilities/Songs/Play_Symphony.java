@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Songs;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,22 +10,22 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
-
 
 import java.util.*;
 
 
 /*
-   Copyright 2000-2010 Bo Zimmerman
+   Copyright 2003-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,12 +33,15 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
+
 public class Play_Symphony extends Play
 {
-	public String ID() { return "Play_Symphony"; }
-	public String name(){ return "Symphony";}
-	public int abstractQuality(){
+	@Override public String ID() { return "Play_Symphony"; }
+	private final static String localizedName = CMLib.lang().L("Symphony");
+	@Override public String name() { return localizedName; }
+	@Override
+	public int abstractQuality()
+	{
 		if(toDoCode<0)
 			return Ability.QUALITY_BENEFICIAL_OTHERS;
 		else
@@ -69,11 +73,12 @@ public class Play_Symphony extends Play
 	public int getToDoCode()
 	{
 		if(instrument==null){ toDoCode=-1; return toDoCode;}
-		if(toDoCode>0) return toDoCode;
-		int ilvl=instrument.envStats().level();
-		switch(instrument.instrumentType())
+		if(toDoCode>0)
+			return toDoCode;
+		final int ilvl=instrument.phyStats().level();
+		switch(instrument.getInstrumentType())
 		{
-		case 0: //"CLARINETS",
+		case CLARINETS:
 		{
 			if(ilvl<=2)
 			{
@@ -90,7 +95,7 @@ public class Play_Symphony extends Play
 			if(ilvl<=15)
 			{
 				toDoCode=CODE_UPDAMAGEPER3;
-				toDoString=""+Weapon.TYPE_STRIKING;
+				toDoString=""+CMMsg.TYP_ELECTRIC;
 			}
 			else
 			if(ilvl<=18)
@@ -102,7 +107,7 @@ public class Play_Symphony extends Play
 			if(ilvl<=21)
 			{
 				toDoCode=CODE_DOWNDAMAGEPER5;
-				toDoString=""+Weapon.TYPE_STRIKING;
+				toDoString=""+CMMsg.TYP_ELECTRIC;
 			}
 			else
 			{
@@ -111,7 +116,7 @@ public class Play_Symphony extends Play
 			}
 			break;
 		}
-		case 1: //"CYMBALS",
+		case CYMBALS:
 		{
 			if(ilvl<=2)
 			{
@@ -148,7 +153,7 @@ public class Play_Symphony extends Play
 			}
 			break;
 		}
-		case 2: //"DRUMS",
+		case DRUMS:
 		{
 			if(ilvl<=3)
 			{
@@ -192,7 +197,7 @@ public class Play_Symphony extends Play
 			}
 			break;
 		}
-		case 3: //"FLUTES",
+		case FLUTES:
 		{
 			if(ilvl<=1)
 			{
@@ -230,7 +235,7 @@ public class Play_Symphony extends Play
 			}
 			break;
 		}
-		case 4: //"GUITARS",
+		case GUITARS:
 		{
 			if(ilvl<=4)
 			{
@@ -241,7 +246,7 @@ public class Play_Symphony extends Play
 			if(ilvl<=5)
 			{
 				toDoCode=CODE_UPDAMAGEPER5;
-				toDoString=""+Weapon.TYPE_BURNING;
+				toDoString=""+CMMsg.TYP_FIRE;
 			}
 			else
 			if(ilvl<=6)
@@ -270,17 +275,17 @@ public class Play_Symphony extends Play
 			else
 			{
 				toDoCode=CODE_UPDAMAGEPER3;
-				toDoString=""+CharStats.STAT_SAVE_FIRE;
+				toDoString=""+CMMsg.TYP_FIRE;
 			}
 			break;
 		}
-		case 5: //"HARMONICAS",
+		case HARMONICAS:
 		{
 			toDoCode=CODE_UPENVPER5;
 			toDoString="D";
 			break;
 		}
-		case 6: //"HARPS",
+		case HARPS:
 		{
 			if(ilvl<=3)
 			{
@@ -294,7 +299,7 @@ public class Play_Symphony extends Play
 			}
 			break;
 		}
-		case 7: //"HORNS",
+		case HORNS:
 		{
 			if(ilvl<=4)
 			{
@@ -308,7 +313,7 @@ public class Play_Symphony extends Play
 			}
 			break;
 		}
-		case 8: //"OBOES",
+		case OBOES:
 		{
 			if(ilvl<=4)
 			{
@@ -325,7 +330,7 @@ public class Play_Symphony extends Play
 			if(ilvl<=9)
 			{
 				toDoCode=CODE_UPDAMAGEPER3;
-				toDoString=""+Weapon.TYPE_MELTING;
+				toDoString=""+CMMsg.TYP_ACID;
 			}
 			else
 			if(ilvl<=12)
@@ -352,7 +357,7 @@ public class Play_Symphony extends Play
 			}
 			break;
 		}
-		case 9: //"ORGANS",
+		case ORGANS:
 		{
 			if(ilvl<=22)
 			{
@@ -378,7 +383,7 @@ public class Play_Symphony extends Play
 			}
 			break;
 		}
-		case 10: //"PIANOS",
+		case PIANOS:
 		{
 			if(ilvl<=18)
 			{
@@ -404,7 +409,7 @@ public class Play_Symphony extends Play
 			}
 			break;
 		}
-		case 11: //"TROMBONES",
+		case TROMBONES:
 		{
 			if(ilvl<=8)
 			{
@@ -430,7 +435,7 @@ public class Play_Symphony extends Play
 			}
 			break;
 		}
-		case 12: //"TRUMPETS",
+		case TRUMPETS:
 		{
 			if(ilvl<=9)
 			{
@@ -450,7 +455,7 @@ public class Play_Symphony extends Play
 			}
 			break;
 		}
-		case 13: //"TUBAS",
+		case TUBAS:
 		{
 			if(ilvl<=7)
 			{
@@ -488,7 +493,7 @@ public class Play_Symphony extends Play
 			}
 			break;
 		}
-		case 14: //"VIOLINS",
+		case VIOLINS:
 		{
 			if(ilvl<=7)
 			{
@@ -522,11 +527,11 @@ public class Play_Symphony extends Play
 			else
 			{
 				toDoCode=CODE_UPDAMAGEPER3;
-				toDoString=""+Weapon.TYPE_FROSTING;
+				toDoString=""+CMMsg.TYP_COLD;
 			}
 			break;
 		}
-		case 15: //"WOODS",
+		case WOODS:
 		{
 			if(ilvl<=1)
 			{
@@ -546,7 +551,7 @@ public class Play_Symphony extends Play
 			}
 			break;
 		}
-		case 16: //"XYLOPHONES"};
+		case XYLOPHONES:
 		{
 			if(ilvl<=11)
 			{
@@ -584,6 +589,7 @@ public class Play_Symphony extends Play
 		return toDoCode;
 	}
 
+	@Override
 	public void executeMsg(Environmental E, CMMsg msg)
 	{
 		if(msg.targetMinor()==CMMsg.TYP_DAMAGE)
@@ -593,7 +599,7 @@ public class Play_Symphony extends Play
 			if((msg.sourceMinor()==toDoVal)
 			&&(msg.target()==affected))
 			{
-				int dmg=(adjustedLevel(invoker(),0)/5);
+				final int dmg=(adjustedLevel(invoker(),0)/5);
 				msg.setValue(msg.value()-dmg);
 			}
 			break;
@@ -601,9 +607,9 @@ public class Play_Symphony extends Play
 		case CODE_UPDAMAGEPER5:
 			if((affected==invoker())
 			&&(msg.sourceMinor()==toDoVal)
-			&&(msg.target()!=null)
-			&&(msg.target().fetchEffect(ID())==null)
-			&&(msg.target().fetchEffect(ID()).invoker()!=invoker()))
+			&&(msg.target() instanceof Physical)
+			&&((((Physical)msg.target()).fetchEffect(ID())==null)
+				||(((Physical)msg.target()).fetchEffect(ID()).invoker()!=invoker())))
 			{
 				int dmg=0;
 				if(toDoCode==CODE_UPDAMAGEPER3)
@@ -618,6 +624,7 @@ public class Play_Symphony extends Play
 		}
 	}
 
+	@Override
 	public void affectCharStats(MOB mob, CharStats stats)
 	{
 		super.affectCharStats(mob,stats);
@@ -628,7 +635,8 @@ public class Play_Symphony extends Play
 			break;
 		case CODE_UPSTAT:
 			int lvl=adjustedLevel(invoker(),0)/10;
-			if(lvl<1) lvl=1;
+			if(lvl<1)
+				lvl=1;
 			stats.setStat(toDoVal,stats.getStat(toDoVal)+(lvl));
 			break;
 		case CODE_DOWNSAVE:
@@ -637,9 +645,10 @@ public class Play_Symphony extends Play
 			break;
 		}
 	}
-	public void affectEnvStats(Environmental mob, EnvStats stats)
+	@Override
+	public void affectPhyStats(Physical mob, PhyStats stats)
 	{
-		super.affectEnvStats(mob,stats);
+		super.affectPhyStats(mob,stats);
 		if(((toDoCode==CODE_UPENVPER2)||(toDoCode==CODE_UPENVPER5))
 		&&(toDoString.length()>0)
 		&&(invoker()!=null))
@@ -661,28 +670,33 @@ public class Play_Symphony extends Play
 		}
 	}
 
-    public int castingQuality(MOB mob, Environmental target)
-    {
-        if(mob!=null)
-        {
-            if((mob.isInCombat())&&(mob.isMonster()))
-                return Ability.QUALITY_INDIFFERENT;
-        }
-        return super.castingQuality(mob,target);
-    }
-    
+	@Override
+	public int castingQuality(MOB mob, Physical target)
+	{
+		if(mob!=null)
+		{
+			if((mob.isInCombat())&&(mob.isMonster()))
+				return Ability.QUALITY_INDIFFERENT;
+		}
+		return super.castingQuality(mob,target);
+	}
+
+	@Override
 	public boolean tick(Tickable ticking, int tickID)
 	{
-		if(!super.tick(ticking,tickID)) return false;
-		if((affected==null)||(!(affected instanceof MOB)))
+		if(!super.tick(ticking,tickID))
+			return false;
+		if(!(affected instanceof MOB))
 		   return true;
 		int per=-1;
+		int addedLevel=0;
 		switch(toDoCode)
 		{
 		case CODE_CASTMALICIOUSSPELLPER10:
 			if(!((MOB)affected).isInCombat())
 				return true;
 			per=10;
+			addedLevel=10;
 			break;
 		case CODE_CASTFRIENDLYSPELLPER2:
 			per=2;
@@ -692,20 +706,22 @@ public class Play_Symphony extends Play
 			break;
 		case CODE_CASTFRIENDLYSPELLPER10:
 			per=10;
+			addedLevel=10;
 			break;
 		case CODE_CASTFRIENDLYSPELLPER20:
 			per=20;
+			addedLevel=20;
 			break;
 		case CODE_UPMOVEMENT:
 			((MOB)affected).curState().adjMovement(1,((MOB)affected).maxState());
 			break;
 		case CODE_REMOVESPELLTYPE:
 			{
-				MOB M=(MOB)affected;
-				Vector V=CMLib.flags().flaggedAffects(M,toDoVal);
+				final MOB M=(MOB)affected;
+				final List<Ability> V=CMLib.flags().flaggedAffects(M,toDoVal);
 				for(int v=0;v<V.size();v++)
 				{
-					Ability A =(Ability)V.elementAt(v); 
+					final Ability A =V.get(v);
 					A.unInvoke();
 					if(M.fetchEffect(A.ID())==null)
 						break;
@@ -714,10 +730,10 @@ public class Play_Symphony extends Play
 			}
 		case CODE_SPEEDCOMMONSKILLS:
 			{
-				MOB M=(MOB)affected;
-				for(int a=0;a<M.numAllEffects();a++)
+				final MOB M=(MOB)affected;
+				for(final Enumeration<Ability> a=M.effects();a.hasMoreElements();)
 				{
-					Ability A=M.fetchEffect(a);
+					final Ability A=a.nextElement();
 					if((A!=null)
 					&&(A.invoker()==M)
 					&&((A.classificationCode()&Ability.ALL_ACODES)==Ability.ACODE_COMMON_SKILL))
@@ -729,23 +745,25 @@ public class Play_Symphony extends Play
 			return true;
 		}
 		if((per>0)
-		&&(CMLib.dice().rollPercentage()<(adjustedLevel(invoker(),0)/per)))
+		&&(CMLib.dice().rollPercentage()<((addedLevel+adjustedLevel(invoker(),0))/per)))
 		switch(toDoCode)
 		{
 		case CODE_CASTMALICIOUSSPELLPER10:
 			{
-				MOB M=(MOB)affected;
-				MOB V=M.getVictim();
-				Ability A=CMClass.getAbility(toDoString);
-				if(A==null) Log.errOut("Symphony","No spell- "+toDoString);
+				final MOB M=(MOB)affected;
+				final MOB V=M.getVictim();
+				final Ability A=CMClass.getAbility(toDoString);
+				if(A==null)
+					Log.errOut("Symphony","No spell- "+toDoString);
 				else A.invoke(M,V,true,0);
 			}
 			break;
 		default:
 			{
-				MOB M=(MOB)affected;
-				Ability A=CMClass.getAbility(toDoString);
-				if(A==null) Log.errOut("Symphony","No spell- "+toDoString);
+				final MOB M=(MOB)affected;
+				final Ability A=CMClass.getAbility(toDoString);
+				if(A==null)
+					Log.errOut("Symphony","No spell- "+toDoString);
 				else A.invoke(M,M,true,0);
 			}
 			break;
@@ -753,14 +771,16 @@ public class Play_Symphony extends Play
 		return true;
 	}
 
-	public boolean invoke(MOB mob, Vector commands, Environmental givenTarget, boolean auto, int asLevel)
+	@Override
+	public boolean invoke(MOB mob, List<String> commands, Physical givenTarget, boolean auto, int asLevel)
 	{
 		instrument=null;
 		toDoCode=-1;
 		if(!auto)
 		{
 			instrument=getInstrument(mob,requiredInstrumentType(),true);
-			if(instrument!=null) getToDoCode();
+			if(instrument!=null)
+				getToDoCode();
 		}
 		return super.invoke(mob,commands,givenTarget,auto,asLevel);
 	}

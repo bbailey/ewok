@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Items.ClanItems;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,6 +10,7 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -16,14 +18,14 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2004-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -33,7 +35,7 @@ import java.util.*;
 */
 public class StdClanPamphlet extends StdClanItem
 {
-	public String ID(){	return "StdClanPamphlet";}
+	@Override public String ID(){	return "StdClanPamphlet";}
 	protected int tradeTime=-1;
 
 	public StdClanPamphlet()
@@ -41,16 +43,17 @@ public class StdClanPamphlet extends StdClanItem
 		super();
 
 		setName("a clan pamphlet");
-		baseEnvStats.setWeight(1);
+		basePhyStats.setWeight(1);
 		setDisplayText("a pamphlet belonging to a clan is here.");
 		setDescription("");
 		secretIdentity="";
 		baseGoldValue=1;
-		setCIType(ClanItem.CI_PROPAGANDA);
+		setClanItemType(ClanItem.ClanItemType.PROPAGANDA);
 		material=RawMaterial.RESOURCE_PAPER;
-		recoverEnvStats();
+		recoverPhyStats();
 	}
 
+	@Override
 	public boolean tick(Tickable ticking, int tickID)
 	{
 		if(!super.tick(ticking,tickID))
@@ -64,52 +67,56 @@ public class StdClanPamphlet extends StdClanItem
 		&&(((MOB)owner()).location()!=null)
 		&&(((MOB)owner()).getStartRoom().getArea()==((MOB)owner()).location().getArea()))
 		{
-			String rulingClan=null;
-			Room R=((MOB)owner()).location();
-            if((((MOB)owner()).getClanID().length()>0)
+			final Room R=((MOB)owner()).location();
+			if((((MOB)owner()).getClanRole(clanID())!=null)
 			||(((--tradeTime)<=0)))
 			{
-                LegalBehavior B=CMLib.law().getLegalBehavior(R);
-                if(B!=null) rulingClan=B.rulingOrganization();
-			}
-			if((rulingClan!=null)&&(rulingClan.length()>0)
-            &&(!rulingClan.equals(clanID()))
-            &&(((MOB)owner()).getClanID().equals(rulingClan)))
-				((MOB)owner()).setClanID("");
-			if(tradeTime<=0)
-			{
-				MOB mob=(MOB)owner();
-				tradeTime=CMProps.getIntVar(CMProps.SYSTEMI_TICKSPERMUDDAY);
-				if((mob.getClanID().length()==0)
-				&&(rulingClan!=null)
-				&&(rulingClan.length()>0)
-                &&(!rulingClan.equals(clanID()))
-				&&(CMLib.flags().canSpeak(mob))
-				&&(CMLib.flags().aliveAwakeMobileUnbound(mob,true))
-				&&(R!=null))
+				final LegalBehavior B=CMLib.law().getLegalBehavior(R);
+				if(B!=null)
 				{
-					MOB M=R.fetchInhabitant(CMLib.dice().roll(1,R.numInhabitants(),-1));
-					if((M!=null)
-					&&(M!=mob)
-					&&(M.isMonster())
-					&&(M.getClanID().equals(rulingClan))
-					&&(!CMLib.flags().isAnimalIntelligence(M))
-					&&(CMLib.flags().canBeSeenBy(M,mob))
-					&&(CMLib.flags().canBeHeardBy(M,mob)))
+					final String rulingClan=B.rulingOrganization();
+					if((rulingClan!=null)&&(rulingClan.length()>0)
+					&&(!rulingClan.equals(clanID()))
+					&&(((MOB)owner()).getClanRole(rulingClan)!=null))
+						((MOB)owner()).setClan(rulingClan,-1);
+					if(tradeTime<=0)
 					{
-						CMLib.commands().postSay(mob,M,"Hey, take a look at this.",false,false);
-						ClanItem I=(ClanItem)copyOf();
-						mob.addInventory(I);
-						CMMsg newMsg=CMClass.getMsg(mob,M,I,CMMsg.MSG_GIVE,"<S-NAME> give(s) <O-NAME> to <T-NAMESELF>.");
-						if(mob.location().okMessage(mob,newMsg)&&(!((Item)I).amDestroyed()))
-							mob.location().send(mob,newMsg);
-						if(!M.isMine(I)) 
-                            ((Item)I).destroy();
-                        else
-                        if(mob.isMine(I))
-                            ((Item)I).destroy();
+						final MOB mob=(MOB)owner();
+						if((rulingClan!=null)
+						&&(rulingClan.length()>0)
+						&&(!rulingClan.equals(clanID()))
+						&&(mob.getClanRole(rulingClan)==null)
+						&&(mob.getClanRole(clanID())==null)
+						&&(CMLib.flags().canSpeak(mob))
+						&&(CMLib.flags().isAliveAwakeMobileUnbound(mob,true))
+						&&(R!=null))
+						{
+							final MOB M=R.fetchRandomInhabitant();
+							if((M!=null)
+							&&(M!=mob)
+							&&(M.isMonster())
+							&&(M.getClanRole(rulingClan)!=null)
+							&&(!CMLib.flags().isAnimalIntelligence(M))
+							&&(CMLib.flags().canBeSeenBy(M,mob))
+							&&(CMLib.flags().canBeHeardMovingBy(M,mob)))
+							{
+								CMLib.commands().postSay(mob,M,L("Hey, take a look at this."),false,false);
+								final ClanItem I=(ClanItem)copyOf();
+								mob.addItem(I);
+								final CMMsg newMsg=CMClass.getMsg(mob,M,I,CMMsg.MSG_GIVE,L("<S-NAME> give(s) <O-NAME> to <T-NAMESELF>."));
+								if(mob.location().okMessage(mob,newMsg)&&(!((Item)I).amDestroyed()))
+									mob.location().send(mob,newMsg);
+								if(!M.isMine(I))
+									((Item)I).destroy();
+								else
+								if(mob.isMine(I))
+									((Item)I).destroy();
+							}
+						}
 					}
 				}
+				if(tradeTime<=0)
+					tradeTime=CMProps.getIntVar(CMProps.Int.TICKSPERMUDDAY);
 			}
 		}
 		return true;

@@ -1,30 +1,33 @@
 package com.planet_ink.coffee_mud.Commands;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
 import com.planet_ink.coffee_mud.CharClasses.interfaces.*;
 import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
+import com.planet_ink.coffee_mud.Common.interfaces.Clan.Authority;
+import com.planet_ink.coffee_mud.Common.interfaces.Clan.Function;
 import com.planet_ink.coffee_mud.Common.interfaces.Clan.MemberRecord;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
-import java.util.List;
 
 /*
-   Copyright 2000-2010 Bo Zimmerman
+   Copyright 2003-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,141 +35,176 @@ import java.util.List;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
+
 public class ClanAssign extends StdCommand
 {
-	public ClanAssign(){}
+	public ClanAssign()
+	{
+	}
 
-	private String[] access={"CLANASSIGN"};
-	public String[] getAccessWords(){return access;}
-	public boolean execute(MOB mob, Vector commands, int metaFlags)
+	private final String[]	access	= I(new String[] { "CLANASSIGN" });
+
+	@Override
+	public String[] getAccessWords()
+	{
+		return access;
+	}
+
+	@Override
+	public boolean execute(MOB mob, List<String> commands, int metaFlags)
 		throws java.io.IOException
 	{
-		boolean skipChecks=mob.Name().equals(mob.getClanID());
-		commands.setElementAt(getAccessWords()[0],0);
 		if(commands.size()<3)
 		{
-			mob.tell("You must specify the members name, and a new role.");
+			mob.tell(L("You must specify the members name, and a new role."));
 			return false;
 		}
-		String qual=((String)commands.elementAt(1)).toUpperCase();
-		String pos=CMParms.combine(commands,2).toUpperCase();
-		StringBuffer msg=new StringBuffer("");
+		String memberStr=(commands.size()>2)?(String)commands.get(commands.size()-2):"";
+		final String pos=(commands.size()>1)?(String)commands.get(commands.size()-1):"";
+		final String clanName=(commands.size()>3)?CMParms.combine(commands,1,commands.size()-2):"";
+
 		Clan C=null;
-		boolean found=false;
-		if(qual.length()>0)
+		final boolean skipChecks=mob.getClanRole(mob.Name())!=null;
+		if(skipChecks)
+			C=mob.getClanRole(mob.Name()).first;
+
+		if(C==null)
 		{
-			if((mob.getClanID()==null)||(mob.getClanID().equalsIgnoreCase("")))
+			for(final Pair<Clan,Integer> c : mob.clans())
 			{
-				msg.append("You aren't even a member of a clan.");
-			}
-			else
-			{
-				C=CMLib.clans().getClan(mob.getClanID());
-				if(C==null)
+				if((clanName.length()==0)||(CMLib.english().containsString(c.first.getName(), clanName))
+				&&(c.first.getAuthority(c.second.intValue(), Clan.Function.ASSIGN)!=Authority.CAN_NOT_DO))
 				{
-					mob.tell("There is no longer a clan called "+mob.getClanID()+".");
+					C = c.first;
+					break;
+				}
+			}
+		}
+
+		commands.clear();
+		commands.add(getAccessWords()[0]);
+		commands.add(memberStr);
+		commands.add(pos);
+		final StringBuffer msg=new StringBuffer("");
+		boolean found=false;
+		if(memberStr.length()>0)
+		{
+			if(C==null)
+			{
+				mob.tell(L("You aren't allowed to assign anyone from @x1.",((clanName.length()==0)?"anything":clanName)));
+				return false;
+			}
+			if(skipChecks||CMLib.clans().goForward(mob,C,commands,Clan.Function.ASSIGN,false))
+			{
+				final List<MemberRecord> members=C.getMemberList();
+				if(members.size()<1)
+				{
+					mob.tell(L("There are no members in your @x1",C.getGovernmentName()));
 					return false;
 				}
-				if(skipChecks||CMLib.clans().goForward(mob,C,commands,Clan.FUNC_CLANASSIGN,false))
+				final int newPos=C.getRoleFromName(pos);
+				if(newPos<0)
 				{
-					List<MemberRecord> members=C.getMemberList();
-					if(members.size()<1)
+					mob.tell(L("'@x1' is not a valid role.",pos));
+					return false;
+				}
+				memberStr=CMStrings.capitalizeAndLower(memberStr);
+				for(final MemberRecord member : members)
+				{
+					if(member.name.equalsIgnoreCase(memberStr))
 					{
-						mob.tell("There are no members in your "+C.typeName()+"");
+						found=true;
+					}
+				}
+				if(found)
+				{
+					final MOB M=CMLib.players().getLoadPlayer(memberStr);
+					final Pair<Clan,Integer> oldRole=(M!=null)?M.getClanRole(C.clanID()):null;
+					if((M==null)||(oldRole==null))
+					{
+						mob.tell(L("@x1 was not found.  Could not change @x2 role.",memberStr,C.getGovernmentName()));
 						return false;
 					}
-					int newPos=CMLib.clans().getRoleFromName(C.getGovernment(),pos);
-					if(newPos<0)
+					if(!C.canBeAssigned(M, newPos))
 					{
-						mob.tell("'"+pos+"' is not a valid role.");
+						mob.tell(L("@x1 may not be assigned to @x2.",M.name(mob),C.getRoleName(newPos,true,false)));
 						return false;
 					}
-					qual=CMStrings.capitalizeAndLower(qual);
-					for(MemberRecord member : members)
+					if(skipChecks||CMLib.clans().goForward(mob,C,commands,Clan.Function.ASSIGN,true))
 					{
-						if(member.name.equalsIgnoreCase(qual))
+						final int oldPos=oldRole.second.intValue();
+						final int maxInNewPos=C.getMostInRole(newPos);
+						final Vector<String> currentMembersInNewPosV=new Vector<String>();
+						for(final MemberRecord member : members)
 						{
-							found=true;
+							if(member.role==newPos)
+								currentMembersInNewPosV.add(member.name);
 						}
-					}
-					if(found)
-					{
-						MOB M=CMLib.players().getLoadPlayer(qual);
-						if(M==null)
-						{
-							mob.tell(qual+" was not found.  Could not change "+C.typeName()+" role.");
-							return false;
-						}
-						if(!C.canBeAssigned(M, newPos))
-						{
-							mob.tell(M.name()+" may not be assigned to "+CMLib.clans().getRoleName(C.getGovernment(),newPos,true,false)+".");
-							return false;
-						}
-						if(skipChecks||CMLib.clans().goForward(mob,C,commands,Clan.FUNC_CLANASSIGN,true))
-						{
-						    int oldPos=M.getClanRole();
-							int maxInNewPos=Clan.ROL_MAX[C.getGovernment()][CMLib.clans().getIntFromRole(newPos)];
-							Vector currentMembersInNewPosV=new Vector();
-							for(MemberRecord member : members)
-								if(member.role==newPos)
-									currentMembersInNewPosV.addElement(member.name);
-							if(CMLib.clans().getRoleOrder(oldPos)==Clan.POSORDER.length-1)
-							{ // If you WERE already the highest order.. you must be being demoted.
-								// so we check to see if there will be any other high officers left
-							    int numMembers=0;
-								for(MemberRecord member : members)
-								    if(!M.Name().equalsIgnoreCase(member.name))
-										if(member.role==oldPos)
-											numMembers++;
-								if(numMembers==0)
-								{
-								    mob.tell(M.Name()+" is the last "+CMLib.clans().getRoleName(C.getGovernment(),oldPos,true,false)+" and must be replaced before being reassigned.");
-								    return false;
-								}
-							}
-							if((currentMembersInNewPosV.size()>0)&&(maxInNewPos<Integer.MAX_VALUE))
+						final List<Integer> topRoleIDs=C.getTopRankedRoles(Function.ASSIGN);
+						if(topRoleIDs.contains(Integer.valueOf(oldPos)))
+						{ // If you WERE already the highest order.. you must be being demoted.
+							// so we check to see if there will be any other high officers left
+							int numMembers=0;
+							for(final MemberRecord member : members)
 							{
-								// if there are too many in the new position, demote some of them.
-								while(currentMembersInNewPosV.size()>=maxInNewPos)
+								if(!M.Name().equalsIgnoreCase(member.name))
 								{
-									String s=(String)currentMembersInNewPosV.elementAt(0);
-									currentMembersInNewPosV.removeElementAt(0);
-									CMLib.clans().clanAnnounce(mob," "+s+" of the "+C.typeName()+" "+C.clanID()+" is now a "+CMLib.clans().getRoleName(C.getGovernment(),Clan.POS_MEMBER,true,false)+".");
-									MOB M2=CMLib.players().getPlayer(s);
-									if(M2!=null) M2.setClanRole(Clan.POS_MEMBER);
-									CMLib.database().DBUpdateClanMembership(s, C.clanID(), Clan.POS_MEMBER);
-									C.updateClanPrivileges(M2);
+									if(topRoleIDs.contains(Integer.valueOf(member.role)))
+										numMembers++;
 								}
 							}
-							// finally, promote
-							CMLib.clans().clanAnnounce(mob,M.name()+" of the "+C.typeName()+" "+C.clanID()+" changed from "+CMLib.clans().getRoleName(C.getGovernment(),M.getClanRole(),true,false)+" to "+CMLib.clans().getRoleName(C.getGovernment(),newPos,true,false)+".");
-                            C.addMember(M,newPos);
-							mob.tell(M.Name()+" of the "+C.typeName()+" "+C.clanID()+" has been assigned to be "+CMLib.english().startWithAorAn(CMLib.clans().getRoleName(C.getGovernment(),newPos,false,false))+". ");
-							M.tell("You have been assigned to be "+CMLib.english().startWithAorAn(CMLib.clans().getRoleName(C.getGovernment(),newPos,false,false))+" of "+C.typeName()+" "+C.clanID()+".");
-							return false;
+							if(numMembers==0)
+							{
+								mob.tell(L("@x1 is the last @x2 and must be replaced before being reassigned.",M.Name(),C.getRoleName(oldPos,true,false)));
+								return false;
+							}
 						}
-					}
-					else
-					{
-						msg.append(qual+" isn't a member of your "+C.typeName()+".");
+						if((currentMembersInNewPosV.size()>0)&&(maxInNewPos<Integer.MAX_VALUE))
+						{
+							// if there are too many in the new position, demote some of them.
+							while(currentMembersInNewPosV.size()>=maxInNewPos)
+							{
+								final String s=currentMembersInNewPosV.get(0);
+								currentMembersInNewPosV.remove(0);
+								CMLib.clans().clanAnnounce(mob,L(" @x1 of the @x2 @x3 is now a @x4.",s,C.getGovernmentName(),C.clanID(),C.getRoleName(C.getGovernment().getAcceptPos(),true,false)));
+								final MOB M2=CMLib.players().getPlayer(s);
+								if(M2!=null)
+									M2.setClan(C.clanID(),C.getGovernment().getAcceptPos());
+								CMLib.database().DBUpdateClanMembership(s, C.clanID(), C.getGovernment().getAcceptPos());
+								C.updateClanPrivileges(M2);
+							}
+						}
+						// finally, promote
+						CMLib.clans().clanAnnounce(mob,L("@x1 of the @x2 @x3 changed from @x4 to @x5.",M.name(),C.getGovernmentName(),C.clanID(),C.getRoleName(oldRole.second.intValue(),true,false),C.getRoleName(newPos,true,false)));
+						C.addMember(M,newPos);
+						mob.tell(L("@x1 of the @x2 @x3 has been assigned to be @x4. ",M.Name(),C.getGovernmentName(),C.clanID(),CMLib.english().startWithAorAn(C.getRoleName(newPos,false,false))));
+						if((M.session()!=null)&&(M.session().mob()==M))
+							M.tell(L("You have been assigned to be @x1 of @x2 @x3.",CMLib.english().startWithAorAn(C.getRoleName(newPos,false,false)),C.getGovernmentName(),C.clanID()));
+						return false;
 					}
 				}
 				else
 				{
-					msg.append("You aren't in the right position to assign anyone in your "+C.typeName()+".");
+					msg.append(L("@x1 isn't a member of your @x2.",memberStr,C.getGovernmentName()));
 				}
+			}
+			else
+			{
+				msg.append(L("You aren't in the right position to assign anyone in your @x1.",C.getGovernmentName()));
 			}
 		}
 		else
 		{
-			msg.append("You haven't specified which member you are assigning a new role to.");
+			msg.append(L("You haven't specified which member you are assigning a new role to."));
 		}
 		mob.tell(msg.toString());
 		return false;
 	}
-	
-	public boolean canBeOrdered(){return false;}
 
-	
+	@Override
+	public boolean canBeOrdered()
+	{
+		return false;
+	}
+
 }

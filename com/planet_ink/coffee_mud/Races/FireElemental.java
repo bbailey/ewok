@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Races;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,21 +10,21 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
-
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2002-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -31,36 +32,125 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
 public class FireElemental extends StdRace
 {
-	public String ID(){	return "FireElemental"; }
-	public String name(){ return "Fire Elemental"; }
-	public int shortestMale(){return 64;}
-	public int shortestFemale(){return 60;}
-	public int heightVariance(){return 12;}
-	public int lightestWeight(){return 400;}
-	public int weightVariance(){return 100;}
-	public long forbiddenWornBits(){return 0;}
-	public String racialCategory(){return "Fire Elemental";}
-	public boolean fertile(){return false;}
-	public boolean uncharmable(){return true;}
-	protected boolean destroyBodyAfterUse(){return true;}
-	private String[]culturalAbilityNames={"Ignan"};
-	private int[]culturalAbilityProficiencies={100};
-	public String[] culturalAbilityNames(){return culturalAbilityNames;}
-	public int[] culturalAbilityProficiencies(){return culturalAbilityProficiencies;}
+	@Override
+	public String ID()
+	{
+		return "FireElemental";
+	}
 
-	protected static Vector resources=new Vector();
-	public int availabilityCode(){return Area.THEME_FANTASY|Area.THEME_SKILLONLYMASK;}
+	private final static String localizedStaticName = CMLib.lang().L("Fire Elemental");
 
-	//                                an ey ea he ne ar ha to le fo no gi mo wa ta wi
+	@Override
+	public String name()
+	{
+		return localizedStaticName;
+	}
+
+	@Override
+	public int shortestMale()
+	{
+		return 64;
+	}
+
+	@Override
+	public int shortestFemale()
+	{
+		return 60;
+	}
+
+	@Override
+	public int heightVariance()
+	{
+		return 12;
+	}
+
+	@Override
+	public int lightestWeight()
+	{
+		return 400;
+	}
+
+	@Override
+	public int weightVariance()
+	{
+		return 100;
+	}
+
+	@Override
+	public long forbiddenWornBits()
+	{
+		return 0;
+	}
+
+	private final static String localizedStaticRacialCat = CMLib.lang().L("Elemental");
+
+	@Override
+	public String racialCategory()
+	{
+		return localizedStaticRacialCat;
+	}
+
+	@Override
+	public boolean fertile()
+	{
+		return false;
+	}
+
+	@Override
+	public boolean uncharmable()
+	{
+		return true;
+	}
+
+	@Override
+	protected boolean destroyBodyAfterUse()
+	{
+		return true;
+	}
+
+	private final String[]	culturalAbilityNames			= { "Ignan" };
+	private final int[]		culturalAbilityProficiencies	= { 100 };
+
+	@Override
+	public String[] culturalAbilityNames()
+	{
+		return culturalAbilityNames;
+	}
+
+	@Override
+	public int[] culturalAbilityProficiencies()
+	{
+		return culturalAbilityProficiencies;
+	}
+
+	protected static Vector<RawMaterial>	resources	= new Vector<RawMaterial>();
+
+	@Override
+	public int availabilityCode()
+	{
+		return Area.THEME_FANTASY | Area.THEME_SKILLONLYMASK;
+	}
+
+	//  							  an ey ea he ne ar ha to le fo no gi mo wa ta wi
 	private static final int[] parts={-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1};
-	public int[] bodyMask(){return parts;}
 
-	private int[] agingChart={0,0,0,0,0,Integer.MAX_VALUE,Integer.MAX_VALUE,Integer.MAX_VALUE,Integer.MAX_VALUE};
-	public int[] getAgingChart(){return agingChart;}
-	
+	@Override
+	public int[] bodyMask()
+	{
+		return parts;
+	}
+
+	private final int[]	agingChart	= { 0, 0, 0, 0, 0, YEARS_AGE_LIVES_FOREVER, YEARS_AGE_LIVES_FOREVER, YEARS_AGE_LIVES_FOREVER, YEARS_AGE_LIVES_FOREVER };
+
+	@Override
+	public int[] getAgingChart()
+	{
+		return agingChart;
+	}
+
+	@Override
 	public void affectCharStats(MOB affectedMOB, CharStats affectableStats)
 	{
 		super.affectCharStats(affectedMOB, affectableStats);
@@ -68,61 +158,85 @@ public class FireElemental extends StdRace
 		affectableStats.setStat(CharStats.STAT_SAVE_DISEASE,affectableStats.getStat(CharStats.STAT_SAVE_DISEASE)+100);
 		affectableStats.setStat(CharStats.STAT_SAVE_FIRE,affectableStats.getStat(CharStats.STAT_SAVE_FIRE)+100);
 	}
+
+	@Override
 	public Weapon myNaturalWeapon()
 	{
 		if(naturalWeapon==null)
 		{
 			naturalWeapon=CMClass.getWeapon("StdWeapon");
-			naturalWeapon.setName("an arm of flame");
-			naturalWeapon.setWeaponType(Weapon.TYPE_BURNING);
+			naturalWeapon.setName(L("an arm of flame"));
+			naturalWeapon.setMaterial(RawMaterial.RESOURCE_PLASMA);
+			naturalWeapon.setUsesRemaining(1000);
+			naturalWeapon.setWeaponDamageType(Weapon.TYPE_BURNING);
 		}
 		return naturalWeapon;
 	}
 
+	@Override
+	public String makeMobName(char gender, int age)
+	{
+		return makeMobName('N',Race.AGE_MATURE);
+	}
+
+	@Override
 	public String healthText(MOB viewer, MOB mob)
 	{
-		double pct=(CMath.div(mob.curState().getHitPoints(),mob.maxState().getHitPoints()));
+		final double pct=(CMath.div(mob.curState().getHitPoints(),mob.maxState().getHitPoints()));
 
 		if(pct<.10)
-			return "^r" + mob.displayName(viewer) + "^r is almost put out!^N";
+			return L("^r@x1^r is almost put out!^N",mob.name(viewer));
 		else
 		if(pct<.20)
-			return "^r" + mob.displayName(viewer) + "^r is flickering alot and is almost smoked out.^N";
+			return L("^r@x1^r is flickering alot and is almost smoked out.^N",mob.name(viewer));
 		else
 		if(pct<.30)
-			return "^r" + mob.displayName(viewer) + "^r is flickering alot and smoking massively.^N";
+			return L("^r@x1^r is flickering alot and smoking massively.^N",mob.name(viewer));
 		else
 		if(pct<.40)
-			return "^y" + mob.displayName(viewer) + "^y is flickering alot and smoking a lot.^N";
+			return L("^y@x1^y is flickering alot and smoking a lot.^N",mob.name(viewer));
 		else
 		if(pct<.50)
-			return "^y" + mob.displayName(viewer) + "^y is flickering and smoking.^N";
+			return L("^y@x1^y is flickering and smoking.^N",mob.name(viewer));
 		else
 		if(pct<.60)
-			return "^p" + mob.displayName(viewer) + "^p is flickering and smoking somewhat.^N";
+			return L("^p@x1^p is flickering and smoking somewhat.^N",mob.name(viewer));
 		else
 		if(pct<.70)
-			return "^p" + mob.displayName(viewer) + "^p is showing large flickers.^N";
+			return L("^p@x1^p is showing large flickers.^N",mob.name(viewer));
 		else
 		if(pct<.80)
-			return "^g" + mob.displayName(viewer) + "^g is showing some flickers.^N";
+			return L("^g@x1^g is showing some flickers.^N",mob.name(viewer));
 		else
 		if(pct<.90)
-			return "^g" + mob.displayName(viewer) + "^g is showing small flickers.^N";
+			return L("^g@x1^g is showing small flickers.^N",mob.name(viewer));
 		else
 		if(pct<.99)
-			return "^g" + mob.displayName(viewer) + "^g is no longer in perfect condition.^N";
+			return L("^g@x1^g is no longer in perfect condition.^N",mob.name(viewer));
 		else
-			return "^c" + mob.displayName(viewer) + "^c is in perfect condition.^N";
+			return L("^c@x1^c is in perfect condition.^N",mob.name(viewer));
 	}
-	public Vector myResources()
+	
+	@Override 
+	public DeadBody getCorpseContainer(MOB mob, Room room)
+	{
+		final DeadBody body = super.getCorpseContainer(mob, room);
+		if(body != null)
+		{
+			body.setMaterial(RawMaterial.RESOURCE_ASH);
+		}
+		return body;
+	}
+	
+	@Override
+	public List<RawMaterial> myResources()
 	{
 		synchronized(resources)
 		{
 			if(resources.size()==0)
 			{
 				resources.addElement(makeResource
-					("a pile of coal",RawMaterial.RESOURCE_COAL));
+					(L("a pile of coal"),RawMaterial.RESOURCE_COAL));
 			}
 		}
 		return resources;

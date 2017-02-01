@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Prayers;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,21 +10,21 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
-
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2003-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -31,85 +32,87 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
+
 public class Prayer_Sober extends Prayer implements MendingSkill
 {
-	public String ID() { return "Prayer_Sober"; }
-	public String name(){ return "Sober";}
-	public int classificationCode(){return Ability.ACODE_PRAYER|Ability.DOMAIN_NEUTRALIZATION;}
-	public int abstractQuality(){ return Ability.QUALITY_OK_OTHERS;}
-	public long flags(){return Ability.FLAG_HOLY;}
+	@Override public String ID() { return "Prayer_Sober"; }
+	private final static String localizedName = CMLib.lang().L("Sober");
+	@Override public String name() { return localizedName; }
+	@Override public int classificationCode(){return Ability.ACODE_PRAYER|Ability.DOMAIN_NEUTRALIZATION;}
+	@Override public int abstractQuality(){ return Ability.QUALITY_OK_OTHERS;}
+	@Override public long flags(){return Ability.FLAG_NEUTRAL;}
 
-	public boolean supportsMending(Environmental E)
-	{ 
-		if(!(E instanceof MOB)) return false;
-		MOB caster=CMClass.getMOB("StdMOB");
-		caster.baseEnvStats().setLevel(CMProps.getIntVar(CMProps.SYSTEMI_LASTPLAYERLEVEL));
-		caster.envStats().setLevel(CMProps.getIntVar(CMProps.SYSTEMI_LASTPLAYERLEVEL));
-		boolean canMend=returnOffensiveAffects(caster,E).size()>0;
+	@Override
+	public boolean supportsMending(Physical item)
+	{
+		if(!(item instanceof MOB))
+			return false;
+		final MOB caster=CMClass.getFactoryMOB();
+		caster.basePhyStats().setLevel(CMProps.getIntVar(CMProps.Int.LASTPLAYERLEVEL));
+		caster.phyStats().setLevel(CMProps.getIntVar(CMProps.Int.LASTPLAYERLEVEL));
+		final boolean canMend=returnOffensiveAffects(caster,item).size()>0;
 		caster.destroy();
 		return canMend;
 	}
-	
-	public Vector returnOffensiveAffects(MOB caster, Environmental fromMe)
-	{
-		Vector offenders=new Vector();
 
-		for(int a=0;a<fromMe.numEffects();a++)
+	public List<Ability> returnOffensiveAffects(MOB caster, Physical fromMe)
+	{
+		final Vector<Ability> offenders=new Vector<Ability>();
+
+		for(int a=0;a<fromMe.numEffects();a++) // personal
 		{
-			Ability A=fromMe.fetchEffect(a);
+			final Ability A=fromMe.fetchEffect(a);
 			if(A!=null)
 			{
 				if((CMath.bset(A.flags(),Ability.FLAG_INTOXICATING))
 				&&((A.invoker()==null)
 				   ||((A.invoker()!=null)
-					  &&(A.invoker().envStats().level()<=(caster.envStats().level()+20+(2*super.getXLEVELLevel(caster)))))))
+					  &&(A.invoker().phyStats().level()<=(caster.phyStats().level()+20+(2*getXLEVELLevel(caster)))))))
 						offenders.addElement(A);
 			}
 		}
 		return offenders;
 	}
 
-    public int castingQuality(MOB mob, Environmental target)
-    {
-        if(mob!=null)
-        {
-            if(target instanceof MOB)
-            {
-                if(supportsMending((MOB)target))
-                    return super.castingQuality(mob, target,Ability.QUALITY_BENEFICIAL_OTHERS);
-            }
-        }
-        return super.castingQuality(mob,target);
-    }
-    
-	public boolean invoke(MOB mob, Vector commands, Environmental givenTarget, boolean auto, int asLevel)
+	@Override
+	public int castingQuality(MOB mob, Physical target)
 	{
-		Environmental target=getAnyTarget(mob,commands,givenTarget,Wearable.FILTER_ANY);
-		if(target==null) return false;
+		if(mob!=null)
+		{
+			if(target instanceof MOB)
+			{
+				if(supportsMending(target))
+					return super.castingQuality(mob, target,Ability.QUALITY_BENEFICIAL_OTHERS);
+			}
+		}
+		return super.castingQuality(mob,target);
+	}
+
+	@Override
+	public boolean invoke(MOB mob, List<String> commands, Physical givenTarget, boolean auto, int asLevel)
+	{
+		final Physical target=getAnyTarget(mob,commands,givenTarget,Wearable.FILTER_ANY);
+		if(target==null)
+			return false;
 
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
 			return false;
 
-		boolean success=proficiencyCheck(mob,0,auto);
-		Vector offensiveAffects=returnOffensiveAffects(mob,target);
+		final boolean success=proficiencyCheck(mob,0,auto);
+		final List<Ability> offensiveAffects=returnOffensiveAffects(mob,target);
 
 		if((success)&&(offensiveAffects.size()>0))
 		{
-			// it worked, so build a copy of this ability,
-			// and add it to the affects list of the
-			// affected MOB.  Then tell everyone else
-			// what happened.
-			CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),auto?"":"^S<S-NAME> "+prayWord(mob)+" for <T-NAMESELF> to sober up.^?");
+			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),auto?"":L("^S<S-NAME> @x1 for <T-NAMESELF> to sober up.^?",prayWord(mob)));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);
 				for(int a=offensiveAffects.size()-1;a>=0;a--)
-					((Ability)offensiveAffects.elementAt(a)).unInvoke();
+					offensiveAffects.get(a).unInvoke();
 			}
 		}
 		else
-			beneficialWordsFizzle(mob,target,auto?"":"<S-NAME> "+prayWord(mob)+" for <T-NAMESELF>, but nothing happens.");
+			beneficialWordsFizzle(mob,target,auto?"":L("<S-NAME> @x1 for <T-NAMESELF>, but nothing happens.",prayWord(mob)));
 
 		// return whether it worked
 		return success;

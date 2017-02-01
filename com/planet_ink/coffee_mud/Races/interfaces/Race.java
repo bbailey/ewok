@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Races.interfaces;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,18 +10,20 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
+
 import java.util.*;
 /*
-   Copyright 2000-2010 Bo Zimmerman
+   Copyright 2001-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,34 +35,13 @@ import java.util.*;
  * A, well, Race
  * @author Bo Zimmerman
  */
-@SuppressWarnings("unchecked")
-public interface Race extends Tickable, StatsAffecting, MsgListener, CMObject, CMModifiable
+public interface Race extends Tickable, StatsAffecting, MsgListener, CMObject, Modifiable
 {
-    /** Age constant for an infant */
-	public final static int AGE_INFANT=0;
-    /** Age constant for a toddler */
-	public final static int AGE_TODDLER=1;
-    /** Age constant for a child */
-	public final static int AGE_CHILD=2;
-    /** Age constant for a yound adultt */
-	public final static int AGE_YOUNGADULT=3;
-    /** Age constant for the mature adult */
-	public final static int AGE_MATURE=4;
-    /** Age constant for the middle aged adult*/
-	public final static int AGE_MIDDLEAGED=5;
-    /** Age constant for the old*/
-	public final static int AGE_OLD=6;
-    /** Age constant for the very old*/
-	public final static int AGE_VENERABLE=7;
-    /** Age constant for the very very old*/
-	public final static int AGE_ANCIENT=8;
-    /** Constant string list for the names of the age constants, in their order of value */
-	public final static String[] AGE_DESCS={"Infant","Toddler","Child","Young adult","Adult", "Mature", "Old", "Venerable", "Ancient"};
-
 	/**
 	 * Return a nice, displayable name for this race
 	 * @return the races name
 	 */
+	@Override
 	public String name();
 	/**
 	 * Which racial category this race falls in.
@@ -93,11 +75,11 @@ public interface Race extends Tickable, StatsAffecting, MsgListener, CMObject, C
 	/**
 	 * Will initialize a player or mobs height and weight based
 	 * on this races parameters.
-	 * @see com.planet_ink.coffee_mud.Common.interfaces.EnvStats
-	 * @param stats the EnvStats object to change
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.PhyStats
+	 * @param stats the PhyStats object to change
 	 * @param gender the mobs gender 'M' or 'F'
 	 */
-	public void setHeightWeight(EnvStats stats, char gender);
+	public void setHeightWeight(PhyStats stats, char gender);
 	/**
 	 * The minimum height of males of this race.
 	 * @return minimum height of males in inches
@@ -152,27 +134,25 @@ public interface Race extends Tickable, StatsAffecting, MsgListener, CMObject, C
 	 * @return an array of body parts
 	 */
 	public int[] bodyMask();
-	
+
 	/**
 	 * Converts this race to a generic race (if it isn't already)
 	 * and returns it.  Returns itself if its already generic.
 	 * @return the generic race.
 	 */
 	public Race makeGenRace();
-	
+
 	/**
 	 * Converts this race to a generic race (if it isn't already)
 	 * and mixes its attributes with the race passed it.  A new
 	 * race ID and a new race name must also be provided.
+	 * @param race the race to use as a baseline
+	 * @param newRaceID the id of the new race
+	 * @param newRaceName the name of the new race
 	 * @return the generic race.
 	 */
 	public Race mixRace(Race race, String newRaceID, String newRaceName);
-	
-	/**
-	 * Whether this race, generally speaking, can procreate.
-	 * @return whether this race is capable of procreating
-	 */
-	public boolean fertile();
+
 	/**
 	 * Returns a vector of Item objects representing the standard
 	 * clothing, weapons, or other objects commonly given to players
@@ -180,16 +160,36 @@ public interface Race extends Tickable, StatsAffecting, MsgListener, CMObject, C
 	 * @param myChar one who will receive the objects
 	 * @return a vector of Item objects
 	 */
-	public Vector outfit(MOB myChar);
+	public List<Item> outfit(MOB myChar);
 	/**
 	 * Returns a description of the given mobs description, by
 	 * consulting the mobs curState().getHitPoints method.
 	 * @see com.planet_ink.coffee_mud.MOBS.interfaces.MOB#curState()
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.CharState#getHitPoints()
+	 * @param viewer the mob observing the health of this one
 	 * @param mob the mob whose health to check
 	 * @return a string describing his health
 	 */
 	public String healthText(MOB viewer, MOB mob);
+
+	/**
+	 * Returns the list of ability IDs of skills that this
+	 * race is flatly and quietly immune to, whether
+	 * malicious or not -- it just won't happen.
+	 * @return the list of Ability IDs.
+	 */
+	public String[] abilityImmunities();
+	
+	/**
+	 * Sends back a generic mob name appropriate to a mob of this
+	 * race, at the given gender and age-group.
+	 *
+	 * @param gender the gender of the mob
+	 * @param age the age category
+	 * @return a good name
+	 */
+	public String makeMobName(char gender, int age);
+
 	/**
 	 * Returns a Weapon object representing what a member of this
 	 * race fights with when unarmed.  This method may change what it
@@ -199,13 +199,21 @@ public interface Race extends Tickable, StatsAffecting, MsgListener, CMObject, C
 	 */
 	public Weapon myNaturalWeapon();
 	/**
-	 * Returns a Vector of RawMaterial objects (usually GenFoodResource, GenLiquidResource,
+	 * Returns resource codes of what this race can breathe as
+	 * an atmosphere.  The list is guarenteed sorted.  If the list
+	 * is empty, the race can breathe anything at all.
+	 * @see com.planet_ink.coffee_mud.Items.interfaces.RawMaterial
+	 * @return a list of resource codes that this race can breathe
+	 */
+	public int[] getBreathables();
+	/**
+	 * Returns a list of RawMaterial objects (usually GenFoodResource, GenLiquidResource,
 	 * or GenResource items) representing what is left over of a member of this race
 	 * after they've been butchered and cut up.
 	 * @see com.planet_ink.coffee_mud.Items.interfaces.RawMaterial
-	 * @return a vector of rawmaterial objects
+	 * @return a list of rawmaterial objects
 	 */
-	public Vector myResources();
+	public List<RawMaterial> myResources();
 	/**
 	 * Returns the corpse of a member of this race, populates it with the equipment of
 	 * the given mob, and places it in the given room.  If the destroyBodyAfterUse returns
@@ -216,12 +224,17 @@ public interface Race extends Tickable, StatsAffecting, MsgListener, CMObject, C
 	 * @return the corpse generated and placed in the room
 	 */
 	public DeadBody getCorpseContainer(MOB mob, Room room);
-    /**
-     * Whether this race object represents a Generic Race, or one which is modifiable by
-     * builders at run-time.
-     * @return whether this race is modifiable at run-time.
-     */
+	/**
+	 * Whether this race object represents a Generic Race, or one which is modifiable by
+	 * builders at run-time.
+	 * @return whether this race is modifiable at run-time.
+	 */
 	public boolean isGeneric();
+	/**
+	 * Whether this race is usually rideable; helps determine the appropriate java class to use.
+	 * @return whether this race is generally rideable
+	 */
+	public boolean useRideClass();
 	/**
 	 * If this race is modifiable at run time, this method will return an xml document
 	 * describing the several attributes of this race.
@@ -257,19 +270,27 @@ public interface Race extends Tickable, StatsAffecting, MsgListener, CMObject, C
 	 * @param mob the mob to level up
 	 * @param gainedAbilityIDs the set of abilities/skill IDs gained during this leveling process
 	 */
-	public void level(MOB mob, Vector gainedAbilityIDs);
+	public void level(MOB mob, List<String> gainedAbilityIDs);
 
 	/**
 	 * Whenever a player or mob of this race gains experience, this method gets a chance
 	 * to modify the amount before the gain actually occurs.
-	 * @param host the player or mob whose race object this is  
+	 * @param host the player or mob whose race object this is
 	 * @param mob the player or mob gaining experience
 	 * @param victim if applicable, the mob or player who died to give the exp
 	 * @param amount the amount of exp on track for gaining
 	 * @return the adjusted amount of experience to gain
 	 */
 	public int adjustExperienceGain(MOB host, MOB mob, MOB victim, int amount);
-	
+	/**
+	 * Returns true if the given race is actually the same as the
+	 * current race.  Usually just ID().equals(ID()), or if either
+	 * is human.  Passing the race to itself in this method is a good
+	 * way to check for general fertility.
+	 * @param R the race to check
+	 * @return true if its the same as this one, false otherwise
+	 */
+	public boolean canBreedWith(Race R);
 	/**
 	 * Whether this race can be associated with a character class.
 	 * @see com.planet_ink.coffee_mud.CharClasses.interfaces.CharClass
@@ -287,13 +308,13 @@ public interface Race extends Tickable, StatsAffecting, MsgListener, CMObject, C
 	 */
 	public boolean expless();
 
-    /**
-     * Return a vector of skills, spells, and other ability ids granted to the given
-     * mob when they are created as this race.
-     * @see com.planet_ink.coffee_mud.Abilities.interfaces.Ability
-     * @return a dvector of the Ability names, and profficiencies
-     */
-    public DVector culturalAbilities();
+	/**
+	 * Return a vector of skills, spells, and other ability ids granted to the given
+	 * mob when they are created as this race.
+	 * @see com.planet_ink.coffee_mud.Abilities.interfaces.Ability
+	 * @return a pairvector of the Ability names, and profficiencies
+	 */
+	public PairVector<String,Integer> culturalAbilities();
 	/**
 	 * Return a vector of skills, spells, and other abilities granted to the given
 	 * mob of the given mobs level.
@@ -301,16 +322,27 @@ public interface Race extends Tickable, StatsAffecting, MsgListener, CMObject, C
 	 * @param mob the mob to grant the abilities to
 	 * @return a vector of the Ability objects
 	 */
-	public Vector racialAbilities(MOB mob);
+	public SearchIDList<Ability> racialAbilities(MOB mob);
 	/**
 	 * Return a vector of skills, spells, and other abilities granted to the given
 	 * mob of the given mobs level.  This method is not functionally used because
 	 * it doesn't quite work correctly yet.
 	 * @see com.planet_ink.coffee_mud.Abilities.interfaces.Ability
+	 * @see com.planet_ink.coffee_mud.Races.interfaces.Race#numRacialEffects(MOB)
 	 * @param mob the mob to grant the abilities to
 	 * @return a vector of the Ability objects
 	 */
-	public Vector racialEffects(MOB mob);
+	public ChameleonList<Ability> racialEffects(MOB mob);
+
+	/**
+	 * Returns the number of racial effects elligible to the given lob. Must
+	 * faster and more efficient than getting the whole list and checking its
+	 * size.
+	 * @param mob the mob to grant the abilities to
+	 * @return number of entries in the ability object vector
+	 */
+	public int numRacialEffects(MOB mob);
+
 	/**
 	 * Apply any affects of the given mob at the given age to the given base and/or
 	 * current char stats.
@@ -320,7 +352,7 @@ public interface Race extends Tickable, StatsAffecting, MsgListener, CMObject, C
 	 * @param charStats temporary charstats changes
 	 */
 	public void agingAffects(MOB mob, CharStats baseStats, CharStats charStats);
-	
+
 	/**
 	 * Returns a list of the stat adjustments made by this race
 	 * @return a list of the stat adjustments made by this race
@@ -361,6 +393,33 @@ public interface Race extends Tickable, StatsAffecting, MsgListener, CMObject, C
 	 */
 	public String getLanguagesDesc();
 
+	/** Age constant for an infant */
+	public final static int AGE_INFANT=0;
+	/** Age constant for a toddler */
+	public final static int AGE_TODDLER=1;
+	/** Age constant for a child */
+	public final static int AGE_CHILD=2;
+	/** Age constant for a yound adultt */
+	public final static int AGE_YOUNGADULT=3;
+	/** Age constant for the mature adult */
+	public final static int AGE_MATURE=4;
+	/** Age constant for the middle aged adult*/
+	public final static int AGE_MIDDLEAGED=5;
+	/** Age constant for the old*/
+	public final static int AGE_OLD=6;
+	/** Age constant for the very old*/
+	public final static int AGE_VENERABLE=7;
+	/** Age constant for the very very old*/
+	public final static int AGE_ANCIENT=8;
+	/** Constant string list for the names of the age constants, in their order of value */
+	public final static String[] AGE_DESCS=CMLib.lang().sessionTranslation(new String[]
+	{
+			"Infant","Toddler","Child","Young adult","Adult", "Mature", "Old", "Venerable", "Ancient"
+	});
+
+	/** Age in Years constant for an immortal thing */
+	public final static int YEARS_AGE_LIVES_FOREVER=Integer.MAX_VALUE;
+
 	/** body part constant representing antenea*/
 	public final static int BODY_ANTENEA=0;
 	/** body part constant representing eyes */
@@ -396,11 +455,14 @@ public interface Race extends Tickable, StatsAffecting, MsgListener, CMObject, C
 	/** the number of body part constants*/
 	public final static int BODY_PARTS=16;
 	/** constant string list naming each of the BODY_* constants in the order of their value*/
-	public final static String[] BODYPARTSTR={
+	public final static String[] BODYPARTSTR=
+	{
 		"ANTENEA","EYE","EAR","HEAD","NECK","ARM","HAND","TORSO","LEG","FOOT",
-		"NOSE","GILL","MOUTH","WAIST","TAIL","WING"};
+		"NOSE","GILL","MOUTH","WAIST","TAIL","WING"
+	};
 	/** constant hash of BODYPARTSTR */
-	public final static Hashtable BODYPARTHASH=CMStrings.makeNumericHash(BODYPARTSTR);
+	public final static Map<Object,Integer> BODYPARTHASH=CMStrings.makeNumericHash(BODYPARTSTR);
+	
 	/** constant used to set and check the classless flag on generic races */
 	public final static int GENFLAG_NOCLASS=1;
 	/** constant used to set and check the levelless flag on generic races */
@@ -414,8 +476,35 @@ public interface Race extends Tickable, StatsAffecting, MsgListener, CMObject, C
 	/** constant string list naming each of the GENFLAG_* constants in the order of their value */
 	public final static String[] GENFLAG_DESCS={"CLASSLESS","LEVELLESS","EXPLESS","CHARMLESS","CHILDLESS"};
 
+	public final static Map<String,Integer> BODYPARTHASH_RL_LOWER=new SHashtable<String,Integer>(new Enumeration<Pair<String,Integer>>()
+	{
+		private int									index	= 0;
+		private final Stack<Pair<String, Integer>>	others	= new Stack<Pair<String, Integer>>();
+
+		@Override
+		public boolean hasMoreElements()
+		{
+			return (others.size() > 0) || (index < BODYPARTSTR.length);
+		}
+
+		@Override
+		public Pair<String, Integer> nextElement()
+		{
+			if (!hasMoreElements())
+				throw new NoSuchElementException();
+			if (others.size() > 0)
+				return others.pop();
+			others.push(new Pair<String, Integer>(BODYPARTSTR[index].toLowerCase(), Integer.valueOf(index)));
+			others.push(new Pair<String, Integer>("left " + BODYPARTSTR[index].toLowerCase(), Integer.valueOf(index)));
+			others.push(new Pair<String, Integer>("right " + BODYPARTSTR[index].toLowerCase(), Integer.valueOf(index)));
+			index++;
+			return others.pop();
+		}
+	});
+
 	/** array mapping worn locations to body parts, indexed by body parts. */
-	public final static long[] BODY_WEARVECTOR={
+	public final static long[] BODY_WEARVECTOR=
+	{
 		Wearable.WORN_HEAD, // ANTENEA, having any of these removes that pos
 		Wearable.WORN_EYES, // EYES, having any of these adds this position
 		Wearable.WORN_EARS, // EARS, gains a wear position here for every 2
@@ -433,12 +522,14 @@ public interface Race extends Tickable, StatsAffecting, MsgListener, CMObject, C
 		Wearable.WORN_BACK, // TAIL, having any of these removes that pos
 		Wearable.WORN_BACK, // WINGS, having any of these removes that pos
 	};
+
 	/** 2 dimentional array, indexed first by body_ part constant, with each row
 	 * having two values: the first being the Wearable.WORN_ location which is affected
 	 * by having or losing this body part, and then the number of such body parts
 	 * necessary to gain or lose one such wear location.  A value of -1 means N/A
 	 */
-	public final static long[][] BODY_WEARGRID={
+	public final static long[][] BODY_WEARGRID=
+	{
 		{Wearable.WORN_HEAD,-1}, // ANTENEA, having any of these removes that pos
 		{Wearable.WORN_EYES,2}, // EYES, having any of these adds this position
 		{Wearable.WORN_EARS,2}, // EARS, gains a wear position here for every 2
@@ -446,7 +537,7 @@ public interface Race extends Tickable, StatsAffecting, MsgListener, CMObject, C
 		{Wearable.WORN_NECK,1}, // NECK, gains a wear position here for every 1
 		{Wearable.WORN_ARMS,2}, // ARMS, gains a wear position here for every 2
 		{Wearable.WORN_WIELD|Wearable.WORN_HELD|Wearable.WORN_HANDS
-	     |Wearable.WORN_LEFT_FINGER|Wearable.WORN_LEFT_WRIST
+		 |Wearable.WORN_LEFT_FINGER|Wearable.WORN_LEFT_WRIST
 		 |Wearable.WORN_RIGHT_FINGER|Wearable.WORN_RIGHT_WRIST,1}, // HANDS, gains a wear position here for every 1
 			// lots of exceptions apply to the above
 		{Wearable.WORN_TORSO|Wearable.WORN_BACK,1}, // TORSO, gains a wear position here for every 1

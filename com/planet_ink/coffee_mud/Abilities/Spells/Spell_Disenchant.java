@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Spells;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,21 +10,21 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
-
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2001-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -31,96 +32,55 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
+
 public class Spell_Disenchant extends Spell
 {
-	public String ID() { return "Spell_Disenchant"; }
-	public String name(){return "Disenchant";}
-	protected int canTargetCode(){return CAN_ITEMS;}
-	public int classificationCode(){ return Ability.ACODE_SPELL|Ability.DOMAIN_EVOCATION;	}
-    public int abstractQuality(){ return Ability.QUALITY_INDIFFERENT;}
+	@Override public String ID() { return "Spell_Disenchant"; }
+	private final static String localizedName = CMLib.lang().L("Disenchant");
+	@Override public String name() { return localizedName; }
+	@Override protected int canTargetCode(){return CAN_ITEMS;}
+	@Override public int classificationCode(){ return Ability.ACODE_SPELL|Ability.DOMAIN_EVOCATION;	}
+	@Override public int abstractQuality(){ return Ability.QUALITY_INDIFFERENT;}
 
-	public static int disenchantItem(Item target)
+	@Override
+	public boolean invoke(MOB mob, List<String> commands, Physical givenTarget, boolean auto, int asLevel)
 	{
-		int level=target.baseEnvStats().level();
-		boolean doneSomething=false;
-		if(target instanceof Wand)
-		{
-			Ability A=((Wand)target).getSpell();
-			if(A!=null)
-				level=level-CMLib.ableMapper().lowestQualifyingLevel(A.ID())+2;
-			((Wand)target).setSpell(null);
-			((Wand)target).setUsesRemaining(0);
-			doneSomething=true;
-		}
-		else
-		if(target instanceof SpellHolder)
-		{
-			((SpellHolder)target).setSpellList("");
-			doneSomething=true;
-		}
-		else
-		if((target.envStats().ability()>0)
-		&&(!(target instanceof Coins)))
-		{
-			level=level-(target.baseEnvStats().ability()*3);
-			target.baseEnvStats().setAbility(0);
-			doneSomething=true;
-		}
-
-		Vector affects=new Vector();
-		for(int a=target.numEffects()-1;a>=0;a--)
-		{
-			Ability A=target.fetchEffect(a);
-			if(A!=null)
-				affects.addElement(A);
-		}
-		for(int a=0;a<affects.size();a++)
-		{
-			Ability A=(Ability)affects.elementAt(a);
-			A.unInvoke();
-			level=level-1;
-			target.delEffect(A);
-			doneSomething=true;
-		}
-		if(doneSomething) return level;
-		return -999;
-	}
-
-
-	public boolean invoke(MOB mob, Vector commands, Environmental givenTarget, boolean auto, int asLevel)
-	{
-		Item target=getTarget(mob,mob.location(),givenTarget,commands,Wearable.FILTER_ANY);
-		if(target==null) return false;
+		final Item target=getTarget(mob,mob.location(),givenTarget,commands,Wearable.FILTER_ANY);
+		if(target==null)
+			return false;
 
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
 			return false;
 
-		boolean success=proficiencyCheck(mob,0,auto);
+		final boolean success=proficiencyCheck(mob,0,auto);
 
 		if(success)
 		{
-			CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),auto?"":"^S<S-NAME> hold(s) <T-NAMESELF> and cast(s) a spell.^?");
+			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),auto?"":L("^S<S-NAME> hold(s) <T-NAMESELF> and cast(s) a spell.^?"));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);
-				int level=disenchantItem(target);
+				int level=CMLib.utensils().disenchantItem(target);
+				if(target.amDestroyed())
+					mob.location().show(mob,target,CMMsg.MSG_OK_VISUAL,L("<T-NAME> fades away!"));
+				else
 				if(level>-999)
 				{
-					mob.location().show(mob,target,CMMsg.MSG_OK_VISUAL,"<T-NAME> fades and becomes dull!");
-					if((target.baseEnvStats().disposition()&EnvStats.IS_BONUS)==EnvStats.IS_BONUS)
-						target.baseEnvStats().setDisposition(target.baseEnvStats().disposition()-EnvStats.IS_BONUS);
-					if(level<=0) level=1;
-					target.baseEnvStats().setLevel(level);
-					target.recoverEnvStats();
+					mob.location().show(mob,target,CMMsg.MSG_OK_VISUAL,L("<T-NAME> fades and becomes dull!"));
+					if((target.basePhyStats().disposition()&PhyStats.IS_BONUS)==PhyStats.IS_BONUS)
+						target.basePhyStats().setDisposition(target.basePhyStats().disposition()-PhyStats.IS_BONUS);
+					if(level<=0)
+						level=1;
+					target.basePhyStats().setLevel(level);
+					target.recoverPhyStats();
 				}
 				else
-					mob.tell(target.name()+" doesn't seem to be enchanted.");
+					mob.tell(L("@x1 doesn't seem to be enchanted.",target.name(mob)));
 			}
 
 		}
 		else
-			beneficialWordsFizzle(mob,target,"<S-NAME> hold(s) <T-NAMESELF> and whisper(s), but fail(s) to cast a spell.");
+			beneficialWordsFizzle(mob,target,L("<S-NAME> hold(s) <T-NAMESELF> and whisper(s), but fail(s) to cast a spell."));
 
 
 		// return whether it worked

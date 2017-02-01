@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Properties;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,6 +10,7 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -16,14 +18,14 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2003-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -31,41 +33,51 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
-public class Prop_WeakBridge extends Property
+
+public class Prop_WeakBridge extends Property implements TriggeredAffect
 {
-	public String ID() { return "Prop_WeakBridge"; }
-	public String name(){ return "Weak Rickity Bridge";}
-	protected int canAffectCode(){return Ability.CAN_ROOMS|Ability.CAN_EXITS;}
+	@Override public String ID() { return "Prop_WeakBridge"; }
+	@Override public String name(){ return "Weak Rickity Bridge";}
+	@Override protected int canAffectCode(){return Ability.CAN_ROOMS|Ability.CAN_EXITS;}
 
 	protected boolean bridgeIsUp=true;
 	protected int max=400;
 	protected int chance=75;
 	protected int ticksDown=100;
-	protected Vector mobsToKill=new Vector();
+	protected List<MOB> mobsToKill=new Vector<MOB>();
 
+	@Override
+	public int triggerMask()
+	{
+		return TriggeredAffect.TRIGGER_ENTER;
+	}
+
+	@Override
 	public String accountForYourself()
 	{ return "Weak and Rickity";	}
 
+	@Override
 	public void setMiscText(String newText)
 	{
-        mobsToKill=new Vector();
+		mobsToKill=new Vector<MOB>();
 		super.setMiscText(newText);
 		max=CMParms.getParmInt(newText,"max",400);
 		chance=CMParms.getParmInt(newText,"chance",75);
 		ticksDown=CMParms.getParmInt(newText,"down",300);
 	}
 
-	public boolean okMessage(Environmental myHost, CMMsg msg)
+	@Override
+	public boolean okMessage(final Environmental myHost, final CMMsg msg)
 	{
 		if((msg.targetMinor()==CMMsg.TYP_ENTER)
 		&&((msg.amITarget(affected))||(msg.tool()==affected)))
 		{
-			MOB mob=msg.source();
-			if(CMLib.flags().isInFlight(mob)) return true;
+			final MOB mob=msg.source();
+			if(CMLib.flags().isInFlight(mob))
+				return true;
 			if(!bridgeIsUp)
 			{
-				mob.tell("The bridge appears to be out.");
+				mob.tell(L("The bridge appears to be out."));
 				return false;
 			}
 		}
@@ -77,26 +89,28 @@ public class Prop_WeakBridge extends Property
 		int weight=0;
 		if(affected instanceof Room)
 		{
-			Room room=(Room)affected;
+			final Room room=(Room)affected;
 			for(int i=0;i<room.numInhabitants();i++)
 			{
-				MOB M=room.fetchInhabitant(i);
+				final MOB M=room.fetchInhabitant(i);
 				if((M!=null)&&(M!=mob)&&(!CMLib.flags().isInFlight(M)))
-					weight+=M.envStats().weight();
+					weight+=M.phyStats().weight();
 			}
 		}
-		return weight+mob.envStats().weight();
+		return weight+mob.phyStats().weight();
 	}
 
 
-	public void executeMsg(Environmental myHost, CMMsg msg)
+	@Override
+	public void executeMsg(final Environmental myHost, final CMMsg msg)
 	{
 		if((msg.targetMinor()==CMMsg.TYP_ENTER)
 		&&((msg.amITarget(affected))||(msg.tool()==affected))
 		&&(!CMLib.flags().isFalling(msg.source())))
 		{
-			MOB mob=msg.source();
-			if(CMLib.flags().isInFlight(mob)) return;
+			final MOB mob=msg.source();
+			if(CMLib.flags().isInFlight(mob))
+				return;
 			if(bridgeIsUp)
 			{
 				if((weight(mob)>max)
@@ -106,12 +120,12 @@ public class Prop_WeakBridge extends Property
 					{
 						if(!mobsToKill.contains(mob))
 						{
-							mobsToKill.addElement(mob);
+							mobsToKill.add(mob);
 							if(!CMLib.flags().isFalling(mob))
 							{
-								Ability falling=CMClass.getAbility("Falling");
-								falling.setProficiency(0);
-								falling.setAffectedOne(msg.target());
+								final Ability falling=CMClass.getAbility("Falling");
+								falling.setMiscText("NORMAL");
+								falling.setAffectedOne(affected);
 								falling.invoke(null,null,mob,true,0);
 							}
 							CMLib.threads().startTickDown(this,Tickable.TICKID_SPELL_AFFECT,1);
@@ -122,14 +136,16 @@ public class Prop_WeakBridge extends Property
 		}
 		super.executeMsg(myHost,msg);
 	}
-	public void affectEnvStats(Environmental affected, EnvStats affectableStats)
+	@Override
+	public void affectPhyStats(Physical affected, PhyStats affectableStats)
 	{
 		// get rid of flying restrictions when bridge is up
 		if((affected!=null)
 		&&(affected instanceof Room)
 		&&(bridgeIsUp))
-			affectableStats.setDisposition(affectableStats.disposition()|EnvStats.IS_SLEEPING);
+			affectableStats.setDisposition(affectableStats.disposition()|PhyStats.IS_SLEEPING);
 	}
+	@Override
 	public boolean tick(Tickable ticking, int tickID)
 	{
 		if(tickID==Tickable.TICKID_SPELL_AFFECT)
@@ -139,23 +155,23 @@ public class Prop_WeakBridge extends Property
 				synchronized(mobsToKill)
 				{
 					bridgeIsUp=false;
-					Vector V=((Vector)mobsToKill.clone());
+					final List<MOB> V=new XVector<MOB>(mobsToKill);
 					mobsToKill.clear();
 					if(affected instanceof Room)
 					{
-						Room room=(Room)affected;
+						final Room room=(Room)affected;
 						for(int i=0;i<room.numInhabitants();i++)
 						{
-							MOB M=room.fetchInhabitant(i);
+							final MOB M=room.fetchInhabitant(i);
 							if((M!=null)
 							&&(!CMLib.flags().isInFlight(M))
 							&&(!V.contains(M)))
-								V.addElement(M);
+								V.add(M);
 						}
 					}
 					for(int i=0;i<V.size();i++)
 					{
-						MOB mob=(MOB)V.elementAt(i);
+						final MOB mob=V.get(i);
 						if((mob.location()!=null)
 						&&(!CMLib.flags().isInFlight(mob)))
 						{
@@ -166,11 +182,11 @@ public class Prop_WeakBridge extends Property
 							&&(((Room)affected).getExitInDir(Directions.DOWN)!=null)
 							&&(((Room)affected).getExitInDir(Directions.DOWN).isOpen()))
 							{
-								mob.tell("The bridge breaks under your weight!");
+								mob.tell(L("The bridge breaks under your weight!"));
 								if((!CMLib.flags().isFalling(mob))
 								&&(mob.location()==affected))
 								{
-									Ability falling=CMClass.getAbility("Falling");
+									final Ability falling=CMClass.getAbility("Falling");
 									falling.setProficiency(0);
 									falling.setAffectedOne(affected);
 									falling.invoke(null,null,mob,true,0);
@@ -178,14 +194,14 @@ public class Prop_WeakBridge extends Property
 							}
 							else
 							{
-								mob.location().showSource(mob,null,CMMsg.MSG_OK_VISUAL,"The bridge breaks under your weight!");
-								mob.location().show(mob,null,CMMsg.MSG_OK_VISUAL,"<S-NAME> fall(s) to <S-HIS-HER> death!!");
+								mob.location().showSource(mob,null,CMMsg.MSG_OK_VISUAL,L("The bridge breaks under your weight!"));
+								mob.location().show(mob,null,CMMsg.MSG_OK_VISUAL,L("<S-NAME> fall(s) to <S-HIS-HER> death!!"));
 								mob.location().show(mob,null,CMMsg.MSG_DEATH,null);
 							}
 						}
 					}
 					if(affected instanceof Room)
-						((Room)affected).recoverEnvStats();
+						((Room)affected).recoverPhyStats();
 					CMLib.threads().deleteTick(this,Tickable.TICKID_SPELL_AFFECT);
 					CMLib.threads().startTickDown(this,Tickable.TICKID_SPELL_AFFECT,ticksDown);
 				}
@@ -195,7 +211,7 @@ public class Prop_WeakBridge extends Property
 				bridgeIsUp=true;
 				CMLib.threads().deleteTick(this,Tickable.TICKID_SPELL_AFFECT);
 				if(affected instanceof Room)
-					((Room)affected).recoverEnvStats();
+					((Room)affected).recoverPhyStats();
 			}
 		}
 		return true;

@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Druid;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -17,13 +18,13 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2000-2010 Bo Zimmerman
+   Copyright 2006-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,96 +33,103 @@ import java.util.*;
    limitations under the License.
 */
 
-@SuppressWarnings("unchecked")
+
 public class Chant_DeepThoughts extends Chant
 {
-	public String ID() { return "Chant_DeepThoughts"; }
-	public String name(){ return "Deep Thoughts";}
-	public String displayText(){return "(Thinking deep thoughts)";}
-    public int classificationCode(){return Ability.ACODE_CHANT|Ability.DOMAIN_DEEPMAGIC;}
-    public int abstractQuality(){return Ability.QUALITY_OK_SELF;}
-	protected int canAffectCode(){return Ability.CAN_MOBS;}
-	protected int canTargetCode(){return 0;}
+	@Override public String ID() { return "Chant_DeepThoughts"; }
+	private final static String localizedName = CMLib.lang().L("Deep Thoughts");
+	@Override public String name() { return localizedName; }
+	private final static String localizedStaticDisplay = CMLib.lang().L("(Thinking deep thoughts)");
+	@Override public String displayText() { return localizedStaticDisplay; }
+	@Override public int classificationCode(){return Ability.ACODE_CHANT|Ability.DOMAIN_DEEPMAGIC;}
+	@Override public int abstractQuality(){return Ability.QUALITY_OK_SELF;}
+	@Override protected int canAffectCode(){return Ability.CAN_MOBS;}
+	@Override protected int canTargetCode(){return 0;}
 	long lastTime=0;
 
+	@Override
 	public void unInvoke()
 	{
-		if((affected==null)||(!(affected instanceof MOB)))
+		if(!(affected instanceof MOB))
 			return;
-		MOB mob=(MOB)affected;
+		final MOB mob=(MOB)affected;
 		super.unInvoke();
 		if(canBeUninvoked())
 		{
 			if(!mob.amDead())
 			{
 				if(mob.location()!=null)
-					mob.location().show(mob,null,CMMsg.MSG_OK_ACTION,"<S-NAME> end(s) <S-HIS-HER> deep thinking.");
+					mob.location().show(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> end(s) <S-HIS-HER> deep thinking."));
 				else
-					mob.tell("You stop thinking deeply.");
+					mob.tell(L("You stop thinking deeply."));
 			}
 		}
 	}
 
-	public void executeMsg(Environmental myHost, CMMsg msg)
+	@Override
+	public void executeMsg(final Environmental myHost, final CMMsg msg)
 	{
 		super.executeMsg(myHost,msg);
-		if((affected==null)||(!(affected instanceof MOB)))
+		if(!(affected instanceof MOB))
 			return;
-		MOB mob=(MOB)affected;
+		final MOB mob=(MOB)affected;
 
 		if((msg.amISource(mob))
 		&&(msg.tool()!=this)
-		&&(!CMath.bset(msg.sourceCode(),CMMsg.MASK_CHANNEL))
-		&&((CMath.bset(msg.sourceCode(),CMMsg.MASK_MOVE))
-				||(CMath.bset(msg.sourceCode(),CMMsg.MASK_HANDS))
-				||(CMath.bset(msg.sourceCode(),CMMsg.MASK_MOUTH))
-				||(CMath.bset(msg.sourceCode(),CMMsg.MASK_EYES))))
+		&&(!CMath.bset(msg.sourceMajor(),CMMsg.MASK_CHANNEL))
+		&&((CMath.bset(msg.sourceMajor(),CMMsg.MASK_MOVE))
+				||(CMath.bset(msg.sourceMajor(),CMMsg.MASK_HANDS))
+				||(CMath.bset(msg.sourceMajor(),CMMsg.MASK_MOUTH))
+				||(CMath.bset(msg.sourceMajor(),CMMsg.MASK_EYES))))
 			unInvoke();
 		return;
 	}
 
+	@Override
 	public boolean tick(Tickable ticking, int tickID)
 	{
-		if((affected==null)||(!(affected instanceof MOB)))
+		if(!(affected instanceof MOB))
 			return super.tick(ticking,tickID);
 
-		MOB mob=(MOB)affected;
+		final MOB mob=(MOB)affected;
 
-		if(tickID!=Tickable.TICKID_MOB) return true;
+		if(tickID!=Tickable.TICKID_MOB)
+			return true;
 		if(!mob.isInCombat())
 		{
-			if(mob.location().domainType()!=Room.DOMAIN_INDOORS_CAVE)
+			if((mob.location().domainType()!=Room.DOMAIN_INDOORS_CAVE)
+			&&((mob.location().getAtmosphere()&RawMaterial.MATERIAL_ROCK)==0))
 			{
 				unInvoke();
 				return false;
 			}
-			if((System.currentTimeMillis()-lastTime)<60000) 
+			if((System.currentTimeMillis()-lastTime)<60000)
 				return true;
-			if(!proficiencyCheck(null,0,false)) 
+			if(!proficiencyCheck(null,0,false))
 				return true;
 			lastTime=System.currentTimeMillis();
-			Room room=mob.location();
-			int myAlignment=mob.fetchFaction(CMLib.factions().AlignID());
-			int total=CMLib.factions().getTotal(CMLib.factions().AlignID());
-			int ratePct=(int)Math.round(CMath.mul(total,.01));
-			if(CMLib.factions().getAlignPurity(myAlignment,Faction.ALIGN_INDIFF)<99)
+			final Room room=mob.location();
+			final int myAlignment=mob.fetchFaction(CMLib.factions().AlignID());
+			final int total=CMLib.factions().getTotal(CMLib.factions().AlignID());
+			final int ratePct=(int)Math.round(CMath.mul(total,.01));
+			if(CMLib.factions().getAlignPurity(myAlignment,Faction.Align.INDIFF)<99)
 			{
-				if(CMLib.factions().getAlignPurity(myAlignment,Faction.ALIGN_EVIL)<CMLib.factions().getAlignPurity(myAlignment,Faction.ALIGN_GOOD))
+				if(CMLib.factions().getAlignPurity(myAlignment,Faction.Align.EVIL)<CMLib.factions().getAlignPurity(myAlignment,Faction.Align.GOOD))
 					CMLib.factions().postFactionChange(mob,this, CMLib.factions().AlignID(), ratePct);
 				else
 					CMLib.factions().postFactionChange(mob,this, CMLib.factions().AlignID(), -ratePct);
 				switch(CMLib.dice().roll(1,10,0))
 				{
-				case 0: room.show(mob,null,this,CMMsg.MSG_QUIETMOVEMENT,"<S-NAME> contemplate(s) the great depths."); break;
-				case 1: room.show(mob,null,this,CMMsg.MSG_QUIETMOVEMENT,"<S-NAME> listen(s) to the wisdom of the stones."); break;
-				case 2: room.show(mob,null,this,CMMsg.MSG_QUIETMOVEMENT,"<S-NAME> stare(s) at a single stone."); break;
-				case 3: room.show(mob,null,this,CMMsg.MSG_QUIETMOVEMENT,"<S-NAME> mentally embrace(s) the earth."); break;
-				case 4: room.show(mob,null,this,CMMsg.MSG_QUIETMOVEMENT,"<S-NAME> inhale(s) wisdom and dust."); break;
-				case 5: room.show(mob,null,this,CMMsg.MSG_QUIETMOVEMENT,"<S-NAME> watch(es) the unchanging stones and feel(s) their history."); break;
-				case 6: room.show(mob,null,this,CMMsg.MSG_QUIETMOVEMENT,"<S-NAME> become(s) one with the earth."); break;
-				case 7: room.show(mob,null,this,CMMsg.MSG_QUIETMOVEMENT,"<S-NAME> feel(s) the inner warmth of the great deep."); break;
-				case 8: room.show(mob,null,this,CMMsg.MSG_QUIETMOVEMENT,"<S-NAME> expunge(s) <S-HIS-HER> unnatural thoughts."); break;
-				case 9: room.show(mob,null,this,CMMsg.MSG_QUIETMOVEMENT,"<S-NAME> find(s) clarity in the stones."); break;
+				case 0: room.show(mob,null,this,CMMsg.MSG_CONTEMPLATE,L("<S-NAME> contemplate(s) the great depths.")); break;
+				case 1: room.show(mob,null,this,CMMsg.MSG_CONTEMPLATE,L("<S-NAME> listen(s) to the wisdom of the stones.")); break;
+				case 2: room.show(mob,null,this,CMMsg.MSG_CONTEMPLATE,L("<S-NAME> stare(s) at a single stone.")); break;
+				case 3: room.show(mob,null,this,CMMsg.MSG_CONTEMPLATE,L("<S-NAME> mentally embrace(s) the earth.")); break;
+				case 4: room.show(mob,null,this,CMMsg.MSG_CONTEMPLATE,L("<S-NAME> inhale(s) wisdom and dust.")); break;
+				case 5: room.show(mob,null,this,CMMsg.MSG_CONTEMPLATE,L("<S-NAME> watch(es) the unchanging stones and feel(s) their history.")); break;
+				case 6: room.show(mob,null,this,CMMsg.MSG_CONTEMPLATE,L("<S-NAME> become(s) one with the earth.")); break;
+				case 7: room.show(mob,null,this,CMMsg.MSG_CONTEMPLATE,L("<S-NAME> feel(s) the inner warmth of the great deep.")); break;
+				case 8: room.show(mob,null,this,CMMsg.MSG_CONTEMPLATE,L("<S-NAME> expunge(s) <S-HIS-HER> unnatural thoughts.")); break;
+				case 9: room.show(mob,null,this,CMMsg.MSG_CONTEMPLATE,L("<S-NAME> find(s) clarity in the stones.")); break;
 				}
 			}
 		}
@@ -133,38 +141,36 @@ public class Chant_DeepThoughts extends Chant
 		return super.tick(ticking,tickID);
 	}
 
-	public boolean invoke(MOB mob, Vector commands, Environmental givenTarget, boolean auto, int asLevel)
+	@Override
+	public boolean invoke(MOB mob, List<String> commands, Physical givenTarget, boolean auto, int asLevel)
 	{
 		if(mob.isInCombat())
 		{
-			mob.tell("You can't think deeply while in combat!");
+			mob.tell(L("You can't think deeply while in combat!"));
 			return false;
 		}
-		if(mob.location().domainType()!=Room.DOMAIN_INDOORS_CAVE)
+		if((mob.location().domainType()!=Room.DOMAIN_INDOORS_CAVE)
+		&&((mob.location().getAtmosphere()&RawMaterial.MATERIAL_ROCK)==0))
 		{
-			mob.tell("You must be in a cave for this chant to work.");
+			mob.tell(L("You must be in a cave for this chant to work."));
 			return false;
 		}
-		
+
 		// now see if it worked
-		boolean success=proficiencyCheck(mob,0,auto);
+		final boolean success=proficiencyCheck(mob,0,auto);
 		if(success)
 		{
-			// it worked, so build a copy of this ability,
-			// and add it to the affects list of the
-			// affected MOB.  Then tell everyone else
-			// what happened.
 			invoker=mob;
-			CMMsg msg=CMClass.getMsg(mob,null,this,somanticCastCode(mob,null,auto),"<S-NAME> grow(s) very still and begin(s) to think deep thoughts...");
+			final CMMsg msg=CMClass.getMsg(mob,null,this,somanticCastCode(mob,null,auto),L("^S<S-NAME> grow(s) very still and begin(s) to think deep thoughts...^?"));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);
-				beneficialAffect(mob,mob,asLevel,Integer.MAX_VALUE-1000);
-				helpProficiency(mob);
+				beneficialAffect(mob,mob,asLevel,Ability.TICKS_FOREVER);
+				helpProficiency(mob, 0);
 			}
 		}
 		else
-			return beneficialVisualFizzle(mob,null,"<S-NAME> grow(s) very still, but lose(s) concentration.");
+			return beneficialVisualFizzle(mob,null,L("<S-NAME> grow(s) very still, but lose(s) concentration."));
 
 		// return whether it worked
 		return success;
