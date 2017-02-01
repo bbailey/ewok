@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Libraries.layouts;
 
 import java.util.*;
+
 import com.planet_ink.coffee_mud.core.Directions;
 import com.planet_ink.coffee_mud.core.Log;
 import com.planet_ink.coffee_mud.Libraries.interfaces.AreaGenerationLibrary.LayoutNode;
@@ -8,14 +9,35 @@ import com.planet_ink.coffee_mud.Libraries.interfaces.AreaGenerationLibrary.Layo
 import com.planet_ink.coffee_mud.Libraries.interfaces.AreaGenerationLibrary.LayoutTypes;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 
-public class BoxCityLayout extends AbstractLayout 
+/*
+   Copyright 2008-2016 Bo Zimmerman
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+	   http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+*/
+
+public class BoxCityLayout extends AbstractLayout
 {
-	public String name() { return "BOXCITY";}
-	
+	@Override
+	public String name()
+	{
+		return "BOXCITY";
+	}
+
 	public void halfLineN(LayoutSet lSet, int startX, int endX, int height, TreeSet<Integer> xposUsed)
 	{
-		int x = startX + ((endX - startX)/2);
-		if((x-startX)<3) return;
+		final int x = startX + ((endX - startX)/2);
+		if((x-startX)<3)
+			return;
 		LayoutNode n = lSet.getNode(new long[]{x,0});
 		if(n!=null)
 		{
@@ -25,7 +47,8 @@ public class BoxCityLayout extends AbstractLayout
 				lSet.use(n,LayoutTypes.street);
 				n.flagRun(LayoutRuns.ns);
 				LayoutNode nn = lSet.getNextNode(n, Directions.NORTH);
-				if(nn==null) nn=lSet.makeNextNode(n, Directions.NORTH);
+				if(nn==null)
+					nn=lSet.makeNextNode(n, Directions.NORTH);
 				n.crossLink(nn);
 				n=nn;
 			}
@@ -35,11 +58,12 @@ public class BoxCityLayout extends AbstractLayout
 		halfLineN(lSet,startX,x,height,xposUsed);
 		halfLineN(lSet,x,endX,height,xposUsed);
 	}
-	
+
 	public void halfLineE(LayoutSet lSet, int startY, int endY, int width, TreeSet<Integer> yposUsed)
 	{
-		int y = startY + ((endY - startY)/2);
-		if((startY-y)<3) return;
+		final int y = startY + ((endY - startY)/2);
+		if((startY-y)<3)
+			return;
 		LayoutNode n = lSet.getNode(new long[]{0,y});
 		if(n!=null)
 		{
@@ -49,7 +73,8 @@ public class BoxCityLayout extends AbstractLayout
 				lSet.use(n,LayoutTypes.street);
 				n.flagRun(LayoutRuns.ew);
 				LayoutNode nn = lSet.getNextNode(n, Directions.EAST);
-				if(nn==null) nn=lSet.makeNextNode(n, Directions.EAST);
+				if(nn==null)
+					nn=lSet.makeNextNode(n, Directions.EAST);
 				n.crossLink(nn);
 				n=nn;
 			}
@@ -59,55 +84,65 @@ public class BoxCityLayout extends AbstractLayout
 		halfLineE(lSet,startY,y,width,yposUsed);
 		halfLineE(lSet,y,endY,width,yposUsed);
 	}
-	
+
 	public boolean fillMaze(LayoutSet lSet, LayoutNode p, int dir)
 	{
 		LayoutNode n = lSet.getNextNode(p, dir);
-		if(n != null) 
+		if(n != null)
 			return false;
 		n = lSet.makeNextNode(p, dir);
 		p.crossLink(n);
 		lSet.use(n,LayoutTypes.interior);
 		return lSet.fillMaze(n);
 	}
-	
-	public Vector<LayoutNode> generate(int num, int dir) 
+
+	protected void drawABox(LayoutSet lSet, int width, int height)
 	{
-		Vector<LayoutNode> set = new Vector<LayoutNode>();
-		int diameter = (int)Math.round(Math.sqrt((double)num));
-		int plusX = (diff(diameter,diameter,num) > diff(diameter+1,diameter,num)) ? 1 : 0;
-		LayoutSet lSet = new LayoutSet(set,num);
-		lSet.drawABox(diameter+plusX,diameter);
-		TreeSet<Integer> yposUsed = new TreeSet<Integer>();
-		TreeSet<Integer> xposUsed = new TreeSet<Integer>();
+		lSet.drawABox(width, height);
+	}
+
+	@Override
+	public List<LayoutNode> generate(int num, int dir)
+	{
+		final Vector<LayoutNode> set = new Vector<LayoutNode>();
+		final int diameter = (int)Math.round(Math.sqrt(num));
+		final int plusX = (diff(diameter,diameter,num) > diff(diameter+1,diameter,num)) ? 1 : 0;
+		final LayoutSet lSet = new LayoutSet(set,num);
+		drawABox(lSet,diameter+plusX,diameter);
+		final TreeSet<Integer> yposUsed = new TreeSet<Integer>();
+		final TreeSet<Integer> xposUsed = new TreeSet<Integer>();
 		xposUsed.add(Integer.valueOf(0));
 		halfLineN(lSet,0,diameter+plusX,diameter,xposUsed);
 		xposUsed.add(Integer.valueOf(diameter+plusX-1));
 		yposUsed.add(Integer.valueOf(0));
 		halfLineE(lSet,0,-diameter,diameter+plusX,yposUsed);
 		yposUsed.add(Integer.valueOf(-diameter+1));
-		
+
 		int x = 0;
-		for(Integer y : yposUsed)
+		for(final Integer y : yposUsed)
 		{
 			Integer lastX = null;
-			for(Iterator<Integer> thisXE = xposUsed.iterator(); thisXE.hasNext();)
+			for(final Iterator<Integer> thisXE = xposUsed.iterator(); thisXE.hasNext();)
 			{
 				Integer thisX = thisXE.next();
 				if(lastX != null)
 				{
 					x=lastX.intValue()+((thisX.intValue() - lastX.intValue()) / 2);
 					if(y.intValue() > (-diameter+1))
+					{
 						if(!fillMaze(lSet, lSet.getNode(x, y.intValue()), Directions.NORTH))
 							fillMaze(lSet, lSet.getNode(x+1, y.intValue()), Directions.NORTH);
+					}
 					if(thisXE.hasNext())
 					{
 						lastX = thisX;
 						thisX = thisXE.next();
 						x=lastX.intValue()+((thisX.intValue() - lastX.intValue()) / 2);
 						if(y.intValue() < 0)
+						{
 							if(!fillMaze(lSet, lSet.getNode(x, y.intValue()), Directions.SOUTH))
 								fillMaze(lSet, lSet.getNode(x+1, y.intValue()), Directions.SOUTH);
+						}
 					}
 				}
 				lastX = thisX;
@@ -128,8 +163,10 @@ public class BoxCityLayout extends AbstractLayout
 			}
 			if((n!=null)&&(n.type()==LayoutTypes.leaf))
 				n=null;
-			if(n==null) {
-				if(tryDiff>0) tryDiff=-tryDiff;
+			if(n==null)
+			{
+				if(tryDiff>0)
+					tryDiff=-tryDiff;
 				else if(tryDiff<0) tryDiff=(-tryDiff)+1;
 				else tryDiff++;
 			}

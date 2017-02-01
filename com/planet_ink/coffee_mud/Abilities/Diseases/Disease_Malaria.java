@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Diseases;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,6 +10,7 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -16,13 +18,13 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2000-2010 Bo Zimmerman
+   Copyright 2003-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -33,35 +35,42 @@ import java.util.*;
 
 public class Disease_Malaria extends Disease
 {
-	public String ID() { return "Disease_Malaria"; }
-	public String name(){ return "Malaria";}
-	public String displayText(){ return "(Malaria)";}
-	protected int canAffectCode(){return CAN_MOBS;}
-	protected int canTargetCode(){return CAN_MOBS;}
-	public int abstractQuality(){return Ability.QUALITY_MALICIOUS;}
-	public boolean putInCommandlist(){return false;}
+	@Override public String ID() { return "Disease_Malaria"; }
+	private final static String localizedName = CMLib.lang().L("Malaria");
+	@Override public String name() { return localizedName; }
+	private final static String localizedStaticDisplay = CMLib.lang().L("(Malaria)");
+	@Override public String displayText() { return localizedStaticDisplay; }
+	@Override protected int canAffectCode(){return CAN_MOBS;}
+	@Override protected int canTargetCode(){return CAN_MOBS;}
+	@Override public int abstractQuality(){return Ability.QUALITY_MALICIOUS;}
+	@Override public boolean putInCommandlist(){return false;}
 
-	protected int DISEASE_TICKS(){return 9*CMProps.getIntVar(CMProps.SYSTEMI_TICKSPERMUDDAY);}
-	protected int DISEASE_DELAY(){return 5;}
-	protected String DISEASE_DONE(){return "Your malaria clears up.";}
-	protected String DISEASE_START(){return "^G<S-NAME> come(s) down with malaria.^?";}
-	protected String DISEASE_AFFECT(){return "<S-NAME> ache(s) and sneeze(s). AAAAAAAAAAAAAACHOOO!!!!";}
-	public int abilityCode(){return DiseaseAffect.SPREAD_CONSUMPTION|DiseaseAffect.SPREAD_PROXIMITY|DiseaseAffect.SPREAD_CONTACT|DiseaseAffect.SPREAD_STD;}
-	public int difficultyLevel(){return 1;}
-    private boolean norecurse=false;
+	@Override protected int DISEASE_TICKS(){return 9*CMProps.getIntVar(CMProps.Int.TICKSPERMUDDAY);}
+	@Override protected int DISEASE_DELAY(){return 5;}
+	@Override protected String DISEASE_DONE(){return L("Your malaria clears up.");}
+	@Override protected String DISEASE_START(){return L("^G<S-NAME> come(s) down with malaria.^?");}
+	@Override protected String DISEASE_AFFECT(){return L("<S-NAME> ache(s) and sneeze(s). AAAAAAAAAAAAAACHOOO!!!!");}
+	@Override public int spreadBitmap(){return DiseaseAffect.SPREAD_CONSUMPTION|DiseaseAffect.SPREAD_PROXIMITY|DiseaseAffect.SPREAD_CONTACT|DiseaseAffect.SPREAD_STD;}
+	@Override public int difficultyLevel(){return 1;}
+	private boolean norecurse=false;
 	protected int conDown=0;
 	protected int tickUp=0;
 
+	@Override
 	public boolean tick(Tickable ticking, int tickID)
 	{
-		if(!super.tick(ticking,tickID))	return false;
-		if(affected==null) return false;
-		if(!(affected instanceof MOB)) return true;
+		if(!super.tick(ticking,tickID))
+			return false;
+		if(affected==null)
+			return false;
+		if(!(affected instanceof MOB))
+			return true;
 
-		MOB mob=(MOB)affected;
+		final MOB mob=(MOB)affected;
 		MOB diseaser=invoker;
-		if(diseaser==null) diseaser=mob;
-		if((!mob.amDead())&&((++tickUp)==CMProps.getIntVar(CMProps.SYSTEMI_TICKSPERMUDDAY)))
+		if(diseaser==null)
+			diseaser=mob;
+		if((!mob.amDead())&&((++tickUp)==CMProps.getIntVar(CMProps.Int.TICKSPERMUDDAY)))
 		{
 			tickUp=0;
 			conDown++;
@@ -76,22 +85,25 @@ public class Disease_Malaria extends Disease
 		{
 			diseaseTick=DISEASE_DELAY();
 			mob.location().show(mob,null,CMMsg.MSG_NOISE,DISEASE_AFFECT());
-			int damage=CMLib.dice().roll(2,diseaser.envStats().level()+1,1);
+			final int damage=CMLib.dice().roll(2,mob.phyStats().level()+1,1);
 			CMLib.combat().postDamage(diseaser,mob,this,damage,CMMsg.MASK_ALWAYS|CMMsg.TYP_DISEASE,-1,null);
 			catchIt(mob);
 			if(CMLib.dice().rollPercentage()==1)
 			{
-				Ability A=CMClass.getAbility("Disease_Fever");
-				if(A!=null) A.invoke(diseaser,mob,true,0);
+				final Ability A=CMClass.getAbility("Disease_Fever");
+				if(A!=null)
+					A.invoke(diseaser,mob,true,0);
 			}
 			return true;
 		}
 		return true;
 	}
 
+	@Override
 	public void affectCharStats(MOB affected, CharStats affectableStats)
 	{
-		if(affected==null) return;
+		if(affected==null)
+			return;
 		affectableStats.setStat(CharStats.STAT_STRENGTH,affectableStats.getStat(CharStats.STAT_STRENGTH)-5);
 		if(affectableStats.getStat(CharStats.STAT_STRENGTH)<=0)
 			affectableStats.setStat(CharStats.STAT_STRENGTH,1);
@@ -100,18 +112,21 @@ public class Disease_Malaria extends Disease
 		{
 			conDown=-1;
 			MOB diseaser=invoker;
-			if(diseaser==null) diseaser=affected;
-            norecurse=true;
+			if(diseaser==null)
+				diseaser=affected;
+			norecurse=true;
 			CMLib.combat().postDeath(diseaser,affected,null);
-            norecurse=false;
+			norecurse=false;
 		}
 	}
 
+	@Override
 	public void affectCharState(MOB affected, CharState affectableState)
 	{
-		if(affected==null) return;
+		if(affected==null)
+			return;
 		affectableState.setMovement(affectableState.getMovement()/2);
 		affectableState.setMana(affectableState.getMana()-(affectableState.getMana()/3));
-		affectableState.setHitPoints(affectableState.getHitPoints()-affected.envStats().level());
+		affectableState.setHitPoints(affectableState.getHitPoints()-affected.phyStats().level());
 	}
 }

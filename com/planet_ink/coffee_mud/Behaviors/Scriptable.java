@@ -2,6 +2,7 @@ package com.planet_ink.coffee_mud.Behaviors;
 import com.planet_ink.coffee_mud.core.exceptions.ScriptParseException;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -17,13 +18,13 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2000-2010 Bo Zimmerman
+   Copyright 2001-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -31,122 +32,176 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
 public class Scriptable extends StdBehavior implements ScriptingEngine
 {
-    public String ID(){return "Scriptable";}
-    protected int canImproveCode(){return Behavior.CAN_MOBS|Behavior.CAN_ITEMS|Behavior.CAN_ROOMS;}
-    
-    protected ScriptingEngine engine = null;
-    protected ScriptingEngine engine() {
-        if(engine==null)
-            engine=(ScriptingEngine)CMClass.getCommon("DefaultScriptingEngine");
-        return engine;
-    }
+	@Override public String ID(){return "Scriptable";}
+	@Override protected int canImproveCode(){return Behavior.CAN_MOBS|Behavior.CAN_ITEMS|Behavior.CAN_ROOMS;}
 
-    public long getTickStatus()
-    {
-        Tickable T=engine();
-        if(T!=null) return T.getTickStatus();
-        return Tickable.STATUS_NOT;
-    }
+	protected ScriptingEngine engine = null;
+	protected ScriptingEngine engine()
+	{
+		if(engine==null)
+			engine=(ScriptingEngine)CMClass.getCommon("DefaultScriptingEngine");
+		return engine;
+	}
 
-    public void registerDefaultQuest(String questName){
-        engine().registerDefaultQuest(questName);
-    }
-    
-    public MOB getMakeMOB(Tickable ticking){ return engine().getMakeMOB(ticking);}
-    
-    public boolean endQuest(Environmental hostObj, MOB mob, String quest)
-    {
-        engine().endQuest(hostObj, mob, quest);
-        return false;
-    }
+	@Override
+	public String accountForYourself()
+	{
+		return "complex triggered behaving";
+	}
 
-    public Vector externalFiles()
-    {
-        return engine().externalFiles();
-    }
+	@Override
+	public int getTickStatus()
+	{
+		final Tickable T=engine();
+		if(T!=null)
+			return T.getTickStatus();
+		return Tickable.STATUS_NOT;
+	}
 
-    public String getParms() { return engine().getScript();}
-    public String[] parseEval(String evaluable) throws ScriptParseException { return engine().parseEval(evaluable);}
-    public void setParms(String newParms)
-    {
-        engine().setScript(newParms);
-        super.setParms("");
-    }
+	@Override
+	public void registerDefaultQuest(String questName)
+	{
+		engine().registerDefaultQuest(questName);
+	}
 
-    public String getVar(String context, String variable){ return engine().getVar(context, variable);}
-    
-    public boolean isVar(String context, String variable){ return engine().isVar(context, variable);}
-    
-    public void setVar(String context, String variable, String value){ engine().setVar(context, variable, value);}
-    
-    public String defaultQuestName() { return engine().defaultQuestName();}
-    
-    public void setVarScope(String scope){ engine().setVarScope(scope); }
-    
-    public String getVarScope() { return engine().getVarScope(); }
-    
-    public String getLocalVarXML(){ return engine().getLocalVarXML(); }
-    
-    public void setLocalVarXML(String xml){
-        if(engine().getVarScope().length()>0)
-            engine().setLocalVarXML(xml);
-    }
+	@Override public MOB getMakeMOB(Tickable ticking){ return engine().getMakeMOB(ticking);}
 
+	@Override
+	public boolean endQuest(PhysicalAgent hostObj, MOB mob, String quest)
+	{
+		engine().endQuest(hostObj, mob, quest);
+		return false;
+	}
 
-    public boolean eval(Environmental scripted,
-                        MOB source,
-                        Environmental target,
-                        MOB monster,
-                        Item primaryItem,
-                        Item secondaryItem,
-                        String msg,
-                        Object[] tmp,
-                        String[][] eval,
-                        int startEval)
-    {
-        return engine().eval(scripted, source, target, monster, primaryItem, secondaryItem, msg, tmp, eval, startEval);
-    }
+	@Override
+	public CMObject copyOf()
+	{
+		try
+		{
+			final Scriptable B=(Scriptable)this.clone();
+			if(B.engine!=null)
+				B.engine=(ScriptingEngine)engine.copyOf();
+			return B;
+		}
+		catch(final CloneNotSupportedException e)
+		{
+			return new Scriptable();
+		}
+	}
 
-    public String getScript() { return engine().getScript();}
-    
-    public void setScript(String newParms){ engine().setScript(newParms);}
-    
-    public String execute(Environmental scripted,
-                          MOB source,
-                          Environmental target,
-                          MOB monster,
-                          Item primaryItem,
-                          Item secondaryItem,
-                          DVector script,
-                          String msg,
-                          Object[] tmp)
-    {
-        return engine().execute(scripted, source, target, monster, primaryItem, secondaryItem, script, msg, tmp);
-    }
+	@Override
+	public List<String> externalFiles()
+	{
+		return engine().externalFiles();
+	}
+	@Override
+	public String getScriptResourceKey()
+	{
+		return engine().getScriptResourceKey();
+	}
 
-    public void executeMsg(Environmental affecting, CMMsg msg)
-    {
-        super.executeMsg(affecting,msg);
-        engine().executeMsg(affecting, msg);
-    }
-    
-    public boolean okMessage(Environmental affecting, CMMsg msg)
-    {
-        if(!super.okMessage(affecting, msg))
-            return false;
-        return engine().okMessage(affecting, msg);
-    }
+	@Override public String getParms() { return engine().getScript();}
+	@Override public String[] parseEval(String evaluable) throws ScriptParseException { return engine().parseEval(evaluable);}
+	@Override
+	public void setParms(String newParms)
+	{
+		engine().setScript(newParms);
+		super.setParms("");
+	}
 
-    public boolean tick(Tickable ticking, int tickID)
-    {
-        super.tick(ticking,tickID);
-        if(!CMProps.getBoolVar(CMProps.SYSTEMB_MUDSTARTED))
-            return false;
-        return engine().tick(ticking, tickID);
-    }
+	@Override public String getVar(String context, String variable){ return engine().getVar(context, variable);}
 
-    public void dequeResponses() { engine().dequeResponses();}
+	@Override public boolean isVar(String context, String variable){ return engine().isVar(context, variable);}
+
+	@Override public void setVar(String context, String variable, String value){ engine().setVar(context, variable, value);}
+
+	@Override public String defaultQuestName() { return engine().defaultQuestName();}
+
+	@Override public void setVarScope(String scope){ engine().setVarScope(scope); }
+
+	@Override public String getVarScope() { return engine().getVarScope(); }
+
+	@Override public String getLocalVarXML(){ return engine().getLocalVarXML(); }
+
+	@Override
+	public void setLocalVarXML(String xml)
+	{
+		if(engine().getVarScope().length()>0)
+			engine().setLocalVarXML(xml);
+	}
+
+	@Override
+	public boolean eval(PhysicalAgent scripted,
+						MOB source,
+						Environmental target,
+						MOB monster,
+						Item primaryItem,
+						Item secondaryItem,
+						String msg,
+						Object[] tmp,
+						String[][] eval,
+						int startEval)
+	{
+		return engine().eval(scripted, source, target, monster, primaryItem, secondaryItem, msg, tmp, eval, startEval);
+	}
+
+	@Override public String getScript() { return engine().getScript();}
+
+	@Override public void setScript(String newParms){ engine().setScript(newParms);}
+
+	@Override
+	public String execute(PhysicalAgent scripted,
+						  MOB source,
+						  Environmental target,
+						  MOB monster,
+						  Item primaryItem,
+						  Item secondaryItem,
+						  DVector script,
+						  String msg,
+						  Object[] tmp)
+	{
+		return engine().execute(scripted, source, target, monster, primaryItem, secondaryItem, script, msg, tmp);
+	}
+
+	@Override
+	public void executeMsg(Environmental affecting, CMMsg msg)
+	{
+		super.executeMsg(affecting,msg);
+		engine().executeMsg(affecting, msg);
+	}
+
+	@Override
+	public boolean okMessage(Environmental affecting, CMMsg msg)
+	{
+		if(!super.okMessage(affecting, msg))
+			return false;
+		return engine().okMessage(affecting, msg);
+	}
+
+	@Override
+	public boolean tick(Tickable ticking, int tickID)
+	{
+		super.tick(ticking,tickID);
+		if(!CMProps.getBoolVar(CMProps.Bool.MUDSTARTED))
+			return false;
+		return engine().tick(ticking, tickID);
+	}
+
+	@Override public void dequeResponses() { engine().dequeResponses();}
+
+	@Override
+	public String varify(MOB source, Environmental target,
+		PhysicalAgent scripted, MOB monster, Item primaryItem,
+		Item secondaryItem, String msg, Object[] tmp, String varifyable)
+	{
+		return engine().varify(source, target, scripted, monster, primaryItem, secondaryItem, msg, tmp, varifyable);
+	}
+	@Override
+	public String functify(PhysicalAgent scripted, MOB source, Environmental target, MOB monster, Item primaryItem,
+							Item secondaryItem, String msg, Object[] tmp, String evaluable)
+							{
+		return engine().functify(scripted, source, target, monster, primaryItem, secondaryItem, msg, tmp, evaluable);
+	}
 }

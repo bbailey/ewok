@@ -1,30 +1,32 @@
 package com.planet_ink.coffee_mud.Commands;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
 import com.planet_ink.coffee_mud.CharClasses.interfaces.*;
 import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
+import com.planet_ink.coffee_mud.Common.interfaces.Clan.Authority;
 import com.planet_ink.coffee_mud.Common.interfaces.Clan.MemberRecord;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
-import java.util.List;
 
 /*
-   Copyright 2000-2010 Bo Zimmerman
+   Copyright 2003-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,88 +34,127 @@ import java.util.List;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
 public class ClanExile extends StdCommand
 {
-	public ClanExile(){}
+	public ClanExile()
+	{
+	}
 
-	private String[] access={"CLANEXILE"};
-	public String[] getAccessWords(){return access;}
-	public boolean execute(MOB mob, Vector commands, int metaFlags)
+	private final String[]	access	= I(new String[] { "CLANEXILE" });
+
+	@Override
+	public String[] getAccessWords()
+	{
+		return access;
+	}
+
+	@Override
+	public boolean execute(MOB mob, List<String> commands, int metaFlags)
 		throws java.io.IOException
 	{
-		boolean skipChecks=mob.Name().equals(mob.getClanID());
-		commands.setElementAt(getAccessWords()[0],0);
-		String qual=CMParms.combine(commands,1).toUpperCase();
-		StringBuffer msg=new StringBuffer("");
+		final String memberStr=(commands.size()>1)?(String)commands.get(commands.size()-1):"";
+		final String clanName=(commands.size()>2)?CMParms.combine(commands,1,commands.size()-1):"";
+
 		Clan C=null;
-		boolean found=false;
-		if(qual.length()>0)
+		final boolean skipChecks=mob.getClanRole(mob.Name())!=null;
+		if(skipChecks)
+			C=mob.getClanRole(mob.Name()).first;
+
+		if(C==null)
 		{
-			if((mob.getClanID()==null)||(mob.getClanID().equalsIgnoreCase("")))
+			for(final Pair<Clan,Integer> c : mob.clans())
 			{
-				msg.append("You aren't even a member of a clan.");
-			}
-			else
-			{
-				C=CMLib.clans().getClan(mob.getClanID());
-				if(C==null)
+				if((clanName.length()==0)||(CMLib.english().containsString(c.first.getName(), clanName))
+				&&(c.first.getAuthority(c.second.intValue(), Clan.Function.EXILE)!=Authority.CAN_NOT_DO))
 				{
-					mob.tell("There is no longer a clan called "+mob.getClanID()+".");
+					C = c.first;
+					break;
+				}
+			}
+		}
+
+		commands.clear();
+		commands.add(getAccessWords()[0]);
+		commands.add(memberStr);
+
+		final StringBuffer msg=new StringBuffer("");
+		boolean found=false;
+		if(memberStr.length()>0)
+		{
+			if(C==null)
+			{
+				mob.tell(L("You aren't allowed to exile anyone from @x1.",((clanName.length()==0)?"anything":clanName)));
+				return false;
+			}
+			if(skipChecks||CMLib.clans().goForward(mob,C,commands,Clan.Function.EXILE,false))
+			{
+				final List<MemberRecord> apps=C.getMemberList();
+				if(apps.size()<1)
+				{
+					mob.tell(L("There are no members in your @x1.",C.getGovernmentName()));
 					return false;
 				}
-				if(skipChecks||CMLib.clans().goForward(mob,C,commands,Clan.FUNC_CLANEXILE,false))
+				for(final MemberRecord member : apps)
 				{
-					List<MemberRecord> apps=C.getMemberList();
-					if(apps.size()<1)
+					if(member.name.equalsIgnoreCase(memberStr))
 					{
-						mob.tell("There are no members in your "+C.typeName()+".");
+						found=true;
+					}
+				}
+				if(found)
+				{
+					final MOB M=CMLib.players().getLoadPlayer(memberStr);
+					if(M==null)
+					{
+						mob.tell(L("@x1 was not found.  Could not exile from @x2.",memberStr,C.getGovernmentName()));
 						return false;
 					}
-					for(MemberRecord member : apps)
+					if(skipChecks||CMLib.clans().goForward(mob,C,commands,Clan.Function.EXILE,true))
 					{
-						if(member.name.equalsIgnoreCase(qual))
+						if(C.getGovernment().getExitScript().trim().length()>0)
 						{
-							found=true;
+							final Pair<Clan,Integer> curClanRole=M.getClanRole(C.clanID());
+							if(curClanRole!=null)
+								M.setClan(C.clanID(), curClanRole.second.intValue());
+							final ScriptingEngine S=(ScriptingEngine)CMClass.getCommon("DefaultScriptingEngine");
+							S.setSavable(false);
+							S.setVarScope("*");
+							S.setScript(C.getGovernment().getExitScript());
+							final CMMsg msg2=CMClass.getMsg(M,M,null,CMMsg.MSG_OK_VISUAL,null,null,L("CLANEXIT"));
+							S.executeMsg(M, msg2);
+							S.dequeResponses();
+							S.tick(M,Tickable.TICKID_MOB);
 						}
-					}
-					if(found)
-					{
-						MOB M=CMLib.players().getLoadPlayer(qual);
-						if(M==null)
-						{
-							mob.tell(qual+" was not found.  Could not exile from "+C.typeName()+".");
-							return false;
-						}
-						if(skipChecks||CMLib.clans().goForward(mob,C,commands,Clan.FUNC_CLANEXILE,true))
-						{
-							CMLib.clans().clanAnnounce(mob,"Member exiled from "+C.typeName()+" "+C.name()+": "+M.Name());
-                            mob.tell(M.Name()+" has been exiled from "+C.typeName()+" '"+C.clanID()+"'.");
-                            M.tell("You have been exiled from "+C.typeName()+" '"+C.clanID()+"'.");
-                            C.delMember(M);
-							return false;
-						}
-					}
-					else
-					{
-						msg.append(qual+" isn't a member of your "+C.typeName()+".");
+						CMLib.clans().clanAnnounce(mob,L("Member exiled from @x1 @x2: @x3",C.getGovernmentName(),C.name(),M.Name()));
+						mob.tell(L("@x1 has been exiled from @x2 '@x3'.",M.Name(),C.getGovernmentName(),C.clanID()));
+						if((M.session()!=null)&&(M.session().mob()==M))
+							M.tell(L("You have been exiled from @x1 '@x2'.",C.getGovernmentName(),C.clanID()));
+						C.delMember(M);
+						return false;
 					}
 				}
 				else
 				{
-					msg.append("You aren't in the right position to exile anyone from your "+C.typeName()+".");
+					msg.append(L("@x1 isn't a member of your @x2.",memberStr,C.getGovernmentName()));
 				}
+			}
+			else
+			{
+				msg.append(L("You aren't in the right position to exile anyone from your @x1.",C.getGovernmentName()));
 			}
 		}
 		else
 		{
-			msg.append("You haven't specified which member you are exiling.");
+			msg.append(L("You haven't specified which member you are exiling."));
 		}
 		mob.tell(msg.toString());
 		return false;
 	}
-	
-	public boolean canBeOrdered(){return false;}
 
-	
+	@Override
+	public boolean canBeOrdered()
+	{
+		return false;
+	}
+
 }

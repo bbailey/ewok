@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Commands;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,20 +10,21 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2004-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -30,72 +32,94 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
+
 public class Reply extends StdCommand
 {
 	public Reply(){}
 
-	private String[] access={"REPLY","REP","RE"};
-	public String[] getAccessWords(){return access;}
-	public boolean execute(MOB mob, Vector commands, int metaFlags)
+	private final String[] access=I(new String[]{"REPLY","REP","RE"});
+	@Override public String[] getAccessWords(){return access;}
+
+	@Override
+	public boolean execute(MOB mob, List<String> commands, int metaFlags)
 		throws java.io.IOException
 	{
-		if(mob==null) return false;
-		PlayerStats pstats=mob.playerStats();
-		if(pstats==null) return false;
-		if(pstats.replyTo()==null)
+		if(mob==null)
+			return false;
+		if((!mob.isMonster())&&mob.isAttributeSet(MOB.Attrib.QUIET))
 		{
-			mob.tell("No one has told you anything yet!");
+			CMLib.commands().doCommandFail(mob,commands,L("You have QUIET mode on.  You must turn it off first."));
 			return false;
 		}
-		if((pstats.replyTo().Name().indexOf("@")<0)
-		&&((CMLib.players().getPlayer(pstats.replyTo().Name())==null)
-			||(pstats.replyTo().isMonster())
-			||(!CMLib.flags().isInTheGame(pstats.replyTo(),true))))
+		Vector<String> origCmds=new XVector<String>(commands);
+		final PlayerStats pstats=mob.playerStats();
+		if(pstats==null)
+			return false;
+		if(pstats.getReplyToMOB()==null)
 		{
-			mob.tell(pstats.replyTo().Name()+" is no longer logged in.");
+			CMLib.commands().doCommandFail(mob,origCmds,L("No one has told you anything yet!"));
+			return false;
+		}
+		if((pstats.getReplyToMOB().Name().indexOf('@')<0)
+		&&((CMLib.players().getPlayer(pstats.getReplyToMOB().Name())==null)
+			||(pstats.getReplyToMOB().isMonster())
+			||(!CMLib.flags().isInTheGame(pstats.getReplyToMOB(),true))))
+		{
+			CMLib.commands().doCommandFail(mob,origCmds,L("@x1 is no longer logged in.",pstats.getReplyToMOB().Name()));
 			return false;
 		}
 		if(CMParms.combine(commands,1).length()==0)
 		{
-			mob.tell("Tell '"+pstats.replyTo().Name()+"' what?");
+			CMLib.commands().doCommandFail(mob,origCmds,L("Tell '@x1' what?",pstats.getReplyToMOB().Name()));
 			return false;
 		}
-		int replyType=pstats.replyType();
-		
+		final int replyType=pstats.getReplyType();
+
 		switch(replyType)
 		{
 		case PlayerStats.REPLY_SAY:
-			if((pstats.replyTo().Name().indexOf("@")<0)
-			&&((mob.location()==null)||(!mob.location().isInhabitant(pstats.replyTo()))))
+			if((pstats.getReplyToMOB().Name().indexOf('@')<0)
+			&&((mob.location()==null)||(!mob.location().isInhabitant(pstats.getReplyToMOB()))))
 			{
-				mob.tell(pstats.replyTo().Name()+" is no longer in the room.");
+				CMLib.commands().doCommandFail(mob,origCmds,L("@x1 is no longer in the room.",pstats.getReplyToMOB().Name()));
 				return false;
 			}
-			CMLib.commands().postSay(mob,pstats.replyTo(),CMParms.combine(commands,1),false,false);
+			CMLib.commands().postSay(mob,pstats.getReplyToMOB(),CMParms.combine(commands,1),false,false);
 			break;
 		case PlayerStats.REPLY_TELL:
-			CMLib.commands().postSay(mob,pstats.replyTo(),CMParms.combine(commands,1),true,true);
+		{
+			final Session S=pstats.getReplyToMOB().session();
+			if(pstats.getReplyToMOB().isAttributeSet(MOB.Attrib.QUIET))
+			{
+				CMLib.commands().doCommandFail(mob,origCmds,L("That person can not hear you."));
+				return false;
+			}
+			if(S!=null)
+				S.snoopSuspension(1);
+			CMLib.commands().postSay(mob,pstats.getReplyToMOB(),CMParms.combine(commands,1),true,true);
+			if(S!=null)
+				S.snoopSuspension(-11);
 			break;
+		}
 		case PlayerStats.REPLY_YELL:
 			{
-				Command C=CMClass.getCommand("Say");
+				final Command C=CMClass.getCommand("Say");
 				if((C!=null)&&(C.securityCheck(mob)))
 				{
-					commands.setElementAt("Yell",0);
+					commands.set(0,"Yell");
 					C.execute(mob, commands,metaFlags);
 				}
 				break;
 			}
 		}
-		if((pstats.replyTo().session()!=null)
-		&&(pstats.replyTo().session().afkFlag()))
-			mob.tell(pstats.replyTo().session().afkMessage());
+		if((pstats.getReplyToMOB().session()!=null)
+		&&(pstats.getReplyToMOB().session().isAfk()))
+			mob.tell(pstats.getReplyToMOB().session().getAfkMessage());
 		return false;
 	}
-    public double combatActionsCost(MOB mob, Vector cmds){return CMath.div(CMProps.getIntVar(CMProps.SYSTEMI_DEFCOMCMDTIME),100.0);}
-    public double actionsCost(MOB mob, Vector cmds){return CMath.div(CMProps.getIntVar(CMProps.SYSTEMI_DEFCMDTIME),100.0);}
-	public boolean canBeOrdered(){return false;}
+	@Override public double combatActionsCost(final MOB mob, final List<String> cmds){return CMProps.getCommandCombatActionCost(ID());}
+	@Override public double actionsCost(final MOB mob, final List<String> cmds){return CMProps.getCommandActionCost(ID());}
+	@Override public boolean canBeOrdered(){return false;}
 
-	
+
 }

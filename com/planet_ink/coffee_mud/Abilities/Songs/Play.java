@@ -2,6 +2,7 @@ package com.planet_ink.coffee_mud.Abilities.Songs;
 import com.planet_ink.coffee_mud.Abilities.StdAbility;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -10,6 +11,7 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Items.interfaces.MusicalInstrument.InstrumentType;
 import com.planet_ink.coffee_mud.Libraries.interfaces.TrackingLibrary;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
@@ -17,14 +19,14 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2003-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,58 +34,138 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
 public class Play extends StdAbility
 {
-	public String ID() { return "Play"; }
-	public String name(){ return "a song played";}
-	public String displayText(){ return "("+songOf()+")";}
-	protected int canAffectCode(){return CAN_MOBS;}
-	protected int canTargetCode(){return CAN_MOBS;}
-	private static final String[] triggerStrings = {"PLAY","PL","PLA"};
-	public String[] triggerStrings(){return triggerStrings;}
-	public int classificationCode(){return Ability.ACODE_SONG|Ability.DOMAIN_PLAYING;}
-	public int usageType(){return USAGE_MOVEMENT|USAGE_MANA;}
-	protected boolean maliciousButNotAggressiveFlag(){return false;}
-    public int maxRange(){return adjustedMaxInvokerRange(2);}
+	@Override
+	public String ID()
+	{
+		return "Play";
+	}
 
-	protected int requiredInstrumentType(){return -1;}
-	protected boolean skipStandardSongInvoke(){return false;}
-	protected boolean mindAttack(){return abstractQuality()==Ability.QUALITY_MALICIOUS;}
-	protected boolean skipStandardSongTick(){return false;}
-	protected boolean persistantSong(){return true;}
-	protected String songOf(){return name();}
-    protected boolean HAS_QUANTITATIVE_ASPECT(){return true;}
+	private final static String	localizedName	= CMLib.lang().L("a song played");
 
-	protected MusicalInstrument instrument=null;
-    protected int steadyDown=-1;
-    protected Vector commonRoomSet=null;
-    protected Room originRoom=null;
+	@Override
+	public String name()
+	{
+		return localizedName;
+	}
 
-	public String instrumentName(){
-		if(instrument!=null) return instrument.name();
+	@Override
+	public String displayText()
+	{
+		return "(" + songOf() + ")";
+	}
+
+	@Override
+	protected int canAffectCode()
+	{
+		return CAN_MOBS;
+	}
+
+	@Override
+	protected int canTargetCode()
+	{
+		return CAN_MOBS;
+	}
+
+	private static final String[]	triggerStrings	= I(new String[] { "PLAY", "PL", "PLA" });
+
+	@Override
+	public String[] triggerStrings()
+	{
+		return triggerStrings;
+	}
+
+	protected MusicalInstrument	instrument		= null;
+	protected long				timeOut			= 0;
+	protected Vector<Room>		commonRoomSet	= null;
+	protected Room				originRoom		= null;
+
+	@Override
+	public int classificationCode()
+	{
+		return Ability.ACODE_SONG | Ability.DOMAIN_PLAYING;
+	}
+
+	@Override
+	public int usageType()
+	{
+		return USAGE_MOVEMENT | USAGE_MANA;
+	}
+
+	protected boolean maliciousButNotAggressiveFlag()
+	{
+		return false;
+	}
+
+	@Override
+	public int maxRange()
+	{
+		return adjustedMaxInvokerRange(2);
+	}
+
+	protected InstrumentType requiredInstrumentType()
+	{
+		return InstrumentType.OTHER_INSTRUMENT_TYPE;
+	}
+
+	protected boolean skipStandardSongInvoke()
+	{
+		return false;
+	}
+
+	protected boolean mindAttack()
+	{
+		return abstractQuality() == Ability.QUALITY_MALICIOUS;
+	}
+
+	protected boolean skipStandardSongTick()
+	{
+		return false;
+	}
+
+	protected boolean persistantSong()
+	{
+		return true;
+	}
+
+	protected String songOf()
+	{
+		return name();
+	}
+
+	protected boolean HAS_QUANTITATIVE_ASPECT()
+	{
+		return true;
+	}
+
+	public String instrumentName()
+	{
+		if(instrument!=null)
+			return instrument.name();
 		return "something";
 	}
 
+	@Override
 	public int adjustedLevel(MOB mob, int asLevel)
 	{
-        int level=super.adjustedLevel(mob,asLevel);
-        if(instrument!=null)
-            level+=instrument.envStats().ability();
-        return level;
+		int level=super.adjustedLevel(mob,asLevel);
+		if(instrument!=null)
+			level+=instrument.phyStats().ability();
+		return level;
 	}
-	
+
 	public int invokerLevel()
 	{
 		if(invoker()!=null)
 		{
 			if(instrument!=null)
-				return invoker().envStats().level()+instrument.envStats().ability()+(getXLEVELLevel(invoker())*2);
-			return invoker().envStats().level()+(getXLEVELLevel(invoker())*2);
+				return invoker().phyStats().level()+instrument.phyStats().ability()+(getXLEVELLevel(invoker())*2);
+			return invoker().phyStats().level()+(getXLEVELLevel(invoker())*2);
 		}
 		else
 		if(affected!=null)
-			return affected.envStats().level();
+			return affected.phyStats().level();
 		else
 			return 1;
 	}
@@ -94,23 +176,27 @@ public class Play extends StdAbility
 
 	public static boolean usingInstrument(MusicalInstrument I, MOB mob)
 	{
-		if((I==null)||(mob==null)) return false;
+		if((I==null)||(mob==null))
+			return false;
 		if(I instanceof Rideable)
+		{
 			return (((Rideable)I).amRiding(mob)
 					&&(mob.fetchFirstWornItem(Wearable.WORN_WIELD)==null)
-					&&(mob.fetchFirstWornItem(Wearable.WORN_HELD)==null));
+					&&(mob.fetchHeldItem()==null));
+		}
 		return mob.isMine(I)&&(!I.amWearingAt(Wearable.IN_INVENTORY));
 	}
 
+	@Override
 	public boolean tick(Tickable ticking, int tickID)
 	{
 		if((!super.tick(ticking,tickID))||(!(affected instanceof MOB)))
 			return false;
 
-		MOB mob=(MOB)affected;
+		final MOB mob=(MOB)affected;
 		if((affected==invoker())&&(invoker()!=null)&&(invoker().location()!=originRoom))
 		{
-			Vector V=getInvokerScopeRoomSet(null);
+			final Vector<Room> V=getInvokerScopeRoomSet(null);
 			commonRoomSet.clear();
 			commonRoomSet.addAll(V);
 			originRoom=invoker().location();
@@ -120,53 +206,66 @@ public class Play extends StdAbility
 		&&(!maliciousButNotAggressiveFlag())
 		&&(!mob.amDead())
 		&&(mob.isMonster())
-        &&(mob.amFollowing()==null)
-        &&((!(mob instanceof Rideable))||(((Rideable)mob).numRiders()==0))
+		&&(mob.amFollowing()==null)
+		&&((!(mob instanceof Rideable))||(((Rideable)mob).numRiders()==0))
 		&&(!mob.isInCombat())
-        &&(!CMLib.flags().isATrackingMonster(mob))
-		&&(CMLib.flags().aliveAwakeMobile(mob,true)))
+		&&(!CMLib.flags().isATrackingMonster(mob))
+		&&(CMLib.flags().isAliveAwakeMobile(mob,true)))
 		{
 			if((mob.location()!=originRoom)
 			&&(CMLib.flags().isMobile(mob)))
 			{
-				int dir=this.getCorrectDirToOriginRoom(mob.location(),commonRoomSet.indexOf(mob.location()));
+				final int dir=this.getCorrectDirToOriginRoom(mob.location(),commonRoomSet.indexOf(mob.location()));
 				if(dir>=0)
-					CMLib.tracking().move(mob,dir,false,false);
+					CMLib.tracking().walk(mob,dir,false,false);
 			}
 			else
 			if((mob.location().isInhabitant(invoker()))
 			&&(CMLib.flags().canBeSeenBy(invoker(),mob)))
 				CMLib.combat().postAttack(mob,invoker(),mob.fetchWieldedItem());
 		}
-		
+
 		if((invoker==null)
 		||(invoker.fetchEffect(ID())==null)
 		||(commonRoomSet==null)
 		||(!commonRoomSet.contains(mob.location())))
-			return possiblyUnplay(mob,null,false);
-		
+			return unplayMe(mob,null);
+
 		if(skipStandardSongTick())
 			return true;
 
 		if((invoker==null)
 		||((instrument!=null)&&(!usingInstrument(instrument,invoker)))
-		||(!CMLib.flags().aliveAwakeMobileUnbound(invoker,true))
-		||(!CMLib.flags().canBeHeardBy(invoker,mob)))
-			return possiblyUnplay(mob,null,false);
+		||(!CMLib.flags().isAliveAwakeMobileUnbound(invoker,true))
+		||(!CMLib.flags().canBeHeardSpeakingBy(invoker,mob)))
+			return unplayMe(mob,null);
 		return true;
 	}
 
-    public int castingQuality(MOB mob, Environmental target)
-    {
-        if(mob!=null)
-        {
-            for(int e=0;e<mob.numAllEffects();e++)
-                if(mob.fetchEffect(e) instanceof Play)
-                    return Ability.QUALITY_INDIFFERENT;
-        }
-        return super.castingQuality(mob,target);
-    }
+	@Override
+	public int castingQuality(MOB mob, Physical target)
+	{
+		if(mob!=null)
+		{
+			for(final Enumeration<Ability> a=mob.effects();a.hasMoreElements();)
+			{
+				final Ability A=a.nextElement();
+				if(A instanceof Play)
+					return Ability.QUALITY_INDIFFERENT;
+			}
+		}
+		return super.castingQuality(mob,target);
+	}
 
+	@Override
+	public void affectPhyStats(Physical affectedEnv, PhyStats affectableStats)
+	{
+		if((this.invoker()==affectedEnv)&&(instrument!=null))
+			affectableStats.addAmbiance("(?)playing "+songOf().toLowerCase()+" on "+instrument.name()+":playing "+instrument.name());
+		super.affectPhyStats(affectedEnv, affectableStats);
+	}
+
+	@Override
 	public void executeMsg(Environmental host, CMMsg msg)
 	{
 		super.executeMsg(host,msg);
@@ -179,7 +278,7 @@ public class Play extends StdAbility
 			&&(instrument.amWearingAt(Wearable.WORN_MOUTH)))
 			{
 				if(msg.source().location()!=null)
-					msg.source().location().show(msg.source(),null,CMMsg.MSG_NOISE,"<S-NAME> stop(s) playing.");
+					msg.source().location().show(msg.source(),null,CMMsg.MSG_NOISE,L("<S-NAME> stop(s) playing."));
 				unInvoke();
 			}
 			else
@@ -189,30 +288,65 @@ public class Play extends StdAbility
 			&&(instrument.amWearingAt(Wearable.WORN_HELD)))
 			{
 				if(msg.source().location()!=null)
-					msg.source().location().show(msg.source(),null,CMMsg.MSG_NOISE,"<S-NAME> stop(s) playing.");
+					msg.source().location().show(msg.source(),null,CMMsg.MSG_NOISE,L("<S-NAME> stop(s) playing."));
 				unInvoke();
 			}
 		}
 	}
 
-	protected void unplay(MOB mob, MOB invoker, boolean notMe)
+	protected void unplayAll(MOB mob, MOB invoker)
 	{
-		if(mob==null) return;
-		for(int a=mob.numEffects()-1;a>=0;a--)
+		if(mob!=null)
 		{
-			Ability A=mob.fetchEffect(a);
-			if((A!=null)
-			&&(A instanceof Play)
-			&&((!notMe)||(!A.ID().equals(ID())))
-			&&((invoker==null)||(A.invoker()==null)||(A.invoker()==invoker)))
-            {
-                if((!(A instanceof Play))||(((Play)A).steadyDown<=0))
-    				A.unInvoke();
-            }
+			for(int a=mob.numEffects()-1;a>=0;a--)
+			{
+				final Ability A=mob.fetchEffect(a);
+				if((A instanceof Play)
+				&&((invoker==null)||(A.invoker()==null)||(A.invoker()==invoker)))
+					((Play)A).unplayMe(mob,invoker);
+			}
 		}
 	}
 
-	public static MusicalInstrument getInstrument(MOB mob, int requiredInstrumentType, boolean noisy)
+	protected void unplayAllByThis(MOB mob, MOB invoker)
+	{
+		if(mob!=null)
+		{
+			for(int a=mob.numEffects()-1;a>=0;a--)
+			{
+				final Ability A=mob.fetchEffect(a);
+				if((A instanceof Play)
+				&&(!A.ID().equals(ID()))
+				&&((invoker==null)||(A.invoker()==null)||(A.invoker()==invoker)))
+					((Play)A).unplayMe(mob,invoker);
+			}
+		}
+	}
+
+	protected boolean unplayMe(MOB mob, MOB invoker)
+	{
+		if(mob==null)
+			return false;
+		final Ability A=mob.fetchEffect(ID());
+		if((A instanceof Play)
+		&&((invoker==null)||(A.invoker()==null)||(A.invoker()==invoker)))
+		{
+			final Play P=(Play)A;
+			if(P.timeOut==0)
+			{
+				P.timeOut = System.currentTimeMillis()
+						  + (CMProps.getTickMillis() * (((invoker()!=null)&&(invoker()!=mob))?super.getXTIMELevel(invoker()):0));
+			}
+			if(System.currentTimeMillis() >= P.timeOut)
+			{
+				A.unInvoke();
+				return false;
+			}
+		}
+		return true;
+	}
+
+	public static MusicalInstrument getInstrument(MOB mob, InstrumentType requiredInstrumentType, boolean noisy)
 	{
 		MusicalInstrument instrument=null;
 		if((mob.riding()!=null)&&(mob.riding() instanceof MusicalInstrument))
@@ -220,76 +354,69 @@ public class Play extends StdAbility
 			if(!usingInstrument((MusicalInstrument)mob.riding(),mob))
 			{
 				if(noisy)
-					mob.tell("You need to free your hands to play "+mob.riding().name()+".");
+					mob.tell(CMLib.lang().L("You need to free your hands to play @x1.",mob.riding().name()));
 				return null;
 			}
 			instrument=(MusicalInstrument)mob.riding();
 		}
 		if(instrument==null)
-		for(int i=0;i<mob.inventorySize();i++)
+		for(int i=0;i<mob.numItems();i++)
 		{
-			Item I=mob.fetchInventory(i);
+			final Item I=mob.getItem(i);
 			if((I!=null)
 			&&(I instanceof MusicalInstrument)
 			&&(I.container()==null)
 			&&(usingInstrument((MusicalInstrument)I,mob)))
-			{ instrument=(MusicalInstrument)I; break;}
+			{
+				instrument = (MusicalInstrument) I;
+				break;
+			}
 		}
 		if(instrument==null)
 		{
 			if(noisy)
-				mob.tell("You need an instrument!");
+				mob.tell(CMLib.lang().L("You need an instrument!"));
 			return null;
 		}
-		if((requiredInstrumentType>=0)&&(instrument.instrumentType()!=requiredInstrumentType))
+		if((requiredInstrumentType!=InstrumentType.OTHER_INSTRUMENT_TYPE)
+		&&(instrument.getInstrumentType()!=requiredInstrumentType))
 		{
 			if(noisy)
-				mob.tell("This song can only be played on "+MusicalInstrument.TYPE_DESC[requiredInstrumentType].toLowerCase()+".");
+				mob.tell(CMLib.lang().L("This song can only be played on @x1.",requiredInstrumentType.name().toLowerCase()));
 			return null;
 		}
 		return instrument;
 	}
 
-    protected Vector getInvokerScopeRoomSet(MOB backupMob)
-    {
-    	if((invoker()==null)
-    	||(invoker().location()==null))
-        {
-    		if((backupMob!=null)&&(backupMob.location()!=null))
-	    		 return CMParms.makeVector(backupMob.location());
-			return new Vector();
-        }
-    	int depth=super.getXMAXRANGELevel(invoker());
-    	if(depth==0) return CMParms.makeVector(invoker().location());
-    	Vector rooms=new Vector();
-        // needs to be area-only, because of the aggro-tracking rule
-		TrackingLibrary.TrackingFlags flags;
-		flags = new TrackingLibrary.TrackingFlags()
-				.add(TrackingLibrary.TrackingFlag.OPENONLY)
-				.add(TrackingLibrary.TrackingFlag.AREAONLY)
-				.add(TrackingLibrary.TrackingFlag.NOAIR);
-    	CMLib.tracking().getRadiantRooms(invoker().location(), rooms,flags, null, depth, null);
-    	if(!rooms.contains(invoker().location()))
-    		rooms.addElement(invoker().location());
-    	return rooms;
-    }
-    
-	protected boolean possiblyUnplay(MOB mob, MOB invoker, boolean notMe)
+	protected Vector<Room> getInvokerScopeRoomSet(MOB backupMob)
 	{
-        if(steadyDown<0) steadyDown=((invoker()!=null)&&(invoker()!=mob))?super.getXTIMELevel(invoker()):0;
-        if(steadyDown==0)
-        {
-            unplay(mob,invoker,notMe);
-            return false;
-        }
-        mob.tell("The "+songOf()+" lingers in your head ("+steadyDown+").");
-        steadyDown--;
-        return true;
+		if((invoker()==null)
+		||(invoker().location()==null))
+		{
+			if((backupMob!=null)&&(backupMob.location()!=null))
+				 return new XVector<Room>(backupMob.location());
+			return new Vector<Room>();
+		}
+		final int depth=super.getXMAXRANGELevel(invoker());
+		if(depth==0)
+			return new XVector<Room>(invoker().location());
+		final Vector<Room> rooms=new Vector<Room>();
+		// needs to be area-only, because of the aggro-tracking rule
+		TrackingLibrary.TrackingFlags flags;
+		flags = CMLib.tracking().newFlags()
+				.plus(TrackingLibrary.TrackingFlag.OPENONLY)
+				.plus(TrackingLibrary.TrackingFlag.AREAONLY)
+				.plus(TrackingLibrary.TrackingFlag.NOAIR);
+		CMLib.tracking().getRadiantRooms(invoker().location(), rooms,flags, null, depth, null);
+		if(!rooms.contains(invoker().location()))
+			rooms.addElement(invoker().location());
+		return rooms;
 	}
 
 	protected int getCorrectDirToOriginRoom(Room R, int v)
 	{
-		if(v<0) return -1;
+		if(v<0)
+			return -1;
 		int dir=-1;
 		Room R2=null;
 		Exit E2=null;
@@ -300,7 +427,7 @@ public class Play extends StdAbility
 			E2=R.getExitInDir(d);
 			if((R2!=null)&&(E2!=null)&&(E2.isOpen()))
 			{
-				int dx=commonRoomSet.indexOf(R2);
+				final int dx=commonRoomSet.indexOf(R2);
 				if((dx>=0)&&(dx<lowest))
 				{
 					lowest=dx;
@@ -310,7 +437,7 @@ public class Play extends StdAbility
 		}
 		return dir;
 	}
-	
+
 	protected String getCorrectMsgString(Room R, String str, int v)
 	{
 		String msgStr=null;
@@ -318,19 +445,19 @@ public class Play extends StdAbility
 			msgStr=str;
 		else
 		{
-			int dir=this.getCorrectDirToOriginRoom(R,v);
-            String songOf=songOf();
-            if(!songOf.equals(this.instrumentName()))
-                songOf="the "+songOf;
+			final int dir=this.getCorrectDirToOriginRoom(R,v);
+			String songOf=songOf();
+			if(!songOf.equals(this.instrumentName()))
+				songOf="the "+songOf;
 			if(dir>=0)
-				msgStr="^SYou hear "+songOf+" being played "+Directions.getInDirectionName(dir)+"!^?";
+				msgStr=L("^SYou hear @x1 being played @x2!^?",songOf,CMLib.directions().getInDirectionName(dir));
 			else
-				msgStr="^SYou hear "+songOf+" being played nearby!^?";
+				msgStr=L("^SYou hear @x1 being played nearby!^?",songOf);
 		}
 		return msgStr;
 	}
-	
-	public HashSet sendMsgAndGetTargets(MOB mob, Room R, CMMsg msg, Environmental givenTarget, boolean auto)
+
+	public Set<MOB> sendMsgAndGetTargets(MOB mob, Room R, CMMsg msg, Environmental givenTarget, boolean auto)
 	{
 		if(originRoom==R)
 			R.send(mob,msg);
@@ -338,57 +465,66 @@ public class Play extends StdAbility
 			R.sendOthers(mob,msg);
 		if(R!=originRoom)
 			mob.setLocation(R);
-		HashSet h=properTargets(mob,givenTarget,auto);
+		final Set<MOB> h=properTargets(mob,givenTarget,auto);
 		if(R!=originRoom)
 		{
 			R.delInhabitant(mob);
 			mob.setLocation(originRoom);
 		}
-		if(h==null) return null;
+		if(h==null)
+			return null;
 		if(R==originRoom)
 		{
-			if(!h.contains(mob)) 
+			if(!h.contains(mob))
 				h.add(mob);
 		}
 		else
 			h.remove(mob);
 		return h;
 	}
-	
-	public boolean invoke(MOB mob, Vector commands, Environmental givenTarget, boolean auto, int asLevel)
+
+	@Override
+	public boolean invoke(MOB mob, List<String> commands, Physical givenTarget, boolean auto, int asLevel)
 	{
-        steadyDown=-1;
+		timeOut=0;
 		if(!auto)
 		{
 			instrument=getInstrument(mob,requiredInstrumentType(),true);
-			if(instrument==null) return false;
+			if(instrument==null)
+				return false;
 			if((mob.riding()!=null)&&(mob.riding() instanceof MusicalInstrument))
 			{
 				if(!usingInstrument((MusicalInstrument)mob.riding(),mob))
 				{
-					mob.tell("You need to free your hands to play "+mob.riding().name()+".");
+					mob.tell(L("You need to free your hands to play @x1.",mob.riding().name()));
 					return false;
 				}
 				instrument=(MusicalInstrument)mob.riding();
 			}
 			if(instrument==null)
-			for(int i=0;i<mob.inventorySize();i++)
 			{
-				Item I=mob.fetchInventory(i);
-				if((I!=null)
-				&&(I instanceof MusicalInstrument)
-				&&(I.container()==null)
-				&&(usingInstrument((MusicalInstrument)I,mob)))
-				{ instrument=(MusicalInstrument)I; break;}
+				for(int i=0;i<mob.numItems();i++)
+				{
+					final Item I=mob.getItem(i);
+					if((I!=null)
+					&&(I instanceof MusicalInstrument)
+					&&(I.container()==null)
+					&&(usingInstrument((MusicalInstrument)I,mob)))
+					{
+						instrument = (MusicalInstrument) I;
+						break;
+					}
+				}
 			}
 			if(instrument==null)
 			{
-				mob.tell("You need an instrument!");
+				mob.tell(L("You need an instrument!"));
 				return false;
 			}
-			if((requiredInstrumentType()>=0)&&(instrument.instrumentType()!=requiredInstrumentType()))
+			if((requiredInstrumentType()!=InstrumentType.OTHER_INSTRUMENT_TYPE)
+			&&(instrument.getInstrumentType()!=requiredInstrumentType()))
 			{
-				mob.tell("This song can only be played on "+MusicalInstrument.TYPE_DESC[requiredInstrumentType()].toLowerCase()+".");
+				mob.tell(L("This song can only be played on @x1.",requiredInstrumentType().name().toLowerCase()));
 				return false;
 			}
 		}
@@ -401,7 +537,7 @@ public class Play extends StdAbility
 		&&(mob.location()!=null)
 		&&(CMLib.dice().rollPercentage()<50))
 		{
-			mob.location().show(mob,null,CMMsg.MSG_OK_VISUAL,"<S-NAME> fumble(s) playing "+name()+" due to <S-HIS-HER> armor!");
+			mob.location().show(mob,null,CMMsg.MSG_OK_VISUAL,L("<S-NAME> fumble(s) playing @x1 due to <S-HIS-HER> armor!",name()));
 			return false;
 		}
 
@@ -411,50 +547,52 @@ public class Play extends StdAbility
 		if(skipStandardSongInvoke())
 			return true;
 
-		if((!auto)&&(!CMLib.flags().aliveAwakeMobileUnbound(mob,false)))
+		if((!auto)&&(!CMLib.flags().isAliveAwakeMobileUnbound(mob,false)))
 			return false;
 
-		boolean success=proficiencyCheck(mob,0,auto);
-		unplay(mob,mob,true);
+		final boolean success=proficiencyCheck(mob,0,auto);
+		unplayAll(mob,mob);
 		if(success)
 		{
 			invoker=mob;
 			originRoom=mob.location();
 			commonRoomSet=getInvokerScopeRoomSet(null);
-            String songOfStr=songOf()+" on ";
-            if(songOf().equalsIgnoreCase(instrumentName())) songOfStr="";
-			String str=auto?"^S"+songOf()+" begins to play!^?":"^S<S-NAME> begin(s) to play "+songOfStr+instrumentName()+".^?";
+			String songOfStr=L("@x1 on ",songOf());
+			if(songOf().equalsIgnoreCase(instrumentName()))
+				songOfStr="";
+			String str=auto?L("^S@x1 begins to play!^?",songOf()):L("^S<S-NAME> begin(s) to play @x1@x2.^?",songOfStr,instrumentName());
 			if((!auto)&&(mob.fetchEffect(this.ID())!=null))
-				str="^S<S-NAME> start(s) playing "+songOfStr+instrumentName()+" again.^?";
+				str=L("^S<S-NAME> start(s) playing @x1@x2 again.^?",songOfStr,instrumentName());
 			for(int v=0;v<commonRoomSet.size();v++)
 			{
-				Room R=(Room)commonRoomSet.elementAt(v);
-				String msgStr=getCorrectMsgString(R,str,v);
-				CMMsg msg=CMClass.getMsg(mob,null,this,somanticCastCode(mob,null,auto),msgStr);
+				final Room R=commonRoomSet.elementAt(v);
+				final String msgStr=getCorrectMsgString(R,str,v);
+				final CMMsg msg=CMClass.getMsg(mob,null,this,somanticCastCode(mob,null,auto),msgStr);
 				if(R.okMessage(mob,msg))
 				{
-					Play newOne=(Play)this.copyOf();
-	
-					HashSet h=this.sendMsgAndGetTargets(mob, R, msg, givenTarget, auto);
-					if(h==null) continue;
-	
-					for(Iterator f=h.iterator();f.hasNext();)
+					final Play newOne=(Play)this.copyOf();
+
+					final Set<MOB> h=this.sendMsgAndGetTargets(mob, R, msg, givenTarget, auto);
+					if(h==null)
+						continue;
+
+					for (final Object element : h)
 					{
-						MOB follower=(MOB)f.next();
-						Room R2=follower.location();
-	
+						final MOB follower=(MOB)element;
+						final Room R2=follower.location();
+
 						// malicious songs must not affect the invoker!
 						int msgType=CMMsg.MASK_MAGIC|CMMsg.MASK_SOUND|CMMsg.TYP_CAST_SPELL;
 						int mndMsgType=CMMsg.MASK_MAGIC|CMMsg.MASK_SOUND|CMMsg.MASK_MALICIOUS|CMMsg.TYP_MIND;
 						if(auto){ msgType|=CMMsg.MASK_ALWAYS; mndMsgType|=CMMsg.MASK_ALWAYS;}
 						if((castingQuality(mob,follower)==Ability.QUALITY_MALICIOUS)&&(follower!=mob))
 							msgType=msgType|CMMsg.MASK_MALICIOUS;
-	
-						if(CMLib.flags().canBeHeardBy(invoker,follower)
-                        &&(follower.fetchEffect(this.ID())==null))
+
+						if(CMLib.flags().canBeHeardSpeakingBy(invoker,follower)
+						&&(follower.fetchEffect(this.ID())==null))
 						{
 							CMMsg msg2=CMClass.getMsg(mob,follower,this,msgType|CMMsg.MASK_HANDS,null,msgType,null,msgType,null);
-							CMMsg msg3=msg2;
+							final CMMsg msg3=msg2;
 							if((mindAttack())&&(follower!=mob))
 								msg2=CMClass.getMsg(mob,follower,this,mndMsgType|CMMsg.MASK_HANDS,null,mndMsgType,null,mndMsgType,null);
 							if((R.okMessage(mob,msg2))&&(R.okMessage(mob,msg3)))
@@ -485,7 +623,7 @@ public class Play extends StdAbility
 			}
 		}
 		else
-			mob.location().show(mob,null,CMMsg.MSG_NOISE,"<S-NAME> hit(s) a foul note.");
+			mob.location().show(mob,null,CMMsg.MSG_NOISE,L("<S-NAME> hit(s) a foul note."));
 
 		return success;
 	}

@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Druid;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -17,13 +18,13 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2000-2010 Bo Zimmerman
+   Copyright 2006-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,61 +33,67 @@ import java.util.*;
    limitations under the License.
 */
 
-@SuppressWarnings("unchecked")
+
 public class Chant_PlantSelf extends Chant
 {
-	public String ID() { return "Chant_PlantSelf"; }
-	public String name(){ return "Plant Self";}
-	public String displayText(){return "(Planted)";}
-    public int classificationCode(){return Ability.ACODE_CHANT|Ability.DOMAIN_SHAPE_SHIFTING;}
-    public int abstractQuality(){ return Ability.QUALITY_OK_SELF;}
-	protected int canAffectCode(){return Ability.CAN_MOBS;}
-	protected int canTargetCode(){return 0;}
+	@Override public String ID() { return "Chant_PlantSelf"; }
+	private final static String localizedName = CMLib.lang().L("Plant Self");
+	@Override public String name() { return localizedName; }
+	private final static String localizedStaticDisplay = CMLib.lang().L("(Planted)");
+	@Override public String displayText() { return localizedStaticDisplay; }
+	@Override public int classificationCode(){return Ability.ACODE_CHANT|Ability.DOMAIN_SHAPE_SHIFTING;}
+	@Override public int abstractQuality(){ return Ability.QUALITY_OK_SELF;}
+	@Override protected int canAffectCode(){return Ability.CAN_MOBS;}
+	@Override protected int canTargetCode(){return 0;}
 	long lastTime=0;
 
+	@Override
 	public void unInvoke()
 	{
-		if((affected==null)||(!(affected instanceof MOB)))
+		if(!(affected instanceof MOB))
 			return;
-		MOB mob=(MOB)affected;
+		final MOB mob=(MOB)affected;
 		super.unInvoke();
 		if(canBeUninvoked())
 		{
 			if(!mob.amDead())
 			{
 				if(mob.location()!=null)
-					mob.location().show(mob,null,CMMsg.MSG_OK_ACTION,"<S-NAME> uproot(s) <S-HIM-HERSELF>.");
+					mob.location().show(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> uproot(s) <S-HIM-HERSELF>."));
 				else
-					mob.tell("You uproot yourself.");
+					mob.tell(L("You uproot yourself."));
 			}
 		}
 	}
 
-	public void executeMsg(Environmental myHost, CMMsg msg)
+	@Override
+	public void executeMsg(final Environmental myHost, final CMMsg msg)
 	{
 		super.executeMsg(myHost,msg);
-		if((affected==null)||(!(affected instanceof MOB)))
+		if(!(affected instanceof MOB))
 			return;
-		MOB mob=(MOB)affected;
+		final MOB mob=(MOB)affected;
 
 		if((msg.amISource(mob))
 		&&(msg.tool()!=this)
-		&&(!CMath.bset(msg.sourceCode(),CMMsg.MASK_CHANNEL))
-		&&((CMath.bset(msg.sourceCode(),CMMsg.MASK_MOVE))
-				||(CMath.bset(msg.sourceCode(),CMMsg.MASK_HANDS))
-				||(CMath.bset(msg.sourceCode(),CMMsg.MASK_MOUTH))))
+		&&(!CMath.bset(msg.sourceMajor(),CMMsg.MASK_CHANNEL))
+		&&((CMath.bset(msg.sourceMajor(),CMMsg.MASK_MOVE))
+				||(CMath.bset(msg.sourceMajor(),CMMsg.MASK_HANDS))
+				||(CMath.bset(msg.sourceMajor(),CMMsg.MASK_MOUTH))))
 			unInvoke();
 		return;
 	}
 
+	@Override
 	public boolean tick(Tickable ticking, int tickID)
 	{
-		if((affected==null)||(!(affected instanceof MOB)))
+		if(!(affected instanceof MOB))
 			return super.tick(ticking,tickID);
 
-		MOB mob=(MOB)affected;
+		final MOB mob=(MOB)affected;
 
-		if(tickID!=Tickable.TICKID_MOB) return true;
+		if(tickID!=Tickable.TICKID_MOB)
+			return true;
 		if(!mob.isInCombat())
 		{
 			if(!mob.location().getArea().getClimateObj().canSeeTheSun(mob.location()))
@@ -94,33 +101,33 @@ public class Chant_PlantSelf extends Chant
 				unInvoke();
 				return false;
 			}
-			if((System.currentTimeMillis()-lastTime)<60000) 
+			if((System.currentTimeMillis()-lastTime)<60000)
 				return true;
-			if(!proficiencyCheck(null,0,false)) 
+			if(!proficiencyCheck(null,0,false))
 				return true;
 			lastTime=System.currentTimeMillis();
-			Room room=mob.location();
-			int myAlignment=mob.fetchFaction(CMLib.factions().AlignID());
-			int total=CMLib.factions().getTotal(CMLib.factions().AlignID());
-			int oneHalfPct=(int)Math.round(CMath.mul(total,.015));
-			if(CMLib.factions().getAlignPurity(myAlignment,Faction.ALIGN_INDIFF)<99)
+			final Room room=mob.location();
+			final int myAlignment=mob.fetchFaction(CMLib.factions().AlignID());
+			final int total=CMLib.factions().getTotal(CMLib.factions().AlignID());
+			final int oneHalfPct=(int)Math.round(CMath.mul(total,.015));
+			if(CMLib.factions().getAlignPurity(myAlignment,Faction.Align.INDIFF)<99)
 			{
-				if(CMLib.factions().getAlignPurity(myAlignment,Faction.ALIGN_EVIL)<CMLib.factions().getAlignPurity(myAlignment,Faction.ALIGN_GOOD))
+				if(CMLib.factions().getAlignPurity(myAlignment,Faction.Align.EVIL)<CMLib.factions().getAlignPurity(myAlignment,Faction.Align.GOOD))
 					CMLib.factions().postFactionChange(mob,this, CMLib.factions().AlignID(), oneHalfPct);
 				else
 					CMLib.factions().postFactionChange(mob,this, CMLib.factions().AlignID(), -oneHalfPct);
 				switch(CMLib.dice().roll(1,10,0))
 				{
-				case 0: room.show(mob,null,this,CMMsg.MSG_QUIETMOVEMENT,"<S-NAME> whisper(s) to the wind."); break;
-				case 1: room.show(mob,null,this,CMMsg.MSG_QUIETMOVEMENT,"<S-NAME> lean(s) towards the sun."); break;
-				case 2: room.show(mob,null,this,CMMsg.MSG_QUIETMOVEMENT,"<S-NAME> feel(s) the life of the insects."); break;
-				case 3: room.show(mob,null,this,CMMsg.MSG_QUIETMOVEMENT,"<S-NAME> feed(s) on the moisture of the earth."); break;
-				case 4: room.show(mob,null,this,CMMsg.MSG_QUIETMOVEMENT,"<S-NAME> take(s) in the energy of the sun."); break;
-				case 5: room.show(mob,null,this,CMMsg.MSG_QUIETMOVEMENT,"<S-NAME> feel(s) <S-HIM-HERSELF> grow."); break;
-				case 6: room.show(mob,null,this,CMMsg.MSG_QUIETMOVEMENT,"<S-NAME> become(s) one with the earth."); break;
-				case 7: room.show(mob,null,this,CMMsg.MSG_QUIETMOVEMENT,"<S-NAME> seek(s) the inner beauty of the natural order."); break;
-				case 8: room.show(mob,null,this,CMMsg.MSG_QUIETMOVEMENT,"<S-NAME> expunge(s) <S-HIS-HER> unnatural thoughts."); break;
-				case 9: room.show(mob,null,this,CMMsg.MSG_QUIETMOVEMENT,"<S-NAME> find(s) clarity in the natural world."); break;
+				case 0: room.show(mob,null,this,CMMsg.MSG_CONTEMPLATE,L("<S-NAME> whisper(s) to the wind.")); break;
+				case 1: room.show(mob,null,this,CMMsg.MSG_CONTEMPLATE,L("<S-NAME> lean(s) towards the sun.")); break;
+				case 2: room.show(mob,null,this,CMMsg.MSG_CONTEMPLATE,L("<S-NAME> feel(s) the life of the insects.")); break;
+				case 3: room.show(mob,null,this,CMMsg.MSG_CONTEMPLATE,L("<S-NAME> feed(s) on the moisture of the earth.")); break;
+				case 4: room.show(mob,null,this,CMMsg.MSG_CONTEMPLATE,L("<S-NAME> take(s) in the energy of the sun.")); break;
+				case 5: room.show(mob,null,this,CMMsg.MSG_CONTEMPLATE,L("<S-NAME> feel(s) <S-HIM-HERSELF> grow.")); break;
+				case 6: room.show(mob,null,this,CMMsg.MSG_CONTEMPLATE,L("<S-NAME> become(s) one with the earth.")); break;
+				case 7: room.show(mob,null,this,CMMsg.MSG_CONTEMPLATE,L("<S-NAME> seek(s) the inner beauty of the natural order.")); break;
+				case 8: room.show(mob,null,this,CMMsg.MSG_CONTEMPLATE,L("<S-NAME> expunge(s) <S-HIS-HER> unnatural thoughts.")); break;
+				case 9: room.show(mob,null,this,CMMsg.MSG_CONTEMPLATE,L("<S-NAME> find(s) clarity in the natural world.")); break;
 				}
 			}
 		}
@@ -132,21 +139,22 @@ public class Chant_PlantSelf extends Chant
 		return super.tick(ticking,tickID);
 	}
 
-	public boolean invoke(MOB mob, Vector commands, Environmental givenTarget, boolean auto, int asLevel)
+	@Override
+	public boolean invoke(MOB mob, List<String> commands, Physical givenTarget, boolean auto, int asLevel)
 	{
 		if(mob.isInCombat())
 		{
-			mob.tell("You can't commune while in combat!");
+			mob.tell(L("You can't commune while in combat!"));
 			return false;
 		}
 		if((mob.location().domainType()&Room.INDOORS)>0)
 		{
-			mob.tell("You must be outdoors for this chant to work.");
+			mob.tell(L("You must be outdoors for this chant to work."));
 			return false;
 		}
 		if(!mob.location().getArea().getClimateObj().canSeeTheSun(mob.location()))
 		{
-			mob.tell("You won't feel the sun here.");
+			mob.tell(L("You won't feel the sun here."));
 			return false;
 		}
 		if((mob.location().domainType()==Room.DOMAIN_OUTDOORS_CITY)
@@ -158,29 +166,25 @@ public class Chant_PlantSelf extends Chant
 		   ||(mob.location().domainType()==Room.DOMAIN_OUTDOORS_AIR)
 		   ||(mob.location().domainType()==Room.DOMAIN_OUTDOORS_WATERSURFACE))
 		{
-			mob.tell("This magic will not work here.");
+			mob.tell(L("This magic wonly works in fertile soil."));
 			return false;
 		}
-		
+
 		// now see if it worked
-		boolean success=proficiencyCheck(mob,0,auto);
+		final boolean success=proficiencyCheck(mob,0,auto);
 		if(success)
 		{
-			// it worked, so build a copy of this ability,
-			// and add it to the affects list of the
-			// affected MOB.  Then tell everyone else
-			// what happened.
 			invoker=mob;
-			CMMsg msg=CMClass.getMsg(mob,null,this,somanticCastCode(mob,null,auto),"<S-NAME> plant(s) <S-HIM-HERSELF> in the earth while chanting softly...");
+			final CMMsg msg=CMClass.getMsg(mob,null,this,somanticCastCode(mob,null,auto),L("^S<S-NAME> plant(s) <S-HIM-HERSELF> in the earth while chanting softly...^?"));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);
-				beneficialAffect(mob,mob,asLevel,Integer.MAX_VALUE-1000);
-				helpProficiency(mob);
+				beneficialAffect(mob,mob,asLevel,Ability.TICKS_FOREVER);
+				helpProficiency(mob, 0);
 			}
 		}
 		else
-			return beneficialVisualFizzle(mob,null,"<S-NAME> chant(s) to the earth, but lose(s) concentration.");
+			return beneficialVisualFizzle(mob,null,L("<S-NAME> chant(s) to the earth, but lose(s) concentration."));
 
 		// return whether it worked
 		return success;

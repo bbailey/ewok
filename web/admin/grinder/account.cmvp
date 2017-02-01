@@ -80,6 +80,26 @@
 				document.RESOURCES.submit();
 			}
 		}
+		function ExpireNever()
+		{
+			if(confirm('Never expire this account?'))
+			{
+				document.RESOURCES.action='accountdo.cmvp';
+				document.RESOURCES.FUNCTION.value='EXPIRENEVER';
+				document.RESOURCES.ACCOUNT.value='@AccountID@';
+				document.RESOURCES.submit();
+			}
+		}
+		function ExpireNow()
+		{
+			if(confirm('Expire this account now?'))
+			{
+				document.RESOURCES.action='accountdo.cmvp';
+				document.RESOURCES.FUNCTION.value='EXPIRENOW';
+				document.RESOURCES.ACCOUNT.value='@AccountID@';
+				document.RESOURCES.submit();
+			}
+		}
 		function ReShow()
 		{
 			document.RESOURCES.FUNCTION.value='EDIT';
@@ -95,7 +115,7 @@
 	</script>
 </head>
 <body BGCOLOR=BLACK>
-<FORM NAME=RESOURCES TARGET=_top METHOD=POST ACTION="account.cmvp">
+<FORM  ACCEPT-CHARSET="UTF-8" NAME=RESOURCES TARGET=_top METHOD=POST ACTION="account.cmvp">
 <INPUT TYPE=HIDDEN NAME=AUTH VALUE="@Authenticate?AUTH@">
 <INPUT TYPE=HIDDEN NAME=ACCOUNT VALUE="">
 <INPUT TYPE=HIDDEN NAME=FUNCTION VALUE="">
@@ -181,10 +201,90 @@
 			<INPUT TYPE=TEXT NAME=ACCTEXPIRATION SIZE=20 MAXLENGTH=20 VALUE="@AccountData?ACCTEXPIRATION@">
 		@else@
 			<FONT COLOR=WHITE>@AccountData?ACCTEXPIRATION@</FONT>&nbsp;
+			@if?CheckAuthCode?AUTH_CMDPLAYERS=true@
+				&nbsp;&nbsp;&nbsp;
+				<A href="javascript:ExpireNever();"><FONT SIZE=-1 COLOR=RED>Expire Never</FONT></a>&nbsp;&nbsp;&nbsp;
+				<A href="javascript:ExpireNow();"><FONT SIZE=-1 COLOR=RED>Expire Now</FONT></a>
+				</FONT>
+			@endif@
 		@endif@
 	</TD>
 </TR>
 @endif@
+<TR>
+	<TD WIDTH=33%><FONT COLOR=YELLOW>Tattoos: </FONT></TD>
+	<TD WIDTH=66%>
+		@if?CheckReqParm?FUNCTION=EDIT@
+        	<TEXTAREA ROWS=2 COLS=60 NAME=TATTOOS>@AccountData?TATTOOS@</TEXTAREA>
+		@else@
+			<FONT COLOR=WHITE>@AccountData?TATTOOS@</FONT>&nbsp;
+		@endif@
+	</TD>
+</TR>
+<TR>
+	<TD WIDTH=33%><FONT COLOR=YELLOW>Bonuses: </FONT></TD>
+	<TD WIDTH=66%>
+		<TABLE WIDTH=100% BORDER=1>
+		<TR>
+		<TD WIDTH=20%><FONT COLOR=YELLOW>Online: </FONT></TD>
+		<TD WIDTH=30%><FONT COLOR=YELLOW>
+			@if?CheckReqParm?FUNCTION=EDIT@
+				<INPUT TYPE=TEXT NAME=BONUSCHARONLINE SIZE=8 MAXLENGTH=3 VALUE="@AccountData?BONUSCHARONLINE@">
+			@else@
+				<FONT COLOR=WHITE>@AccountData?BONUSCHARONLINE@</FONT>&nbsp;
+			@endif@
+		</FONT></TD>
+		<TD WIDTH=20%><FONT COLOR=YELLOW>Chars: </FONT></TD>
+		<TD WIDTH=30%><FONT COLOR=YELLOW>
+			@if?CheckReqParm?FUNCTION=EDIT@
+				<INPUT TYPE=TEXT NAME=BONUSCHARLIMIT SIZE=8 MAXLENGTH=3 VALUE="@AccountData?BONUSCHARLIMIT@">
+			@else@
+				<FONT COLOR=WHITE>@AccountData?BONUSCHARLIMIT@</FONT>&nbsp;
+			@endif@
+		</FONT></TD>
+		</TD>
+		</TR>
+		<TR>
+		<TD><FONT COLOR=YELLOW>Langs: </FONT></TD>
+		<TD><FONT COLOR=YELLOW>
+			@if?CheckReqParm?FUNCTION=EDIT@
+				<INPUT TYPE=TEXT NAME=BONUSLANGS SIZE=8 MAXLENGTH=3 VALUE="@AccountData?BONUSLANGS@">
+			@else@
+				<FONT COLOR=WHITE>@AccountData?BONUSLANGS@</FONT>&nbsp;
+			@endif@
+		</FONT></TD>
+		<TD><FONT COLOR=YELLOW>Common: </FONT></TD>
+		<TD><FONT COLOR=YELLOW>
+			@if?CheckReqParm?FUNCTION=EDIT@
+				<INPUT TYPE=TEXT NAME=BONUSALLCOMMONSKILLS SIZE=8 MAXLENGTH=3 VALUE="@AccountData?BONUSALLCOMMONSKILLS@">
+			@else@
+				<FONT COLOR=WHITE>@AccountData?BONUSALLCOMMONSKILLS@</FONT>&nbsp;
+			@endif@
+		</FONT></TD>
+		</TD>
+		</TR>
+		<TR>
+		<TD><FONT COLOR=YELLOW>Craft: </FONT></TD>
+		<TD><FONT COLOR=YELLOW>
+			@if?CheckReqParm?FUNCTION=EDIT@
+				<INPUT TYPE=TEXT NAME=BONUSCRAFTINGSKILLS SIZE=8 MAXLENGTH=3 VALUE="@AccountData?BONUSCRAFTINGSKILLS@">
+			@else@
+				<FONT COLOR=WHITE>@AccountData?BONUSCRAFTINGSKILLS@</FONT>&nbsp;
+			@endif@
+		</FONT></TD>
+		<TD><FONT COLOR=YELLOW>NonCraft: </FONT></TD>
+		<TD><FONT COLOR=YELLOW>
+			@if?CheckReqParm?FUNCTION=EDIT@
+				<INPUT TYPE=TEXT NAME=BONUSNONCRAFTINGSKILLS SIZE=8 MAXLENGTH=3 VALUE="@AccountData?BONUSNONCRAFTINGSKILLS@">
+			@else@
+				<FONT COLOR=WHITE>@AccountData?BONUSNONCRAFTINGSKILLS@</FONT>&nbsp;
+			@endif@
+		</FONT></TD>
+		</TD>
+		</TR>
+		</TABLE>
+	</TD>
+</TR>
 <TR>
 	<TD WIDTH=33%><FONT COLOR=YELLOW>Notes: </FONT></TD>
 	<TD WIDTH=66%>

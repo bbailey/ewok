@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.CharClasses;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,6 +10,7 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -18,13 +20,13 @@ import java.util.*;
 
 
 /*
-   Copyright 2000-2010 Bo Zimmerman
+   Copyright 2003-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,38 +34,107 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
+
 public class Gaian extends StdCharClass
 {
-	public String ID(){return "Gaian";}
-	public String name(){return "Gaian";}
-	public String baseClass(){return "Druid";}
-	public int getBonusPracLevel(){return 2;}
-	public int getBonusAttackLevel(){return 0;}
-	public int getAttackAttribute(){return CharStats.STAT_CONSTITUTION;}
-	public int getLevelsPerBonusDamage(){ return 30;}
-	public int getHPDivisor(){return 2;}
-	public int getHPDice(){return 2;}
-	public int getHPDie(){return 7;}
-	public int getManaDivisor(){return 4;}
-	public int getManaDice(){return 1;}
-	public int getManaDie(){return 4;}
-	protected String armorFailMessage(){return "<S-NAME> watch(es) <S-HIS-HER> armor absorb <S-HIS-HER> magical energy!";}
-	public int allowedArmorLevel(){return CharClass.ARMOR_NONMETAL;}
-	public int allowedWeaponLevel(){return CharClass.WEAPONS_NATURAL;}
-	private HashSet requiredWeaponMaterials=buildRequiredWeaponMaterials();
-	protected HashSet requiredWeaponMaterials(){return requiredWeaponMaterials;}
-	public int requiredArmorSourceMinor(){return CMMsg.TYP_CAST_SPELL;}
+	@Override
+	public String ID()
+	{
+		return "Gaian";
+	}
+
+	private final static String localizedStaticName = CMLib.lang().L("Gaian");
+
+	@Override
+	public String name()
+	{
+		return localizedStaticName;
+	}
+
+	@Override
+	public String baseClass()
+	{
+		return "Druid";
+	}
+
+	@Override
+	public int getBonusPracLevel()
+	{
+		return 2;
+	}
+
+	@Override
+	public int getBonusAttackLevel()
+	{
+		return 0;
+	}
+
+	@Override
+	public int getAttackAttribute()
+	{
+		return CharStats.STAT_CONSTITUTION;
+	}
+
+	@Override
+	public int getLevelsPerBonusDamage()
+	{
+		return 30;
+	}
+
+	@Override
+	public String getHitPointsFormula()
+	{
+		return "((@x6<@x7)/2)+(2*(1?7))";
+	}
+
+	@Override
+	public String getManaFormula()
+	{
+		return "((@x4<@x5)/4)+(1*(1?4))";
+	}
+
+	@Override
+	protected String armorFailMessage()
+	{
+		return L("<S-NAME> watch(es) <S-HIS-HER> armor absorb <S-HIS-HER> magical energy!");
+	}
+
+	@Override
+	public int allowedArmorLevel()
+	{
+		return CharClass.ARMOR_NONMETAL;
+	}
+
+	@Override
+	public int allowedWeaponLevel()
+	{
+		return CharClass.WEAPONS_NATURAL;
+	}
+
+	private final Set<Integer> requiredWeaponMaterials = buildRequiredWeaponMaterials();
+
+	@Override
+	protected Set<Integer> requiredWeaponMaterials()
+	{
+		return requiredWeaponMaterials;
+	}
+
+	@Override
+	public int requiredArmorSourceMinor()
+	{
+		return CMMsg.TYP_CAST_SPELL;
+	}
 
 	public Gaian()
 	{
 		super();
 		maxStatAdj[CharStats.STAT_CONSTITUTION]=4;
 		maxStatAdj[CharStats.STAT_WISDOM]=4;
-    }
-    public void initializeClass()
-    {
-        super.initializeClass();
+	}
+	@Override
+	public void initializeClass()
+	{
+		super.initializeClass();
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Skill_Write",0,true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Skill_Recall",50,true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Skill_Revoke",false);
@@ -73,6 +144,7 @@ public class Gaian extends StdCharClass
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Specialization_Natural",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Herbology",0,false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Foraging",50,true);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Druidic",50,true);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Druid_DruidicPass",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Druid_MyPlants",true);
@@ -168,12 +240,17 @@ public class Gaian extends StdCharClass
 		CMLib.ableMapper().addCharAbilityMapping(ID(),30,"Chant_GrowOak",true);
 	}
 
-	public int availabilityCode(){return Area.THEME_FANTASY;}
+	@Override
+	public int availabilityCode()
+	{
+		return Area.THEME_FANTASY;
+	}
 
-    public boolean isValidClassDivider(MOB killer, MOB killed, MOB mob, HashSet followers)
+	@Override
+	public boolean isValidClassDivider(MOB killer, MOB killed, MOB mob, Set<MOB> followers)
 	{
 		if((mob!=null)
-        &&(mob!=killed)
+		&&(mob!=killed)
 		&&(!mob.amDead())
 		&&((!mob.isMonster())||(!CMLib.flags().isVegetable(mob)))
 		&&((mob.getVictim()==killed)
@@ -182,49 +259,58 @@ public class Gaian extends StdCharClass
 			return true;
 		return false;
 	}
-	public String getStatQualDesc(){return "Constitution 9+, Wisdom 9+";}
-	public boolean qualifiesForThisClass(MOB mob, boolean quiet)
+
+
+	private final String[] raceRequiredList=new String[]{
+		"Human","Elf","Vegetation","Humanoid","Halfling","Dwarf","Centaur"
+	};
+
+	@Override
+	public String[] getRequiredRaceList()
 	{
-		if(mob != null)
-		{
-			if(mob.baseCharStats().getStat(CharStats.STAT_CONSTITUTION)<=8)
-			{
-				if(!quiet)
-					mob.tell("You need at least a 9 Constitution to become a Gaian.");
-				return false;
-			}
-			if(mob.baseCharStats().getStat(CharStats.STAT_WISDOM)<=8)
-			{
-				if(!quiet)
-					mob.tell("You need at least a 9 Wisdom to become a Gaian.");
-				return false;
-			}
-			if(!(mob.charStats().getMyRace().racialCategory().equals("Human"))
-			&& !(mob.charStats().getMyRace().racialCategory().equals("Elf"))
-			&& !(mob.charStats().getMyRace().racialCategory().equals("Vegetation"))
-			&& !(mob.charStats().getMyRace().racialCategory().equals("Humanoid"))
-			&& !(mob.charStats().getMyRace().racialCategory().equals("Halfling"))
-			&& !(mob.charStats().getMyRace().racialCategory().equals("Dwarf")))
-			{
-				if(!quiet)
-					mob.tell("You must be Human, Elf, Dwarf, Halfling, or Half Elf to be a Gaian");
-				return false;
-			}
-		}
-		return super.qualifiesForThisClass(mob,quiet);
+		return raceRequiredList;
 	}
 
-	public String getOtherLimitsDesc(){return "Must remain Neutral to avoid skill and chant failure chances.";}
-	public String getOtherBonusDesc(){return "Attains Greenskin (sunlight based bonuses/penalties) at level 5.  At level 30, becomes totally undetectable in wilderness settings while hidden.  Can create a druidic connection with an area.  Benefits from animal/plant/stone followers leveling.  Benefits from freeing animals from cities.";}
+	@SuppressWarnings("unchecked")
+	private final Pair<String,Integer>[] minimumStatRequirements=new Pair[]{
+		new Pair<String,Integer>("Wisdom",Integer.valueOf(9)),
+		new Pair<String,Integer>("Constitution",Integer.valueOf(9))
+	};
 
-    public void executeMsg(Environmental host, CMMsg msg){ super.executeMsg(host,msg); Druid.doAnimalFollowerLevelingCheck(this,host,msg);  Druid.doAnimalFreeingCheck(this,host,msg);}
-    
+	@Override
+	public Pair<String, Integer>[] getMinimumStatRequirements()
+	{
+		return minimumStatRequirements;
+	}
+
+	@Override
+	public String getOtherLimitsDesc()
+	{
+		return L("Must remain Neutral to avoid skill and chant failure chances.");
+	}
+
+	@Override
+	public String getOtherBonusDesc()
+	{
+		return L("Attains Greenskin (sunlight based bonuses/penalties) at level 5.  At level 30, becomes totally undetectable in wilderness settings while hidden.  "
+				+ "Can create a druidic connection with an area.  Benefits from animal/plant/stone followers leveling.  Benefits from freeing animals from cities.");
+	}
+
+	@Override
+	public void executeMsg(Environmental host, CMMsg msg)
+	{
+		super.executeMsg(host, msg);
+		Druid.doAnimalFollowerLevelingCheck(this, host, msg);
+		Druid.doAnimalFreeingCheck(this, host, msg);
+	}
+
+	@Override
 	public void affectCharState(MOB affected, CharState affectableState)
 	{
 		super.affectCharState(affected,affectableState);
-		if(affected.location()!=null)
+		final Room room=affected.location();
+		if(room!=null)
 		{
-			Room room=affected.location();
 			if(affected.charStats().getClassLevel(this)>=5)
 			{
 				if(CMLib.flags().isInDark(room))
@@ -233,7 +319,8 @@ public class Gaian extends StdCharClass
 					affectableState.setMovement(affectableState.getMovement()-(affectableState.getMovement()/4));
 				}
 				else
-				if((room.domainType()&Room.INDOORS)==0)
+				if(room.getArea().getClimateObj().canSeeTheSun(room))
+				{
 					switch(room.getArea().getClimateObj().weatherType(room))
 					{
 					case Climate.WEATHER_BLIZZARD:
@@ -250,14 +337,17 @@ public class Gaian extends StdCharClass
 						affectableState.setMovement(affectableState.getMovement()+(affectableState.getMovement()/4));
 						break;
 					}
+				}
 			}
 		}
 
 	}
-	public boolean okMessage(Environmental myHost, CMMsg msg)
+	@Override
+	public boolean okMessage(final Environmental myHost, final CMMsg msg)
 	{
-		if(!(myHost instanceof MOB)) return super.okMessage(myHost,msg);
-		MOB myChar=(MOB)myHost;
+		if(!(myHost instanceof MOB))
+			return super.okMessage(myHost,msg);
+		final MOB myChar=(MOB)myHost;
 		if(!super.okMessage(myChar, msg))
 			return false;
 
@@ -272,32 +362,34 @@ public class Gaian extends StdCharClass
 		{
 			if(((Ability)msg.tool()).appropriateToMyFactions(myChar))
 				return true;
-			myChar.tell("Extreme emotions disrupt your chant.");
+			myChar.tell(L("Extreme emotions disrupt your chant."));
 			return false;
 		}
 		return true;
 	}
 
-	public void affectEnvStats(Environmental affected, EnvStats affectableStats)
+	@Override
+	public void affectPhyStats(Physical affected, PhyStats affectableStats)
 	{
-		super.affectEnvStats(affected,affectableStats);
+		super.affectPhyStats(affected,affectableStats);
 		if((affected instanceof MOB)&&(((MOB)affected).location()!=null))
 		{
-			MOB mob=(MOB)affected;
-			Room room=mob.location();
-			int classLevel=mob.charStats().getClassLevel(this);
+			final MOB mob=(MOB)affected;
+			final Room room=mob.location();
+			final int classLevel=mob.charStats().getClassLevel(this);
 			if((CMLib.flags().isHidden(mob))
 			&&(classLevel>=30)
 			&&((room.domainType()&Room.INDOORS)==0)
 			&&(room.domainType()!=Room.DOMAIN_OUTDOORS_CITY))
-				affectableStats.setDisposition(affectableStats.disposition()|EnvStats.IS_NOT_SEEN);
+				affectableStats.setDisposition(affectableStats.disposition()|PhyStats.IS_NOT_SEEN);
 
 			if(classLevel>=5)
 			{
 				if(CMLib.flags().isInDark(room))
 					affectableStats.setAttackAdjustment(affectableStats.attackAdjustment()-((classLevel/5)+1));
 				else
-				if((room.domainType()&Room.INDOORS)==0)
+				if(room.getArea().getClimateObj().canSeeTheSun(room))
+				{
 					switch(room.getArea().getClimateObj().weatherType(room))
 					{
 					case Climate.WEATHER_BLIZZARD:
@@ -313,34 +405,38 @@ public class Gaian extends StdCharClass
 						affectableStats.setAttackAdjustment(affectableStats.attackAdjustment()+((classLevel/5)+1));
 						break;
 					}
+				}
 			}
 		}
 	}
 
-	public Vector outfit(MOB myChar)
+	@Override
+	public List<Item> outfit(MOB myChar)
 	{
 		if(outfitChoices==null)
 		{
-			outfitChoices=new Vector();
-			Weapon w=CMClass.getWeapon("Quarterstaff");
-			outfitChoices.addElement(w);
+			final Weapon w=CMClass.getWeapon("Quarterstaff");
+			if(w == null)
+				return new Vector<Item>();
+			outfitChoices=new Vector<Item>();
+			outfitChoices.add(w);
 		}
 		return outfitChoices;
 	}
 
-	
+	@Override
 	public void grantAbilities(MOB mob, boolean isBorrowedClass)
 	{
 		super.grantAbilities(mob,isBorrowedClass);
 		if(mob.playerStats()==null)
 		{
-			DVector V=CMLib.ableMapper().getUpToLevelListings(ID(),
+			final List<AbilityMapper.AbilityMapping> V=CMLib.ableMapper().getUpToLevelListings(ID(),
 												mob.charStats().getClassLevel(ID()),
 												false,
 												false);
-			for(Enumeration a=V.getDimensionVector(1).elements();a.hasMoreElements();)
+			for(final AbilityMapper.AbilityMapping able : V)
 			{
-				Ability A=CMClass.getAbility((String)a.nextElement());
+				final Ability A=CMClass.getAbility(able.abilityID());
 				if((A!=null)
 				&&((A.classificationCode()&Ability.ALL_ACODES)==Ability.ACODE_CHANT)
 				&&(!CMLib.ableMapper().getDefaultGain(ID(),true,A.ID())))
@@ -349,17 +445,21 @@ public class Gaian extends StdCharClass
 		}
 	}
 
+	@Override
 	public int classDurationModifier(MOB myChar,
 									 Ability skill,
 									 int duration)
 	{
-		if(myChar==null) return duration;
-		if(((skill.classificationCode()&Ability.ALL_DOMAINS)==Ability.DOMAIN_CRAFTINGSKILL)
+		if(myChar==null)
+			return duration;
+		if((((skill.classificationCode()&Ability.ALL_DOMAINS)==Ability.DOMAIN_CRAFTINGSKILL)
+			||((skill.classificationCode()&Ability.ALL_DOMAINS)==Ability.DOMAIN_BUILDINGSKILL))
 		&&(myChar.charStats().getCurrentClass().ID().equals(ID()))
 		&&(!skill.ID().equals("FoodPrep"))
 		&&(!skill.ID().equals("Cooking"))
 		&&(!skill.ID().equals("Herbalism"))
 		&&(!skill.ID().equals("Weaving"))
+		&&(!skill.ID().equals("Landscaping"))
 		&&(!skill.ID().equals("Masonry")))
 			return duration*2;
 

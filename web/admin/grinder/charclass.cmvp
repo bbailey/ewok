@@ -61,7 +61,7 @@
                 return;
             if(classid.indexOf(' ')>=0)
             {
-                window.alert('No spaces are allowed in your ID!');
+                if(window.alert) window.alert('No spaces are allowed in your ID!');
                 return;
             }
             document.RESOURCES.NEWCLASSID.value=classid;
@@ -120,16 +120,63 @@
             w=window.open("/"+file+"?HELPTOPIC="+named,
                         "Help",strFeatures, false);
         }
+		function openUp2(named)
+		{
+			var strFeatures="top=200,left=50,scrollbars=yes,resizeable=no,height=400,width=650,alwaysRaised=yes,dependent=yes";
+			w=window.open("/ahelp.cmvp?HELPTOPIC="+named,
+			            "Help",strFeatures, false);
+		}
         function Clicked(action)
         {
             document.RESOURCES.action=action;
             document.RESOURCES.submit();
         }
+        function RaceQual(src,target)
+        {
+            if(src.selectedIndex<=0)
+                return;
+            var srcStr=src.options[src.selectedIndex].value;
+            var tgtStr=target.value;
+            src.selectedIndex=0;
+            if(srcStr.toLowerCase()==tgtStr.toLowerCase())
+            {
+                target.value='';
+                return;
+            }
+            var x=tgtStr.toLowerCase().indexOf(srcStr.toLowerCase()+", ");
+            if(x>=0)
+            {
+                if((x==0)||(tgtStr.substring(x-1,x)==","))
+                {
+                    target.value=tgtStr.substring(0,x)+tgtStr.substring(x+srcStr.length+2);
+                    return;
+                }
+            }
+            x=tgtStr.toLowerCase().indexOf(", "+srcStr.toLowerCase());
+            if(x>=0)
+            {
+                var y=x+2+srcStr.length;
+                if(y==tgtStr.length)
+                {
+                    target.value=tgtStr.substring(0,x);
+                    return;
+                }
+                if(tgtStr.substring(y,y+1)==",")
+                {
+                    target.value=tgtStr.substring(0,x)+tgtStr.substring(y);
+                    return;
+                }
+            }
+            if((target.value=='')||(target.value==' '))
+                target.value=srcStr;
+            else
+                target.value=tgtStr+", "+srcStr;
+        }
     //-->
     </script>
 </head>
 <body BGCOLOR=BLACK>
-<FORM NAME=RESOURCES TARGET=_top METHOD=POST ACTION="charclass.cmvp">
+<FORM  ACCEPT-CHARSET="UTF-8" NAME=RESOURCES TARGET=_top METHOD=POST ACTION="charclass.cmvp">
 <INPUT TYPE=HIDDEN NAME=AUTH VALUE="@Authenticate?AUTH@">
 <INPUT TYPE=HIDDEN NAME=NEWCLASSID VALUE="">
 <INPUT TYPE=HIDDEN NAME=REPLACE VALUE="">
@@ -164,24 +211,42 @@
             <TD><INPUT TYPE=TEXT SIZE=5 NAME=LEVELCAP VALUE="@CharClassData?LEVELCAP@"></TD>
         </TR>
         <TR>
+            <TD><FONT COLOR=YELLOW>Required Races: </FONT></TD>
+            <TD>
+                <SELECT NAME=RACQUALSEL ONCHANGE="RaceQual(this,document.RESOURCES.RACQUAL);">
+                    <OPTION SELECTED VALUE="">Pick a race/category
+                    <OPTION VALUE="All">All
+                    @RaceCatNext?RESET@ @loop@ @RaceCatNext?ALL@ <OPTION VALUE="@RequestParameter?RACECAT@">@RequestParameter?RACECAT@ @back@
+                    @RaceNext?RESET@ @loop@ @RaceNext?ALL@ <OPTION VALUE="@RaceID@">@RaceName@ @back@
+                </SELECT>
+                <INPUT TYPE=TEXT SIZE=50 NAME=RACQUAL VALUE="@CharClassData?RACQUAL@">
+            </TD>
+        </TR>
+        <TR>
+            <TD><FONT COLOR=YELLOW>Minimum Stat Reqs: </FONT></TD>
+            <TD>@CharClassData?MINSTAT@</TD>
+        </TR>
+        <TR>
             <TD><FONT COLOR=YELLOW>Hit Points / Level: </FONT></TD>
-            <TD><FONT COLOR=WHITE>Roll&nbsp; 
-                <INPUT TYPE=TEXT SIZE=2 NAME=HPDICE VALUE="@CharClassData?HPDICE@">
-                d
-                <INPUT TYPE=TEXT SIZE=2 NAME=HPDIE VALUE="@CharClassData?HPDIE@">
-                &nbsp;&nbsp;+&nbsp;&nbsp;
-                (Constitution / <INPUT TYPE=TEXT SIZE=2 NAME=HPDIV VALUE="@CharClassData?HPDIV@">)
+            <TD><FONT COLOR=WHITE>
+                <INPUT TYPE=TEXT SIZE=60 NAME=HITPOINTSFORMULA VALUE="@CharClassData?HITPOINTSFORMULA@">
+                <A HREF="javascript:openUp2('MATH_FORMULA')">Formula help</a>
+                <BR>
+@x1: Players current class level, @x2: Players adjusted Strength, @x3: Players Max adjusted Strength, 
+@x4: Players adjusted Dexterity, @x5: Players Max adjusted Dexterity, @x6: Players adjusted Constitution, 
+@x7: Players Max adjusted Constitution, @x8: Players adjusted Wisdom, @x9: Players adjusted Intelligence
                 </FONT>
             </TD>
         </TR>
         <TR>
             <TD><FONT COLOR=YELLOW>Mana / Level: </FONT></TD>
-            <TD><FONT COLOR=WHITE>Roll&nbsp; 
-                <INPUT TYPE=TEXT SIZE=2 NAME=MANADICE VALUE="@CharClassData?MANADICE@">
-                d
-                <INPUT TYPE=TEXT SIZE=2 NAME=MANADIE VALUE="@CharClassData?MANADIE@">
-                &nbsp;&nbsp;+&nbsp;&nbsp;
-                (Intelligence / <INPUT TYPE=TEXT SIZE=2 NAME=MANADIV VALUE="@CharClassData?MANADIV@">)
+            <TD><FONT COLOR=WHITE>
+                <INPUT TYPE=TEXT SIZE=60 NAME=MANAFORMULA VALUE="@CharClassData?MANAFORMULA@">
+                <A HREF="javascript:openUp2('MATH_FORMULA')">Formula help</a>
+                <BR>
+@x1: Players current class level, @x2: Players adjusted Wisdom, @x3: Players Max adjusted Wisdom, 
+@x4: Players adjusted Intelligence, @x5: Players Max adjusted Intelligence, @x6: Players adjusted Attack Attr, 
+@x7: Players Max adjusted Attack Attr, @x8: Players adjusted Charisma, @x9: Players adjusted Constitution
                 </FONT>
             </TD>
         </TR>
@@ -211,7 +276,15 @@
         </TR>
         <TR>
             <TD><FONT COLOR=YELLOW>Movement / Level: </FONT></TD>
-            <TD><FONT COLOR=WHITE>Strength / 18 X <INPUT TYPE=TEXT SIZE=5 NAME=LVLMOVE VALUE="@CharClassData?LVLMOVE@"></FONT></TD>
+            <TD><FONT COLOR=WHITE>
+                <INPUT TYPE=TEXT SIZE=60 NAME=MOVEMENTFORMULA VALUE="@CharClassData?MOVEMENTFORMULA@">
+                <A HREF="javascript:openUp2('MATH_FORMULA')">Formula help</a>
+                <BR>
+@x1: Players current class level, @x2: Players adjusted Strength, @x3: Players Max adjusted Strength, 
+@x4: Players adjusted Dexterity, @x5: Players Max adjusted Dexterity, @x6: Players adjusted Constitution, 
+@x7: Players Max adjusted Constitution, @x8: Players adjusted Wisdom, @x9: Players adjusted Intelligence
+                </FONT>
+            </FONT></TD>
         </TR>
         <TR>
             <TD><FONT COLOR=YELLOW>Armor Limits: </FONT></TD>
@@ -230,17 +303,17 @@
             <TD><INPUT TYPE=TEXT SIZE=80 NAME=STRBON VALUE="@CharClassData?STRBON@"></TD>
         </TR>
         <TR>
-            <TD><FONT COLOR=YELLOW>Qualifications:<BR>
+            <TD><FONT COLOR=YELLOW>Qual Mask:<BR>
              <A HREF="javascript:OpenUp('ahelp.cmvp','MASKS')"><FONT COLOR=WHITE><I>mask help</I></FONT></a>
              </FONT></TD>
             <TD><INPUT TYPE=TEXT SIZE=60 NAME=QUAL VALUE="@CharClassData?QUAL@"></TD>
         </TR>
         <TR>
-            <TD><FONT COLOR=YELLOW>EStat Adjustments: </FONT></TD>
+            <TD><FONT COLOR=YELLOW>PhysStat Adjusts: </FONT></TD>
             <TD>@CharClassData?ESTATS@</TD>
         </TR>
         <TR>
-            <TD><FONT COLOR=YELLOW>CharStat Adjustments: </FONT></TD>
+            <TD><FONT COLOR=YELLOW>CharStat Adjusts: </FONT></TD>
             <TD>@CharClassData?ASTATS@</TD>
         </TR>
         <TR>
@@ -248,7 +321,7 @@
             <TD>@CharClassData?CSTATS@</TD>
         </TR>
         <TR>
-            <TD><FONT COLOR=YELLOW>CharState Adjustments: </FONT></TD>
+            <TD><FONT COLOR=YELLOW>CharState Adjusts: </FONT></TD>
             <TD>@CharClassData?ASTATE@</TD>
         </TR>
         <TR>
@@ -285,6 +358,14 @@
         <TR>
             <TD><FONT COLOR=YELLOW>Special-Event Class: </FONT></TD>
             <TD><SELECT NAME=EVENTCLASS>@CharClassData?EVENTCLASS@</SELECT></TD>
+        </TR>
+        <TR>
+            <TD><FONT COLOR=YELLOW>SubClass Switch Rule: </FONT></TD>
+            <TD><SELECT NAME=SUBRUL>@CharClassData?SUBRUL@</SELECT></TD>
+        </TR>
+        <TR>
+            <TD><FONT COLOR=YELLOW>Starting Money: </FONT></TD>
+            <TD><INPUT TYPE=TEXT SIZE=50 NAME=MONEY VALUE="@CharClassData?MONEY@"></TD>
         </TR>
         <TR>
             <TD><FONT COLOR=YELLOW>Help Entry: </FONT></TD>

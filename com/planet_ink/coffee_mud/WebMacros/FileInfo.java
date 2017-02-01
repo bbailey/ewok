@@ -1,6 +1,10 @@
 package com.planet_ink.coffee_mud.WebMacros;
+
+import com.planet_ink.coffee_web.http.MIMEType;
+import com.planet_ink.coffee_web.interfaces.*;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -12,18 +16,17 @@ import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
+
 import java.util.*;
 
-
-
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2003-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -31,67 +34,89 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
 public class FileInfo extends StdWebMacro
 {
-	public String name()	{return this.getClass().getName().substring(this.getClass().getName().lastIndexOf('.')+1);}
-	public boolean isAdminMacro()	{return true;}
+	@Override public String name() { return "FileInfo"; }
+	@Override public boolean isAdminMacro()	{return true;}
 
-	public String runMacro(ExternalHTTPRequests httpReq, String parm)
+	public String trimSlash(String path)
 	{
-		Hashtable parms=parseParms(parm);
-		String path=httpReq.getRequestParameter("PATH");
-		if(path==null) path="";
-		String file=httpReq.getRequestParameter("FILE");
-		if(file==null) file="";
-		MOB M = Authenticate.getAuthenticatedMob(httpReq);
-        if(M==null) return "[authentication error]";
+		path=path.trim();
+		while(path.startsWith("/"))
+			path=path.substring(1);
+		while(path.endsWith("/"))
+			path=path.substring(0,path.length()-1);
+		return path;
+	}
+
+	@Override
+	public String runMacro(HTTPRequest httpReq, String parm, HTTPResponse httpResp)
+	{
+		final java.util.Map<String,String> parms=parseParms(parm);
+		String path=httpReq.getUrlParameter("PATH");
+		if(path==null)
+			path="";
+		String file=httpReq.getUrlParameter("FILE");
+		if(file==null)
+			file="";
+		final MOB M = Authenticate.getAuthenticatedMob(httpReq);
+		if(M==null)
+			return "[authentication error]";
 		try
 		{
-			CMFile F=new CMFile(path+"/"+file,M,false);
+			final String filepath=path.endsWith("/")?path+file:path+"/"+file;
+			final String pathKey="CMFSFILE_"+trimSlash(filepath);
+			CMFile F=(CMFile)httpReq.getRequestObjects().get(pathKey);
+			if(F==null)
+			{
+				F=new CMFile(filepath,M);
+				httpReq.getRequestObjects().put(pathKey, F);
+			}
 			if(parms.containsKey("ISDIRECTORY"))
 				return ""+F.isDirectory();
 			if(parms.containsKey("ISFILE"))
 				return ""+F.isFile();
-            if(parms.containsKey("ISLOCAL"))
-                return ""+((F.isLocalFile()&&(F.canVFSEquiv()))||((F.isVFSFile()&&(F.canLocalEquiv()))));
-            if(parms.containsKey("ISBOTH"))
-                return ""+(F.isLocalFile()&&(!F.canVFSEquiv()));
-            if(parms.containsKey("ISVFS"))
-                return ""+(F.isVFSFile()&&(!F.canLocalEquiv()));
-            if(parms.containsKey("ISTEXT"))
-            {
-                int x=F.getName().lastIndexOf('.');
-                if(x<0) return "false";
-                String mime=httpReq.getMimeType(F.getName().substring(x));
-                if(mime.toUpperCase().startsWith("TEXT"))
-                    return "true";
-                return "false";
-            }
-            if(parms.containsKey("ISBINARY"))
-            {
-                int x=F.getName().lastIndexOf('.');
-                if(x<0) return "true";
-                String mime=httpReq.getMimeType(F.getName().substring(x));
-                if(mime.toUpperCase().startsWith("TEXT"))
-                    return "false";
-                return "true";
-            }
+			if(parms.containsKey("ISLOCAL"))
+				return ""+F.canLocalEquiv();
+			if(parms.containsKey("ISBOTH"))
+				return ""+(F.canLocalEquiv()&&(F.canVFSEquiv()));
+			if(parms.containsKey("ISVFS"))
+				return ""+F.canVFSEquiv();
+			if(parms.containsKey("ISTEXT"))
+			{
+				final int x=F.getName().lastIndexOf('.');
+				if(x<0)
+					return "false";
+				final String mime=MIMEType.All.getMIMEType(F.getName().substring(x)).getType();
+				if(mime.toUpperCase().startsWith("TEXT"))
+					return "true";
+				return "false";
+			}
+			if(parms.containsKey("ISBINARY"))
+			{
+				final int x=F.getName().lastIndexOf('.');
+				if(x<0)
+					return "true";
+				final String mime=MIMEType.All.getMIMEType(F.getName().substring(x)).getType();
+				if(mime.toUpperCase().startsWith("TEXT"))
+					return "false";
+				return "true";
+			}
 			if(parms.containsKey("NAME"))
 				return ""+F.getName();
 			if(parms.containsKey("DATA"))
-                return F.textUnformatted().toString();
+				return F.textUnformatted().toString();
 			if(parms.containsKey("TEXTDATA"))
 			{
 				String s=F.text().toString();
-				s=CMStrings.replaceAll(s,"\n\r","\n");
+				s=s.replaceAll("\n\r","\n");
 				s=CMStrings.replaceAll(s,"&","&amp;");
 				s=CMStrings.replaceAll(s,"@","&#64;");
 				s=CMStrings.replaceAll(s,"<","&lt;");
 				return s;
 			}
 		}
-		catch(Exception e)
+		catch(final Exception e)
 		{
 			return "[error]";
 		}

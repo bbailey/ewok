@@ -12,7 +12,7 @@
         {
             if(abilityid.indexOf(' ')>=0)
             {
-                window.alert('No spaces are allowed in your ID!');
+                if(window.alert) window.alert('No spaces are allowed in your ID!');
                 return;
             }
             var strFeatures="top=0,left=75,resizeable=no,scrollbars=yes,height=600,width=750,alwaysRaised=yes,dependent=yes";
@@ -40,13 +40,18 @@
         <TABLE WIDTH=50% BORDER=1>
         <TR><TD BGCOLOR=WHITE ALIGN=CENTER><FONT COLOR=BLACK SIZE=-1><B>Menu</B></FONT></TD></TR>
         <TR><TD><a href="javascript:Clicked('/grinder/loggedin.cmvp');"><FONT COLOR=WHITE SIZE=-1><B>MUDGrinder Menu</B></FONT></A></TD></TR>
+        @if?CheckAuthCode?AUTH_CMDCOMPONENTS=true@
+		  <TR><TD><a href="javascript:Clicked('/grinder/components.cmvp');"><FONT COLOR=WHITE SIZE=-1><B>Skill Components</B></FONT></A></TD></TR>
+		@endif@
+        <TR><TD><a href="javascript:Clicked('/grinder/allqualifys.cmvp');"><FONT COLOR=WHITE SIZE=-1><B>All-Qualifies List</B></FONT></A></TD></TR>
+        <TR><TD><a href="javascript:Clicked('/grinder/recipes.cmvp');"><FONT COLOR=WHITE SIZE=-1><B>Skill Recipes</B></FONT></A></TD></TR>
         <TR><TD><a href="javascript:Refresh();"><FONT COLOR=WHITE SIZE=-1><B>Refresh Page</B></FONT></A></TD></TR>
         </TABLE>
     </TD>
     </TR>
     </TABLE>
 <CENTER>
-<FORM NAME=RESOURCES TARGET=_top METHOD=POST ACTION="abilities.cmvp">
+<FORM  ACCEPT-CHARSET="UTF-8" NAME=RESOURCES TARGET=_top METHOD=POST ACTION="abilities.cmvp">
 <INPUT TYPE=HIDDEN NAME=AUTH VALUE="@Authenticate?AUTH@">
     <TABLE WIDTH=100% BORDER=1>
     <TR><TD WIDTH=100% COLSPAN=6 BGCOLOR=WHITE ALIGN=CENTER><FONT COLOR=BLACK><H2>CoffeeMud @MudServerVersion@ Abilities Creator</H2></FONT></TD></TR>
@@ -60,20 +65,31 @@
     @AbilityNext?RESET@
     @loop@
     @AbilityNext?ALL&GENERIC@
-        @if?!CheckReqParm?ABILITY=GenAbility@
+        @if?CheckReqParm?ABILITY=GenAbility&||ABILITY=GenLanguage&||ABILITY=GenCraftSkill@
+        @else@
+        @if?CheckReqParm?ABILITY=GenLanguage&||ABILITY=GenCraftSkill&||ABILITY=GenAbility@
+        @else@
+        @if?CheckReqParm?ABILITY=GenCraftSkill&||ABILITY=GenAbility&||ABILITY=GenLanguage@
+        @else@
             <TR>
             <TD><a href="javascript:Ability('@AbilityID@','')"><FONT COLOR=WHITE><B>@AbilityID@</B></FONT></a></TD>
             <TD><FONT COLOR=WHITE><B>@AbilityName@</B></FONT></a></TD>
             <TD><FONT COLOR=WHITE><B>@AbilityData?TYPENDOMAIN@</B></FONT></a></TD>
             <TD><FONT COLOR=WHITE><B>@AbilityData?QUALITY@</B></FONT></a></TD>
             <TD><FONT COLOR=WHITE><B>@AbilityData?TRIGSTR@</B></FONT></a></TD>
-            
-            
             </TR>
+       @endif@
+       @endif@
        @endif@
     @back@
     <TR>
-    <TD COLSPAN=4><a href="javascript:if(document.RESOURCES.NEWABILITY.value!='')Ability(document.RESOURCES.NEWABILITY.value,'&NEWABILITY='+document.RESOURCES.NEWABILITY.value)"><FONT COLOR=WHITE><B>Create New:</a> <INPUT TYPE=TEXT NAME=NEWABILITY SIZE=70></B></FONT></TD>
+    <TD COLSPAN=4><a href="javascript:if(document.RESOURCES.NEWABILITY.value!='')Ability(document.RESOURCES.NEWABILITY.value,'&NEWABILITY='+document.RESOURCES.NEWABILITY.value)"><FONT COLOR=WHITE><B>Create new Ability/Skill:</a> <INPUT TYPE=TEXT NAME=NEWABILITY SIZE=20 ONCHANGE="document.RESOURCES.NEWLANGUAGE.value='';document.RESOURCES.NEWCRAFTSKILL.value='';"></B></FONT></TD>
+    </TR>
+    <TR>
+    <TD COLSPAN=4><a href="javascript:if(document.RESOURCES.NEWLANGUAGE.value!='')Ability(document.RESOURCES.NEWLANGUAGE.value,'&NEWLANGUAGE='+document.RESOURCES.NEWLANGUAGE.value)"><FONT COLOR=WHITE><B>Create new Language:</a> <INPUT TYPE=TEXT NAME=NEWLANGUAGE SIZE=20 ONCHANGE="document.RESOURCES.NEWABILITY.value='';document.RESOURCES.NEWCRAFTSKILL.value='';"></B></FONT></TD>
+    </TR>
+    <TR>
+    <TD COLSPAN=4><a href="javascript:if(document.RESOURCES.NEWCRAFTSKILL.value!='')Ability(document.RESOURCES.NEWCRAFTSKILL.value,'&NEWCRAFTSKILL='+document.RESOURCES.NEWCRAFTSKILL.value)"><FONT COLOR=WHITE><B>Create new Crafting Skill:</a> <INPUT TYPE=TEXT NAME=NEWCRAFTSKILL SIZE=20 ONCHANGE="document.RESOURCES.NEWABILITY.value='';document.RESOURCES.NEWLANGUAGE.value='';"></B></FONT></TD>
     </TR>
     </TABLE>
     <P>

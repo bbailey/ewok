@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Behaviors;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,6 +10,7 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -16,14 +18,14 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2001-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -33,8 +35,8 @@ import java.util.*;
 */
 public class ActiveTicker extends StdBehavior
 {
-	public String ID(){return "ActiveTicker";}
-	protected int canImproveCode(){return Behavior.CAN_ITEMS|Behavior.CAN_MOBS|Behavior.CAN_ROOMS|Behavior.CAN_EXITS|Behavior.CAN_AREAS;}
+	@Override public String ID(){return "ActiveTicker";}
+	@Override protected int canImproveCode(){return Behavior.CAN_ITEMS|Behavior.CAN_MOBS|Behavior.CAN_ROOMS|Behavior.CAN_EXITS|Behavior.CAN_AREAS;}
 
 	protected int minTicks=10;
 	protected int maxTicks=30;
@@ -47,8 +49,7 @@ public class ActiveTicker extends StdBehavior
 		tickDown=(int)Math.round(Math.random()*(maxTicks-minTicks))+minTicks;
 	}
 
-
-
+	@Override
 	public void setParms(String newParms)
 	{
 		parms=newParms;
@@ -60,13 +61,13 @@ public class ActiveTicker extends StdBehavior
 
 	public String rebuildParms()
 	{
-		StringBuffer rebuilt=new StringBuffer("");
+		final StringBuffer rebuilt=new StringBuffer("");
 		rebuilt.append(" min="+minTicks);
 		rebuilt.append(" max="+maxTicks);
 		rebuilt.append(" chance="+chance);
 		return rebuilt.toString();
 	}
-	
+
 	public String getParmsNoTicks()
 	{
 		String parms=getParms();
@@ -88,21 +89,30 @@ public class ActiveTicker extends StdBehavior
 
 	protected boolean canAct(Tickable ticking, int tickID)
 	{
-		if((tickID==Tickable.TICKID_MOB)
-		||(tickID==Tickable.TICKID_ITEM_BEHAVIOR)
-		||(tickID==Tickable.TICKID_ROOM_BEHAVIOR)
-		||((tickID==Tickable.TICKID_AREA)&&(ticking instanceof Area)))
+		switch(tickID)
 		{
-			int a=CMLib.dice().rollPercentage();
+		case Tickable.TICKID_AREA:
+			if(!(ticking instanceof Area))
+				break;
+		//$FALL-THROUGH$
+		case Tickable.TICKID_MOB:
+		case Tickable.TICKID_ITEM_BEHAVIOR:
+		case Tickable.TICKID_ROOM_BEHAVIOR:
+		{
 			if((--tickDown)<1)
 			{
 				tickReset();
 				if((ticking instanceof MOB)&&(!canActAtAll(ticking)))
 					return false;
+				final int a=CMLib.dice().rollPercentage();
 				if(a>chance)
 					return false;
 				return true;
 			}
+			break;
+		}
+		default:
+			break;
 		}
 		return false;
 	}

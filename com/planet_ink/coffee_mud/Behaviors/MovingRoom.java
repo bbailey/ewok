@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Behaviors;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,21 +10,21 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
-
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2003-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -31,22 +32,22 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
+
 public class MovingRoom extends ActiveTicker
 {
-	public String ID(){return "MovingRoom";}
-	protected int canImproveCode(){return Behavior.CAN_ROOMS;}
+	@Override public String ID(){return "MovingRoom";}
+	@Override protected int canImproveCode(){return Behavior.CAN_ROOMS;}
 
-	public Vector listOfRooms=new Vector();
-	protected Vector roomInfos=new Vector();
-	public Vector messageInfo=new Vector();
-	public Vector mapInfo=new Vector();
-	protected Vector stubs=new Vector();
-	protected String xmlInfo="";
-    private int currentStop = 0;
-    private int nextStop = 0;
-    private int currentStatus = 1;
-    private boolean isReversed = false;
+	public Vector<String>			listOfRooms		= new Vector<String>();
+	protected List<String>			roomInfos		= new Vector<String>();
+	public Vector<Vector<String>>	messageInfo		= new Vector<Vector<String>>();
+	public Vector<String>			mapInfo			= new Vector<String>();
+	protected Vector<String>		stubs			= new Vector<String>();
+	protected String				xmlInfo			= "";
+	private int						currentStop		= 0;
+	private int						nextStop		= 0;
+	private int						currentStatus	= 1;
+	private boolean					isReversed		= false;
 
 	//private static final int CODE0_TRAVELDIRECTION=0;
 	//private static final int CODE0_DOORSDIRECTION=1;
@@ -75,23 +76,28 @@ public class MovingRoom extends ActiveTicker
 		tickReset();
 	}
 
+	@Override
+	public String accountForYourself()
+	{
+		return "rail mobility";
+	}
 
-
+	@Override
 	public void setParms(String newParms)
 	{
 		String myParms=newParms;
-        listOfRooms=new Vector();
-        roomInfos=new Vector();
-        messageInfo=new Vector();
-        mapInfo=new Vector();
-        stubs=new Vector();
-        
+		listOfRooms=new Vector<String>();
+		roomInfos=new Vector<String>();
+		messageInfo=new Vector<Vector<String>>();
+		mapInfo=new Vector<String>();
+		stubs=new Vector<String>();
+
 		char c=';';
 		int x=myParms.indexOf(c);
 		if(x<0){ c='/'; x=myParms.indexOf(c);}
 		if(x>0)
 		{
-			String parmText=myParms.substring(0,x);
+			final String parmText=myParms.substring(0,x);
 			myParms=myParms.substring(x+1);
 			super.setParms(parmText);
 		}
@@ -103,22 +109,34 @@ public class MovingRoom extends ActiveTicker
 
 	protected static synchronized String loadInfo()
 	{
-		StringBuffer str=new StringBuffer("");
-        Vector V=Resources.getFileLineVector(new CMFile("resources/movingroom.xml",null,true).text());
-        for(int v=0;v<V.size();v++)
-			str.append((String)V.elementAt(v));
-		String theString = str.toString();
-		return theString;
+		final StringBuffer str=new StringBuffer("");
+		final String resourceName = "movingroom.xml";
+		CMFile //F=new CMFile(Resources.makeFileResourceName("behavior/"+resourceName),null,0);
+		//if((!F.exists()) || (!F.canRead()))
+			F=new CMFile(Resources.makeFileResourceName(resourceName),null,0);
+		if((F.exists()) && (F.canRead()))
+		{
+			final List<String> V=Resources.getFileLineVector(F.text());
+			for(int v=0;v<V.size();v++)
+				str.append(V.get(v));
+			final String theString = str.toString();
+			return theString;
+		}
+		else
+		{
+			Log.errOut("MovingRoom","Unable to load "+Resources.makeFileResourceName("behavior/"+resourceName)+" or "+Resources.makeFileResourceName(resourceName));
+			return "";
+		}
 	}
 
 	protected void parseMovingXML(String roomToParse)
 	{
-		Vector V = new Vector();
-		String theFullBlock=CMLib.xml().returnXMLBlock(roomToParse, roomInfos.elementAt(0).toString().toUpperCase());
-		String theStopsBlock=CMLib.xml().returnXMLBlock(theFullBlock, "STOPS");
-		String theNormalDirBlock=CMLib.xml().returnXMLBlock(theFullBlock, "NORMALDIRECTION");
-		String theReverseDirBlock=CMLib.xml().returnXMLBlock(theFullBlock, "REVERSEDIRECTION");
-		String theDescriptionsBlock=CMLib.xml().returnXMLBlock(theFullBlock, "ROOMDESCRIPTIONS");
+		final Vector<String> V = new Vector<String>();
+		final String theFullBlock=CMLib.xml().returnXMLBlock(roomToParse, roomInfos.get(0).toString().toUpperCase());
+		final String theStopsBlock=CMLib.xml().returnXMLBlock(theFullBlock, "STOPS");
+		final String theNormalDirBlock=CMLib.xml().returnXMLBlock(theFullBlock, "NORMALDIRECTION");
+		final String theReverseDirBlock=CMLib.xml().returnXMLBlock(theFullBlock, "REVERSEDIRECTION");
+		final String theDescriptionsBlock=CMLib.xml().returnXMLBlock(theFullBlock, "ROOMDESCRIPTIONS");
 		int x=1;
 		String thisone=CMLib.xml().returnXMLValue(theStopsBlock, "STOP1");
 		while (!"".equals(thisone))
@@ -133,7 +151,7 @@ public class MovingRoom extends ActiveTicker
 		V.addElement(CMLib.xml().returnXMLValue(CMLib.xml().returnXMLBlock(theNormalDirBlock, "INSIDE"), "DEPARTINFO"));
 		V.addElement(CMLib.xml().returnXMLValue(CMLib.xml().returnXMLBlock(theNormalDirBlock, "OUTSIDE"), "ARRIVALINFO"));
 		V.addElement(CMLib.xml().returnXMLValue(CMLib.xml().returnXMLBlock(theNormalDirBlock, "OUTSIDE"), "DEPARTINFO"));
-		messageInfo.addElement(new Vector(V));
+		messageInfo.addElement(new Vector<String>(V));
 		V.removeAllElements();
 		V.addElement(CMLib.xml().returnXMLValue(theReverseDirBlock, "TRAVELDIRECTION"));
 		V.addElement(CMLib.xml().returnXMLValue(theReverseDirBlock, "DOORSDIRECTION"));
@@ -141,10 +159,10 @@ public class MovingRoom extends ActiveTicker
 		V.addElement(CMLib.xml().returnXMLValue(CMLib.xml().returnXMLBlock(theReverseDirBlock, "INSIDE"), "DEPARTINFO"));
 		V.addElement(CMLib.xml().returnXMLValue(CMLib.xml().returnXMLBlock(theReverseDirBlock, "OUTSIDE"), "ARRIVALINFO"));
 		V.addElement(CMLib.xml().returnXMLValue(CMLib.xml().returnXMLBlock(theReverseDirBlock, "OUTSIDE"), "DEPARTINFO"));
-		messageInfo.addElement(new Vector(V));
+		messageInfo.addElement(new Vector<String>(V));
 		V.removeAllElements();
-		String theNormalDescBlock = (CMLib.xml().returnXMLBlock(theDescriptionsBlock, "NORMALDIRECTION"));
-		String theReverseDescBlock = (CMLib.xml().returnXMLBlock(theDescriptionsBlock, "REVERSEDIRECTION"));
+		final String theNormalDescBlock = (CMLib.xml().returnXMLBlock(theDescriptionsBlock, "NORMALDIRECTION"));
+		final String theReverseDescBlock = (CMLib.xml().returnXMLBlock(theDescriptionsBlock, "REVERSEDIRECTION"));
 		V.addElement(CMLib.xml().returnXMLValue(CMLib.xml().returnXMLBlock(theNormalDescBlock, "INSIDE"), "DOOROPENED"));
 		V.addElement(CMLib.xml().returnXMLValue(CMLib.xml().returnXMLBlock(theNormalDescBlock, "INSIDE"), "DOORCLOSED"));
 		V.addElement(CMLib.xml().returnXMLValue(CMLib.xml().returnXMLBlock(theNormalDescBlock, "OUTSIDE"), "DOOROPENED"));
@@ -153,7 +171,7 @@ public class MovingRoom extends ActiveTicker
 		V.addElement(CMLib.xml().returnXMLValue(CMLib.xml().returnXMLBlock(theReverseDescBlock, "INSIDE"), "DOORCLOSED"));
 		V.addElement(CMLib.xml().returnXMLValue(CMLib.xml().returnXMLBlock(theReverseDescBlock, "OUTSIDE"), "DOOROPENED"));
 		V.addElement(CMLib.xml().returnXMLValue(CMLib.xml().returnXMLBlock(theReverseDescBlock, "OUTSIDE"), "DOORCLOSED"));
-		messageInfo.addElement(new Vector(V));
+		messageInfo.addElement(new Vector<String>(V));
 		V.removeAllElements();
 		mapInfo.addElement(CMLib.xml().returnXMLValue(theFullBlock, "ROOMPRINTNAME"));
 		mapInfo.addElement(CMLib.xml().returnXMLValue(theFullBlock, "LINEPRINTNAME"));
@@ -173,48 +191,48 @@ public class MovingRoom extends ActiveTicker
 		if (incoming.indexOf("$traveldir")>0)
 		{
 			i = incoming.indexOf("$traveldir");
-			int pos=listOfRooms.indexOf(CMLib.map().getExtendedRoomID(busstopRoom));
+			final int pos=listOfRooms.indexOf(CMLib.map().getExtendedRoomID(busstopRoom));
 			boolean revDirName=false;
 			if (((pos==0)||(pos==listOfRooms.size()-1))&&(currentStatus==1))
 				revDirName=true;
-			Vector V=new Vector();
+			List<String> V=new Vector<String>();
 			if (!revDirName)
 			{
 				if (isReversed)
-					V=(Vector)messageInfo.elementAt(CODE_REVERSEBLOCK);
+					V=messageInfo.elementAt(CODE_REVERSEBLOCK);
 				else
-					V=(Vector)messageInfo.elementAt(CODE_NORMALBLOCK);
+					V=messageInfo.elementAt(CODE_NORMALBLOCK);
 			}
 			else
 			{
 				if (isReversed)
-					V=(Vector)messageInfo.elementAt(CODE_NORMALBLOCK);
+					V=messageInfo.elementAt(CODE_NORMALBLOCK);
 				else
-					V=(Vector)messageInfo.elementAt(CODE_REVERSEBLOCK);
+					V=messageInfo.elementAt(CODE_REVERSEBLOCK);
 			}
-			repWord=incoming.substring(1,i)+V.elementAt(0).toString()+incoming.substring(i+10);
+			repWord=incoming.substring(1,i)+V.get(0).toString()+incoming.substring(i+10);
 		}
 		else
 		if (incoming.indexOf("$outopendir")>0)
 		{
 			i = incoming.indexOf("$outopendir");
-			Vector V=new Vector();
+			List<String> V=new Vector<String>();
 			if (isReversed)
-				V=(Vector)messageInfo.elementAt(CODE_REVERSEBLOCK);
+				V=messageInfo.elementAt(CODE_REVERSEBLOCK);
 			else
-				V=(Vector)messageInfo.elementAt(CODE_NORMALBLOCK);
-			repWord=incoming.substring(1,i)+Directions.getDirectionName(Directions.getOpDirectionCode(V.elementAt(1).toString()))+incoming.substring(i+11);
+				V=messageInfo.elementAt(CODE_NORMALBLOCK);
+			repWord=incoming.substring(1,i)+CMLib.directions().getDirectionName(CMLib.directions().getOpDirectionCode(V.get(1).toString()))+incoming.substring(i+11);
 		}
 		else
 		if (incoming.indexOf("$inopendir")>0)
 		{
 			i = incoming.indexOf("$inopendir");
-			Vector V=new Vector();
+			List<String> V=new Vector<String>();
 			if (isReversed)
-				V=(Vector)messageInfo.elementAt(CODE_REVERSEBLOCK);
+				V=messageInfo.elementAt(CODE_REVERSEBLOCK);
 			else
-				V=(Vector)messageInfo.elementAt(CODE_NORMALBLOCK);
-			repWord=incoming.substring(1,i)+V.elementAt(1).toString()+incoming.substring(i+10);
+				V=messageInfo.elementAt(CODE_NORMALBLOCK);
+			repWord=incoming.substring(1,i)+V.get(1).toString()+incoming.substring(i+10);
 		}
 		else
 		{
@@ -237,15 +255,16 @@ public class MovingRoom extends ActiveTicker
 				busstopRoom2.setDescription(busstopRoom2.description().substring(0,i).trim());
 		}
 	}
+	@Override
 	public boolean tick(Tickable ticking, int tickID)
 	{
-		Vector normalVec = (Vector)messageInfo.elementAt(CODE_NORMALBLOCK);
-		Vector reverseVec = (Vector)messageInfo.elementAt(CODE_REVERSEBLOCK);
-		Vector theDescriptions = (Vector)messageInfo.elementAt(CODE_DESCRIPTIONBLOCK);
+		final Vector<String> normalVec = messageInfo.elementAt(CODE_NORMALBLOCK);
+		final Vector<String> reverseVec = messageInfo.elementAt(CODE_REVERSEBLOCK);
+		final Vector<String> theDescriptions = messageInfo.elementAt(CODE_DESCRIPTIONBLOCK);
 		super.tick(ticking,tickID);
 		if(canAct(ticking,tickID))
 		{
-			Room subwayRoom=getBehaversRoom(ticking);
+			final Room subwayRoom=getBehaversRoom(ticking);
 			if(subwayRoom==null)
 			{
 				Log.errOut("MovingRoom",ticking.ID()+"/"+ticking.name()+" is NOT A DADGUM ROOM!!!!");
@@ -253,23 +272,23 @@ public class MovingRoom extends ActiveTicker
 			}
 			if (currentStop==0)
 			{
-                isReversed=false;
-                nextStop=currentStop+1;
-            }
+				isReversed=false;
+				nextStop=currentStop+1;
+			}
 			else
 			if (currentStop>=(listOfRooms.size()-1))
 			{
-                isReversed=true;
-                nextStop=currentStop-1;
-            }
+				isReversed=true;
+				nextStop=currentStop-1;
+			}
 			else
 			if (isReversed)
 			{
-                nextStop=currentStop-1;
-            }
+				nextStop=currentStop-1;
+			}
 			else
 			{
-                nextStop=currentStop+1;
+				nextStop=currentStop+1;
 			}
 			if((currentStop<0)
 			||(currentStop>=listOfRooms.size())
@@ -279,20 +298,20 @@ public class MovingRoom extends ActiveTicker
 				Log.errOut("MovingRoom","Moving Room behavior on "+subwayRoom.roomID()+" HAD malformed rooms list in xml file.");
 				subwayRoom.delBehavior(this);
 				CMLib.threads().deleteTick(this,-1);
-				if((ticking instanceof Environmental)
+				if((ticking instanceof PhysicalAgent)
 				&&(ticking!=subwayRoom))
-					((Environmental)ticking).delBehavior(this);
+					((PhysicalAgent)ticking).delBehavior(this);
 				return false;
 			}
-			
-		    String currentStopS=(String)listOfRooms.elementAt(currentStop);
-            String nextStopS=(String)listOfRooms.elementAt(nextStop);
-		    if(ticking instanceof Room)
+
+			final String currentStopS=listOfRooms.elementAt(currentStop);
+			final String nextStopS=listOfRooms.elementAt(nextStop);
+			if(ticking instanceof Room)
 			{
-                Room currentStopRoom = CMLib.map().getRoom(currentStopS);
+				Room currentStopRoom = CMLib.map().getRoom(currentStopS);
 				if (currentStopRoom == null)
 					currentStopRoom=getBehaversRoom(ticking);
-                Room nextStopRoom =CMLib.map().getRoom(nextStopS);
+				Room nextStopRoom =CMLib.map().getRoom(nextStopS);
 				if (nextStopRoom == null)
 					nextStopRoom=getBehaversRoom(ticking);
 				if (currentStatus==0)
@@ -302,42 +321,44 @@ public class MovingRoom extends ActiveTicker
 					{
 						currentStopRoom.showHappens(CMMsg.MSG_OK_ACTION,fixOutputString(reverseVec.elementAt(CODE0_OUTSIDEDEPARTMSG).toString(),nextStopRoom));
 						subwayRoom.showHappens(CMMsg.MSG_OK_ACTION,fixOutputString(reverseVec.elementAt(CODE0_INSIDEDEPARTMSG).toString(),nextStopRoom));
-						if (((subwayRoom.rawDoors()[Directions.getGoodDirectionCode(normalVec.elementAt(1).toString())]!=null) 
-                                && ((currentStop==0) 
-                                        || (currentStop==(listOfRooms.size()-1))))
-                        ||(subwayRoom.rawDoors()[Directions.getGoodDirectionCode(reverseVec.elementAt(1).toString())]!=null))
+						if (((subwayRoom.rawDoors()[CMLib.directions().getGoodDirectionCode(normalVec.elementAt(1).toString())]!=null)
+								&& ((currentStop==0)
+										|| (currentStop==(listOfRooms.size()-1))))
+						||(subwayRoom.rawDoors()[CMLib.directions().getGoodDirectionCode(reverseVec.elementAt(1).toString())]!=null))
 						{
 							if ((currentStop==0)||(currentStop==(listOfRooms.size()-1)))
 							{
-								currentStopRoom.rawDoors()[Directions.getOpDirectionCode(normalVec.elementAt(1).toString())]=null;
-								currentStopRoom.setRawExit(Directions.getOpDirectionCode(normalVec.elementAt(1).toString()),null);
-								subwayRoom.rawDoors()[Directions.getGoodDirectionCode(normalVec.elementAt(1).toString())]=null;
-								subwayRoom.setRawExit(Directions.getGoodDirectionCode(normalVec.elementAt(1).toString()),null);
+								currentStopRoom.rawDoors()[CMLib.directions().getOpDirectionCode(normalVec.elementAt(1).toString())]=null;
+								currentStopRoom.setRawExit(CMLib.directions().getOpDirectionCode(normalVec.elementAt(1).toString()),null);
+								subwayRoom.rawDoors()[CMLib.directions().getGoodDirectionCode(normalVec.elementAt(1).toString())]=null;
+								subwayRoom.setRawExit(CMLib.directions().getGoodDirectionCode(normalVec.elementAt(1).toString()),null);
 							}
 							else
 							{
-								currentStopRoom.rawDoors()[Directions.getOpDirectionCode(reverseVec.elementAt(1).toString())]=null;
-								currentStopRoom.setRawExit(Directions.getOpDirectionCode(reverseVec.elementAt(1).toString()),null);
-								subwayRoom.rawDoors()[Directions.getGoodDirectionCode(reverseVec.elementAt(1).toString())]=null;
-								subwayRoom.setRawExit(Directions.getGoodDirectionCode(reverseVec.elementAt(1).toString()),null);
+								currentStopRoom.rawDoors()[CMLib.directions().getOpDirectionCode(reverseVec.elementAt(1).toString())]=null;
+								currentStopRoom.setRawExit(CMLib.directions().getOpDirectionCode(reverseVec.elementAt(1).toString()),null);
+								subwayRoom.rawDoors()[CMLib.directions().getGoodDirectionCode(reverseVec.elementAt(1).toString())]=null;
+								subwayRoom.setRawExit(CMLib.directions().getGoodDirectionCode(reverseVec.elementAt(1).toString()),null);
 							}
 							CMLib.database().DBUpdateExits(subwayRoom);
 							CMLib.database().DBUpdateExits(currentStopRoom);
 							subwayRoom.getArea().fillInAreaRoom(subwayRoom);
 							nextStopRoom.getArea().fillInAreaRoom(currentStopRoom);
 							removeStubs(subwayRoom,currentStopRoom);
-							String s1=(fixOutputString(theDescriptions.elementAt(CODE1_REVERSEINSIDECLOSED).toString(),nextStopRoom));
-							String s2=(fixOutputString(theDescriptions.elementAt(CODE1_REVERSEOUTSIDECLOSED).toString(),nextStopRoom));
-							if(!stubs.contains(s1)) stubs.addElement(s1);
-							if(!stubs.contains(s2)) stubs.addElement(s2);
-                        	subwayRoom.setDescription(subwayRoom.description()+"  "+s1);
+							final String s1=(fixOutputString(theDescriptions.elementAt(CODE1_REVERSEINSIDECLOSED).toString(),nextStopRoom));
+							final String s2=(fixOutputString(theDescriptions.elementAt(CODE1_REVERSEOUTSIDECLOSED).toString(),nextStopRoom));
+							if(!stubs.contains(s1))
+								stubs.addElement(s1);
+							if(!stubs.contains(s2))
+								stubs.addElement(s2);
+							subwayRoom.setDescription(subwayRoom.description()+"  "+s1);
 							currentStopRoom.setDescription(currentStopRoom.description()+"  "+s2);
 						}
 						else
 						{
 							Log.errOut("MovingRoom","Previous room links exists, "+subwayRoom.roomID()+" "+currentStopRoom.roomID()+" not unlinking exit.");
 						}
-						super.setParms("min="+roomInfos.elementAt(2)+" max="+roomInfos.elementAt(2)+" chance=100;"+roomInfos.elementAt(0)+";"+roomInfos.elementAt(1)+";"+roomInfos.elementAt(2));
+						super.setParms("min="+roomInfos.get(2)+" max="+roomInfos.get(2)+" chance=100;"+roomInfos.get(0)+";"+roomInfos.get(1)+";"+roomInfos.get(2));
 						currentStatus=1;
 				  	}
 					else
@@ -345,45 +366,47 @@ public class MovingRoom extends ActiveTicker
 						// departing, not reversed
 						currentStopRoom.showHappens(CMMsg.MSG_OK_ACTION,fixOutputString(normalVec.elementAt(CODE0_OUTSIDEDEPARTMSG).toString(),nextStopRoom));
 						subwayRoom.showHappens(CMMsg.MSG_OK_ACTION,fixOutputString(normalVec.elementAt(CODE0_INSIDEDEPARTMSG).toString(),nextStopRoom));
-						if (((subwayRoom.rawDoors()[Directions.getGoodDirectionCode(reverseVec.elementAt(1).toString())]!=null) 
-                                && ((currentStop==0) 
-                                        || (currentStop==(listOfRooms.size()-1))))
-                        ||(subwayRoom.rawDoors()[Directions.getGoodDirectionCode(normalVec.elementAt(1).toString())]!=null))
+						if (((subwayRoom.rawDoors()[CMLib.directions().getGoodDirectionCode(reverseVec.elementAt(1).toString())]!=null)
+								&& ((currentStop==0)
+										|| (currentStop==(listOfRooms.size()-1))))
+						||(subwayRoom.rawDoors()[CMLib.directions().getGoodDirectionCode(normalVec.elementAt(1).toString())]!=null))
 						{
 							if ((currentStop==0)||(currentStop==(listOfRooms.size()-1)))
 							{
-								currentStopRoom.rawDoors()[Directions.getOpDirectionCode(reverseVec.elementAt(1).toString())]=null;
-								currentStopRoom.setRawExit(Directions.getOpDirectionCode(reverseVec.elementAt(1).toString()),null);
-								subwayRoom.rawDoors()[Directions.getGoodDirectionCode(reverseVec.elementAt(1).toString())]=null;
-								subwayRoom.setRawExit(Directions.getGoodDirectionCode(reverseVec.elementAt(1).toString()),null);
+								currentStopRoom.rawDoors()[CMLib.directions().getOpDirectionCode(reverseVec.elementAt(1).toString())]=null;
+								currentStopRoom.setRawExit(CMLib.directions().getOpDirectionCode(reverseVec.elementAt(1).toString()),null);
+								subwayRoom.rawDoors()[CMLib.directions().getGoodDirectionCode(reverseVec.elementAt(1).toString())]=null;
+								subwayRoom.setRawExit(CMLib.directions().getGoodDirectionCode(reverseVec.elementAt(1).toString()),null);
 							}
 							else
 							{
-								currentStopRoom.rawDoors()[Directions.getOpDirectionCode(normalVec.elementAt(1).toString())]=null;
-								currentStopRoom.setRawExit(Directions.getOpDirectionCode(normalVec.elementAt(1).toString()),null);
-								subwayRoom.rawDoors()[Directions.getGoodDirectionCode(normalVec.elementAt(1).toString())]=null;
-								subwayRoom.setRawExit(Directions.getGoodDirectionCode(normalVec.elementAt(1).toString()),null);
+								currentStopRoom.rawDoors()[CMLib.directions().getOpDirectionCode(normalVec.elementAt(1).toString())]=null;
+								currentStopRoom.setRawExit(CMLib.directions().getOpDirectionCode(normalVec.elementAt(1).toString()),null);
+								subwayRoom.rawDoors()[CMLib.directions().getGoodDirectionCode(normalVec.elementAt(1).toString())]=null;
+								subwayRoom.setRawExit(CMLib.directions().getGoodDirectionCode(normalVec.elementAt(1).toString()),null);
 							}
 							CMLib.database().DBUpdateExits(subwayRoom);
 							CMLib.database().DBUpdateExits(currentStopRoom);
 							subwayRoom.getArea().fillInAreaRoom(subwayRoom);
 							nextStopRoom.getArea().fillInAreaRoom(currentStopRoom);
 							removeStubs(subwayRoom,currentStopRoom);
-							String s1=(fixOutputString(theDescriptions.elementAt(CODE1_NORMALINSIDECLOSED).toString(),nextStopRoom));
-							String s2=(fixOutputString(theDescriptions.elementAt(CODE1_NORMALOUTSIDECLOSED).toString(),nextStopRoom));
-							if(!stubs.contains(s1)) stubs.addElement(s1);
-							if(!stubs.contains(s2)) stubs.addElement(s2);
-                        	subwayRoom.setDescription(subwayRoom.description()+"  "+s1);
+							final String s1=(fixOutputString(theDescriptions.elementAt(CODE1_NORMALINSIDECLOSED).toString(),nextStopRoom));
+							final String s2=(fixOutputString(theDescriptions.elementAt(CODE1_NORMALOUTSIDECLOSED).toString(),nextStopRoom));
+							if(!stubs.contains(s1))
+								stubs.addElement(s1);
+							if(!stubs.contains(s2))
+								stubs.addElement(s2);
+							subwayRoom.setDescription(subwayRoom.description()+"  "+s1);
 							currentStopRoom.setDescription(currentStopRoom.description()+"  "+s2);
 						}
 						else
 						{
 							Log.errOut("MovingRoom","Previous room links exists, "+subwayRoom.roomID()+" "+currentStopRoom.roomID()+" not unlinking exit.");
 						}
-						super.setParms("min="+roomInfos.elementAt(2)+" max="+roomInfos.elementAt(2)+" chance=100;"+roomInfos.elementAt(0)+";"+roomInfos.elementAt(1)+";"+roomInfos.elementAt(2));
+						super.setParms("min="+roomInfos.get(2)+" max="+roomInfos.get(2)+" chance=100;"+roomInfos.get(0)+";"+roomInfos.get(1)+";"+roomInfos.get(2));
 						currentStatus=1;
 					}
-                }
+				}
 				else
 				{
 					//ARRIVING
@@ -392,30 +415,33 @@ public class MovingRoom extends ActiveTicker
 						subwayRoom.showHappens(CMMsg.MSG_OK_ACTION,fixOutputString(reverseVec.elementAt(2).toString(),nextStopRoom));
 						nextStopRoom.showHappens(CMMsg.MSG_OK_ACTION,fixOutputString(reverseVec.elementAt(4).toString(),nextStopRoom));
 						currentStatus=0;
-						if ((nextStopRoom.rawDoors()[Directions.getOpDirectionCode(reverseVec.elementAt(1).toString())]==null)||(nextStopRoom.rawDoors()[Directions.getOpDirectionCode(reverseVec.elementAt(1).toString())]==subwayRoom))
+						if ((nextStopRoom.rawDoors()[CMLib.directions().getOpDirectionCode(reverseVec.elementAt(1).toString())]==null)
+						||(nextStopRoom.rawDoors()[CMLib.directions().getOpDirectionCode(reverseVec.elementAt(1).toString())]==subwayRoom))
 						{
-							Exit thisNewExit=CMClass.getExit("StdOpenDoorway");
-							subwayRoom.rawDoors()[Directions.getGoodDirectionCode(reverseVec.elementAt(1).toString())]=nextStopRoom;
-							subwayRoom.setRawExit(Directions.getGoodDirectionCode(reverseVec.elementAt(1).toString()),thisNewExit);
-							nextStopRoom.rawDoors()[Directions.getOpDirectionCode(reverseVec.elementAt(1).toString())]=subwayRoom;
-							nextStopRoom.setRawExit(Directions.getOpDirectionCode(reverseVec.elementAt(1).toString()),thisNewExit);
+							final Exit thisNewExit=CMClass.getExit("StdOpenDoorway");
+							subwayRoom.rawDoors()[CMLib.directions().getGoodDirectionCode(reverseVec.elementAt(1).toString())]=nextStopRoom;
+							subwayRoom.setRawExit(CMLib.directions().getGoodDirectionCode(reverseVec.elementAt(1).toString()),thisNewExit);
+							nextStopRoom.rawDoors()[CMLib.directions().getOpDirectionCode(reverseVec.elementAt(1).toString())]=subwayRoom;
+							nextStopRoom.setRawExit(CMLib.directions().getOpDirectionCode(reverseVec.elementAt(1).toString()),thisNewExit);
 							CMLib.database().DBUpdateExits(subwayRoom);
 							CMLib.database().DBUpdateExits(nextStopRoom);
 							subwayRoom.getArea().fillInAreaRoom(subwayRoom);
 							nextStopRoom.getArea().fillInAreaRoom(nextStopRoom);
 							removeStubs(subwayRoom,nextStopRoom);
-							String s1=(fixOutputString(theDescriptions.elementAt(CODE1_REVERSEINSIDEOPEN).toString(),nextStopRoom));
-							String s2=(fixOutputString(theDescriptions.elementAt(CODE1_REVERSEOUTSIDEOPEN).toString(),nextStopRoom));
-							if(!stubs.contains(s1)) stubs.addElement(s1);
-							if(!stubs.contains(s2)) stubs.addElement(s2);
-                        	subwayRoom.setDescription(subwayRoom.description()+"  "+s1);
+							final String s1=(fixOutputString(theDescriptions.elementAt(CODE1_REVERSEINSIDEOPEN).toString(),nextStopRoom));
+							final String s2=(fixOutputString(theDescriptions.elementAt(CODE1_REVERSEOUTSIDEOPEN).toString(),nextStopRoom));
+							if(!stubs.contains(s1))
+								stubs.addElement(s1);
+							if(!stubs.contains(s2))
+								stubs.addElement(s2);
+							subwayRoom.setDescription(subwayRoom.description()+"  "+s1);
 							nextStopRoom.setDescription(nextStopRoom.description()+"  "+s2);
 						}
 						else
 						{
 							Log.errOut("MovingRoom","Previous room links exists, "+subwayRoom.roomID()+" "+nextStopRoom.roomID()+" not linking exits.");
 						}
-						super.setParms("min="+roomInfos.elementAt(1)+" max="+roomInfos.elementAt(1)+" chance=100;"+roomInfos.elementAt(0)+";"+roomInfos.elementAt(1)+";"+roomInfos.elementAt(2));
+						super.setParms("min="+roomInfos.get(1)+" max="+roomInfos.get(1)+" chance=100;"+roomInfos.get(0)+";"+roomInfos.get(1)+";"+roomInfos.get(2));
 						currentStop = nextStop;
 				  	}
 					else
@@ -424,35 +450,38 @@ public class MovingRoom extends ActiveTicker
 						subwayRoom.showHappens(CMMsg.MSG_OK_ACTION,fixOutputString(normalVec.elementAt(2).toString(),nextStopRoom));
 						nextStopRoom.showHappens(CMMsg.MSG_OK_ACTION,fixOutputString(normalVec.elementAt(4).toString(),nextStopRoom));
 						currentStatus=0;
-						if ((nextStopRoom.rawDoors()[Directions.getOpDirectionCode(normalVec.elementAt(1).toString())]==null)||(nextStopRoom.rawDoors()[Directions.getOpDirectionCode(normalVec.elementAt(1).toString())]==subwayRoom))
+						if ((nextStopRoom.rawDoors()[CMLib.directions().getOpDirectionCode(normalVec.elementAt(1).toString())]==null)
+						||(nextStopRoom.rawDoors()[CMLib.directions().getOpDirectionCode(normalVec.elementAt(1).toString())]==subwayRoom))
 						{
-							Exit thisNewExit=CMClass.getExit("StdOpenDoorway");
-							subwayRoom.rawDoors()[Directions.getGoodDirectionCode(normalVec.elementAt(1).toString())]=nextStopRoom;
-							subwayRoom.setRawExit(Directions.getGoodDirectionCode(normalVec.elementAt(1).toString()),thisNewExit);
-							nextStopRoom.rawDoors()[Directions.getOpDirectionCode(normalVec.elementAt(1).toString())]=subwayRoom;
-							nextStopRoom.setRawExit(Directions.getOpDirectionCode(normalVec.elementAt(1).toString()),thisNewExit);
+							final Exit thisNewExit=CMClass.getExit("StdOpenDoorway");
+							subwayRoom.rawDoors()[CMLib.directions().getGoodDirectionCode(normalVec.elementAt(1).toString())]=nextStopRoom;
+							subwayRoom.setRawExit(CMLib.directions().getGoodDirectionCode(normalVec.elementAt(1).toString()),thisNewExit);
+							nextStopRoom.rawDoors()[CMLib.directions().getOpDirectionCode(normalVec.elementAt(1).toString())]=subwayRoom;
+							nextStopRoom.setRawExit(CMLib.directions().getOpDirectionCode(normalVec.elementAt(1).toString()),thisNewExit);
 							CMLib.database().DBUpdateExits(subwayRoom);
 							CMLib.database().DBUpdateExits(nextStopRoom);
 							subwayRoom.getArea().fillInAreaRoom(subwayRoom);
 							nextStopRoom.getArea().fillInAreaRoom(nextStopRoom);
 							removeStubs(subwayRoom,nextStopRoom);
-							String s1=(fixOutputString(theDescriptions.elementAt(CODE1_NORMALINSIDEOPEN).toString(),nextStopRoom));
-							String s2=(fixOutputString(theDescriptions.elementAt(CODE1_NORMALOUTSIDEOPEN).toString(),nextStopRoom));
-							if(!stubs.contains(s1)) stubs.addElement(s1);
-							if(!stubs.contains(s2)) stubs.addElement(s2);
-                        	subwayRoom.setDescription(subwayRoom.description()+"  "+s1);
+							final String s1=(fixOutputString(theDescriptions.elementAt(CODE1_NORMALINSIDEOPEN).toString(),nextStopRoom));
+							final String s2=(fixOutputString(theDescriptions.elementAt(CODE1_NORMALOUTSIDEOPEN).toString(),nextStopRoom));
+							if(!stubs.contains(s1))
+								stubs.addElement(s1);
+							if(!stubs.contains(s2))
+								stubs.addElement(s2);
+							subwayRoom.setDescription(subwayRoom.description()+"  "+s1);
 							nextStopRoom.setDescription(nextStopRoom.description()+"  "+s2);
 						}
 						else
 						{
 							Log.errOut("MovingRoom","Previous room links exists, "+subwayRoom.roomID()+" "+nextStopRoom.roomID()+" not linking exits.");
 						}
-						super.setParms("min="+roomInfos.elementAt(1)+" max="+roomInfos.elementAt(1)+" chance=100;"+roomInfos.elementAt(0)+";"+roomInfos.elementAt(1)+";"+roomInfos.elementAt(2));
+						super.setParms("min="+roomInfos.get(1)+" max="+roomInfos.get(1)+" chance=100;"+roomInfos.get(0)+";"+roomInfos.get(1)+";"+roomInfos.get(2));
 						currentStop = nextStop;
 					}
 				}
 			}
-        }
+		}
 		return true;
 	}
 }

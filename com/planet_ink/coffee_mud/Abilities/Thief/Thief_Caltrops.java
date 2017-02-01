@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Thief;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,21 +10,21 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
-
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2003-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -31,65 +32,185 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
 public class Thief_Caltrops extends ThiefSkill implements Trap
 {
-	public String ID() { return "Thief_Caltrops"; }
-	public String name(){ return "Caltrops";}
-	protected int canAffectCode(){return Ability.CAN_ROOMS;}
-	protected int canTargetCode(){return Ability.CAN_ROOMS;}
-    public int classificationCode(){return Ability.ACODE_THIEF_SKILL|Ability.DOMAIN_TRAPPING;}
-	public int abstractQuality(){return Ability.QUALITY_MALICIOUS;}
-	private static final String[] triggerStrings = {"CALTROPS"};
-	public String[] triggerStrings(){return triggerStrings;}
-	public int usageType(){return USAGE_MOVEMENT|USAGE_MANA;}
-	public String caltropTypeName(){return "";}
+	@Override
+	public String ID()
+	{
+		return "Thief_Caltrops";
+	}
 
-	public boolean isABomb(){return false;}
-	public void activateBomb(){}
-	public boolean disabled(){return false;}
-	public void disable(){ unInvoke();}
-	public void setReset(int Reset){}
-	public int getReset(){return 0;}
-	public boolean maySetTrap(MOB mob, int asLevel){return false;}
-	public boolean canSetTrapOn(MOB mob, Environmental E){return false;}
-    public Vector getTrapComponents() { return new Vector(); }
-	public String requiresToSet(){return "";}
-	public Trap setTrap(MOB mob, Environmental E, int trapBonus, int qualifyingClassLevel, boolean perm)
-	{maliciousAffect(mob,E,qualifyingClassLevel+trapBonus,0,-1); return (Trap)E.fetchEffect(ID());}
+	private final static String	localizedName	= CMLib.lang().L("Caltrops");
 
-	public boolean sprung(){return false;}
+	@Override
+	public String name()
+	{
+		return localizedName;
+	}
+
+	@Override
+	protected int canAffectCode()
+	{
+		return Ability.CAN_ROOMS;
+	}
+
+	@Override
+	protected int canTargetCode()
+	{
+		return Ability.CAN_ROOMS;
+	}
+
+	@Override
+	public int classificationCode()
+	{
+		return Ability.ACODE_THIEF_SKILL | Ability.DOMAIN_TRAPPING;
+	}
+
+	@Override
+	public int abstractQuality()
+	{
+		return Ability.QUALITY_MALICIOUS;
+	}
+
+	private static final String[]	triggerStrings	= I(new String[] { "CALTROPS" });
+
+	@Override
+	public String[] triggerStrings()
+	{
+		return triggerStrings;
+	}
+
+	@Override
+	public int usageType()
+	{
+		return USAGE_MOVEMENT | USAGE_MANA;
+	}
+
+	public String caltropTypeName()
+	{
+		return "";
+	}
+
+	@Override
+	public boolean isABomb()
+	{
+		return false;
+	}
+
+	@Override
+	public void activateBomb()
+	{
+	}
+
+	@Override
+	public boolean disabled()
+	{
+		return false;
+	}
+
+	@Override
+	public void disable()
+	{
+		unInvoke();
+	}
+
+	@Override
+	public void setReset(int Reset)
+	{
+	}
+
+	@Override
+	public int getReset()
+	{
+		return 0;
+	}
+
+	@Override
+	public void resetTrap(MOB mob)
+	{
+	}
+
+	@Override
+	public boolean maySetTrap(MOB mob, int asLevel)
+	{
+		return false;
+	}
+
+	@Override
+	public boolean canSetTrapOn(MOB mob, Physical P)
+	{
+		return false;
+	}
+
+	@Override
+	public boolean canReSetTrap(MOB mob)
+	{
+		return false;
+	}
+
+	@Override
+	public List<Item> getTrapComponents()
+	{
+		return new Vector<Item>(1);
+	}
+
+	@Override
+	public String requiresToSet()
+	{
+		return "";
+	}
+
+	@Override
+	public Trap setTrap(MOB mob, Physical P, int trapBonus, int qualifyingClassLevel, boolean perm)
+	{
+		maliciousAffect(mob, P, qualifyingClassLevel + trapBonus, 0, -1);
+		return (Trap) P.fetchEffect(ID());
+	}
+
+	@Override
+	public boolean sprung()
+	{
+		return false;
+	}
+
+	@Override
 	public void spring(MOB mob)
 	{
-		if((!invoker().mayIFight(mob))
-		||(invoker().getGroupMembers(new HashSet()).contains(mob))
+		final MOB invoker=(invoker()!=null) ? invoker() : CMLib.map().deity();
+		if((!invoker.mayIFight(mob))
+		||(invoker.getGroupMembers(new HashSet<MOB>()).contains(mob))
 		||(CMLib.dice().rollPercentage()<mob.charStats().getSave(CharStats.STAT_SAVE_TRAPS)))
-			mob.location().show(mob,affected,this,CMMsg.MSG_OK_ACTION,"<S-NAME> avoid(s) some "+caltropTypeName()+"caltrops on the floor.");
+			mob.location().show(mob,affected,this,CMMsg.MSG_OK_ACTION,L("<S-NAME> avoid(s) some @x1caltrops on the floor.",caltropTypeName()));
 		else
-			CMLib.combat().postDamage(invoker(),mob,null,CMLib.dice().roll(1,6,adjustedLevel(invoker(),0)),
-					CMMsg.MASK_MALICIOUS|CMMsg.TYP_JUSTICE,Weapon.TYPE_PIERCING,"The "+caltropTypeName()+"caltrops on the ground <DAMAGE> <T-NAME>.");
+			CMLib.combat().postDamage(invoker,mob,null,CMLib.dice().roll(1,6,adjustedLevel(invoker(),0)),
+					CMMsg.MASK_MALICIOUS|CMMsg.TYP_JUSTICE,Weapon.TYPE_PIERCING,L("The @x1caltrops on the ground <DAMAGE> <T-NAME>.",caltropTypeName()));
 		// does not set sprung flag -- as this trap never goes out of use
 	}
 
-    public int castingQuality(MOB mob, Environmental target)
-    {
-        if(mob!=null)
-        {
-            if((target!=null)&&(!(target instanceof Room)))
-                return Ability.QUALITY_INDIFFERENT;
-            target=(target!=null)?target:mob.location();
-            if(target.fetchEffect(ID())!=null)
-                return Ability.QUALITY_INDIFFERENT;
-        }
-        return super.castingQuality(mob,target);
-    }
-    
-	public boolean okMessage(Environmental myHost, CMMsg msg)
+	@Override
+	public int castingQuality(MOB mob, Physical target)
 	{
-		if(affected==null) return super.okMessage(myHost,msg);
-		if(!(affected instanceof Room)) return super.okMessage(myHost,msg);
-		if(invoker()==null) return super.okMessage(myHost,msg);
-		Room room=(Room)affected;
+		if(mob!=null)
+		{
+			if((target!=null)&&(!(target instanceof Room)))
+				return Ability.QUALITY_INDIFFERENT;
+			target=(target!=null)?target:mob.location();
+			if(target.fetchEffect(ID())!=null)
+				return Ability.QUALITY_INDIFFERENT;
+		}
+		return super.castingQuality(mob,target);
+	}
+
+	@Override
+	public boolean okMessage(final Environmental myHost, final CMMsg msg)
+	{
+		if(affected==null)
+			return super.okMessage(myHost,msg);
+		if(!(affected instanceof Room))
+			return super.okMessage(myHost,msg);
+		if(invoker()==null)
+			return super.okMessage(myHost,msg);
+		final Room room=(Room)affected;
 		if((msg.amITarget(room)||room.isInhabitant(msg.source()))
 		&&(!msg.amISource(invoker()))
 		&&((msg.sourceMinor()==CMMsg.TYP_ENTER)
@@ -101,12 +222,14 @@ public class Thief_Caltrops extends ThiefSkill implements Trap
 		return true;
 	}
 
-	public boolean invoke(MOB mob, Vector commands, Environmental givenTarget, boolean auto, int asLevel)
+	
+	@Override
+	public boolean invoke(MOB mob, List<String> commands, Physical givenTarget, boolean auto, int asLevel)
 	{
-        Environmental target=(givenTarget!=null)?givenTarget:mob.location();
+		final Physical target=(givenTarget!=null)?givenTarget:mob.location();
 		if(target.fetchEffect(ID())!=null)
 		{
-			mob.tell(CMStrings.capitalizeFirstLetter(caltropTypeName())+"Caltrops have already been tossed down here.");
+			mob.tell(L("@x1Caltrops have already been tossed down here.",CMStrings.capitalizeFirstLetter(caltropTypeName())));
 			return false;
 		}
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
@@ -115,13 +238,13 @@ public class Thief_Caltrops extends ThiefSkill implements Trap
 		boolean success=proficiencyCheck(mob,0,auto);
 		if(success)
 		{
-			if(mob.location().show(mob,target,(auto?CMMsg.MASK_ALWAYS:0)|CMMsg.MSG_THIEF_ACT,"<S-NAME> throw(s) down "+caltropTypeName()+"caltrops!"))
+			if(mob.location().show(mob,target,(auto?CMMsg.MASK_ALWAYS:0)|CMMsg.MSG_THIEF_ACT,L("<S-NAME> throw(s) down @x1caltrops!",caltropTypeName())))
 				maliciousAffect(mob,target,asLevel,0,-1);
 			else
 				success=false;
 		}
 		else
-			maliciousFizzle(mob,target,"<S-NAME> fail(s) to throw down <S-HIS-HER> "+caltropTypeName()+"caltrops properly.");
+			maliciousFizzle(mob,target,L("<S-NAME> fail(s) to throw down <S-HIS-HER> @x1caltrops properly.",caltropTypeName()));
 		return success;
 	}
 }

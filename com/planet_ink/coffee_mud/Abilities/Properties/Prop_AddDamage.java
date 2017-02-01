@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Properties;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,6 +10,7 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.TimeManager;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -16,13 +18,13 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2000-2010 Bo Zimmerman
+   Copyright 2004-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -30,140 +32,196 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-public class Prop_AddDamage extends Property
+public class Prop_AddDamage extends Property implements TriggeredAffect
 {
-	public String ID() { return "Prop_AddDamage"; }
-	public String name(){ return "Additional Damage";}
-	protected int canAffectCode(){return Ability.CAN_MOBS|Ability.CAN_ITEMS;}
+	@Override public String ID() { return "Prop_AddDamage"; }
+	@Override public String name(){ return "Additional Damage";}
+	@Override protected int canAffectCode(){return Ability.CAN_MOBS|Ability.CAN_ITEMS;}
+	protected int weaponDamageType=Weapon.TYPE_NATURAL;
+	protected int typeOfEffect=CMMsg.TYP_WEAPONATTACK;
+	protected double pctDamage=0.0;
+	protected int bonusDamage=0;
+	protected volatile boolean norecurse=false;
 
+	@Override
+	public int triggerMask()
+	{
+		return TriggeredAffect.TRIGGER_HITTING_WITH;
+	}
+
+	@Override
 	public String accountForYourself()
 	{
-		String id="Does extra damage of the following amount and types: "+text();
+		final String id="Does extra damage of the following amount and types: "+text();
 		return id;
 	}
 
-	public boolean okMessage(Environmental myHost, CMMsg msg)
+	@Override
+	public void setMiscText(String newMiscText)
 	{
-		if(!super.okMessage(myHost,msg))
-			return false;
-		if((affected!=null)
-		&&(msg.targetMinor()==CMMsg.TYP_DAMAGE)&&(msg.value()>0))
+		super.setMiscText(newMiscText);
+		final List<String> parms=CMParms.parse(newMiscText.toUpperCase());
+		for(String s : parms)
 		{
-			MOB M=null;
-			if(affected instanceof MOB)
-				M=(MOB)affected;
+			if(s.startsWith("+"))
+				s=s.substring(1);
+			if(CMath.isPct(s))
+				pctDamage=CMath.s_pct(s);
 			else
-			if((affected instanceof Item)
-			&&(!((Item)affected).amWearingAt(Wearable.IN_INVENTORY))
-			&&(((Item)affected).owner()!=null)
-			&&(((Item)affected).owner() instanceof MOB))
-				M=(MOB)((Item)affected).owner();
-			if(M==null) return true;
-			if(!msg.amITarget(M)) return true;
-
-			String text=text().toUpperCase();
-
-			int immune=text.indexOf("+ALL");
-			int x=-1;
-			for(int i : CharStats.CODES.SAVING_THROWS())
-				if((CharStats.CODES.CMMSGMAP(i)==msg.sourceMinor())
-				&&((msg.tool()==null)||(i!=CharStats.STAT_SAVE_MAGIC)))
+			if(CMath.isInteger(s))
+				bonusDamage=CMath.s_int(s);
+			else
+			{
+				boolean done=false;
+				for(int i=0;i<Weapon.TYPE_DESCS.length;i++)
 				{
-					x=text.indexOf(CharStats.CODES.NAME(i));
-					if(x>0)
+					final String type=Weapon.TYPE_DESCS[i];
+					if(type.equals(s))
 					{
-						if((text.charAt(x-1)=='-')&&(immune>=0))
-							immune=-1;
-						else
-						if(text.charAt(x-1)!='-')
-							immune=x;
+						weaponDamageType=i;
+						done=true;
+						break;
 					}
 				}
-
-			if((x<0)&&(msg.tool() instanceof Weapon))
-			{
-				x=text.indexOf(Weapon.TYPE_DESCS[((Weapon)msg.tool()).weaponType()]);
-				if(x<0) x=(CMLib.flags().isABonusItems(msg.tool()))?text.indexOf("MAGIC"):-1;
-				if(x<0) x=text.indexOf(RawMaterial.CODES.NAME(((Weapon)msg.tool()).material()));
-				if(x>0)
+				if(!done)
+				for(int i=0;i<CMMsg.TYPE_DESCS.length;i++)
 				{
-					if((text.charAt(x-1)=='-')&&(immune>=0))
-						immune=-1;
-					else
-					if(text.charAt(x-1)!='-')
-						immune=x;
-				}
-				else
-				{
-					x=text.indexOf("LEVEL");
-					if(x>0)
+					final String type=CMMsg.TYPE_DESCS[i];
+					if(type.equals(s))
 					{
-						String lvl=text.substring(x+5);
-						if(lvl.indexOf(" ")>=0)
-							lvl=lvl.substring(lvl.indexOf(" "));
-						if((text.charAt(x-1)=='-')&&(immune>=0))
-						{
-							if(msg.tool().envStats().level()>=CMath.s_int(lvl))
-								immune=-1;
-						}
-						else
-						if(text.charAt(x-1)!='-')
-						{
-							if(msg.tool().envStats().level()<CMath.s_int(lvl))
-								immune=x;
-						}
+						typeOfEffect=i;
+						done=true;
+						break;
 					}
 				}
-			}
-
-			if((x<0)&&(msg.tool() instanceof Ability))
-			{
-				int classType=((Ability)msg.tool()).classificationCode()&Ability.ALL_ACODES;
-				switch(classType)
+				if(!done)
+				for(int i=0;i<Weapon.TYPE_DESCS.length;i++)
 				{
-				case Ability.ACODE_SPELL:
-				case Ability.ACODE_PRAYER:
-				case Ability.ACODE_CHANT:
-				case Ability.ACODE_SONG:
+					final String type=Weapon.TYPE_DESCS[i];
+					if(type.startsWith(s))
 					{
-						x=text.indexOf("MAGIC");
-						if(x>0)
-						{
-							if((text.charAt(x-1)=='-')&&(immune>=0))
-								immune=-1;
-							else
-							if(text.charAt(x-1)!='-')
-								immune=x;
-						}
+						weaponDamageType=i;
+						done=true;
+						break;
 					}
-					break;
-				default:
-					break;
 				}
-			}
-			if(immune>0)
-			{
-				int lastNumber=-1;
-				x=0;
-				while(x<immune)
+				if(!done)
+				for(int i=0;i<Weapon.TYPE_DESCS.length;i++)
 				{
-					if(Character.isDigit(text.charAt(x))&&((x==0)||(!Character.isDigit(text.charAt(x-1)))))
-					   lastNumber=x;
-					x++;
+					final String type=Weapon.TYPE_DESCS[i];
+					if(type.startsWith(s))
+					{
+						typeOfEffect=i;
+						done=true;
+						break;
+					}
 				}
-				if(lastNumber>=0)
+				if(!done)
+				for(int i=0;i<RawMaterial.CODES.NAMES().length;i++)
 				{
-					text=text.substring(lastNumber,immune).trim();
-					x=text.indexOf(" ");
-					if(x>0) text=text.substring(0,x).trim();
-					if(text.endsWith("%"))
-						msg.setValue(msg.value()+(int)Math.round(CMath.mul(msg.value(),CMath.div(CMath.s_int(text.substring(0,text.length()-1)),100.0))));
-					else
-						msg.setValue(msg.value()+CMath.s_int(text));
-					if(msg.value()<0) msg.setValue(0);
+					final String type=RawMaterial.CODES.NAMES()[i];
+					if(type.equals(s))
+					{
+						done=true; // just eat it
+						break;
+					}
 				}
+				if((!done)&&(!s.equals("ALL")))
+					Log.errOut("Prop_AddDamage","Unknown weapon type/attack: "+s+" in "+CMLib.map().getDescriptiveExtendedRoomID(CMLib.map().roomLocation(affected)));
 			}
 		}
-		return true;
+	}
+
+	protected final int getDamage(final CMMsg msg)
+	{
+		final int dmg = (int)CMath.round(CMath.mul(msg.value(), pctDamage)) + bonusDamage;
+		if(dmg < 0)
+			return 0;
+		return dmg;
+	}
+
+	@Override
+	public void executeMsg(final Environmental myHost, final CMMsg msg)
+	{
+		super.executeMsg(myHost,msg);
+		MOB mob=null;
+		if(affected instanceof Item)
+		{
+			if(((Item)affected).owner() instanceof MOB)
+			{
+				mob=(MOB)((Item)affected).owner();
+			}
+			else
+				return;
+		}
+		else
+		if(affected instanceof MOB)
+			mob=(MOB)affected;
+		else
+			return;
+		if((msg.targetMinor()==CMMsg.TYP_DAMAGE)
+		&&(msg.value()>0)
+		&&(msg.target() instanceof MOB)
+		&&(!((MOB)msg.target()).amDead())
+		&&(msg.tool()!=this)
+		&&(msg.source().location()!=null))
+		{
+			if(((affected instanceof Armor)||(affected instanceof Shield))
+			&&(msg.amITarget(mob))
+			&&(!msg.amISource(mob))
+			&&(CMLib.dice().rollPercentage()>32+msg.source().charStats().getStat(CharStats.STAT_DEXTERITY))
+			&&(msg.source().rangeToTarget()==0)
+			&&((msg.targetMajor(CMMsg.MASK_HANDS))||(msg.targetMajor(CMMsg.MASK_MOVE))))
+			{
+				final CMMsg msg2=CMClass.getMsg(mob,msg.source(),this,CMMsg.MSG_CAST_ATTACK_VERBAL_SPELL,null);
+				if(msg.source().location().okMessage(msg.source(),msg2))
+				{
+					msg.source().location().send(msg.source(),msg2);
+					if(msg2.value()<=0)
+					{
+						final int damage=getDamage(msg);
+						CMLib.combat().postDamage(mob,msg.source(),affected,damage,CMMsg.MASK_MALICIOUS|CMMsg.MASK_ALWAYS|typeOfEffect,weaponDamageType,
+							 "^F^<FIGHT^><S-YOUPOSS> <O-NAME> <DAMAGE> <T-NAME>!^</FIGHT^>^?");
+					}
+				}
+			}
+			else
+			if((msg.tool()==affected)
+			&&(!msg.amITarget(mob))
+			&&(msg.amISource(mob))
+			&&(!(msg.tool() instanceof Wand)))
+			{
+				final int damage=getDamage(msg);
+				final String str=L("^F^<FIGHT^><S-YOUPOSS> <O-NAME> <DAMAGE> <T-NAME>!^</FIGHT^>^?");
+				synchronized(this)
+				{
+					if(!norecurse)
+					{
+						norecurse=true;
+						try
+						{
+							CMLib.combat().postDamage(msg.source(),(MOB)msg.target(),affected,Math.round(damage),
+							CMMsg.MASK_MALICIOUS|CMMsg.MASK_ALWAYS|typeOfEffect,weaponDamageType,str);
+						}
+						finally
+						{
+							norecurse=false;
+						}
+					}
+				}
+			}
+			else
+			if((mob==affected)
+			&&(!msg.amITarget(mob))
+			&&(msg.amISource(mob))
+			&&(msg.tool() instanceof Weapon)
+			&&(!(msg.tool() instanceof Wand)))
+			{
+				final int damage=getDamage(msg);
+				final String str=L("^F^<FIGHT^><S-NAME> <DAMAGE> <T-NAME>!^</FIGHT^>^?");
+				CMLib.combat().postDamage(mob,(MOB)msg.target(),this,Math.round(damage),
+					  CMMsg.MASK_MALICIOUS|CMMsg.MASK_ALWAYS|typeOfEffect,weaponDamageType,str);
+			}
+		}
 	}
 }

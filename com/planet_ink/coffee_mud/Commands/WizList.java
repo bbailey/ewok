@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Commands;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -16,14 +17,14 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2004-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -31,48 +32,66 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
+
 public class WizList extends StdCommand
 {
 	public WizList(){}
 
-	private String[] access={"WIZLIST"};
-	public String[] getAccessWords(){return access;}
-	public boolean execute(MOB mob, Vector commands, int metaFlags)
+	private final String[] access=I(new String[]{"WIZLIST"});
+	@Override public String[] getAccessWords(){return access;}
+	@Override
+	public boolean execute(MOB mob, List<String> commands, int metaFlags)
 		throws java.io.IOException
 	{
-		StringBuffer head=new StringBuffer("");
-		boolean isArchonLooker=CMSecurity.isASysOp(mob);
+		final StringBuffer head=new StringBuffer("");
+		final boolean isArchonLooker=CMSecurity.isASysOp(mob);
 		head.append("^x[");
-		head.append(CMStrings.padRight("Race",8)+" ");
-		head.append(CMStrings.padRight("Lvl",4)+" ");
+		head.append(CMStrings.padRight(L("Class"),16)+" ");
+		head.append(CMStrings.padRight(L("Race"),8)+" ");
+		head.append(CMStrings.padRight(L("Lvl"),4)+" ");
 		if(isArchonLooker)
-			head.append(CMStrings.padRight("Last",18)+" ");
-		head.append("] Archon Character Name^.^?\n\r");
-		mob.tell("^x["+CMStrings.centerPreserve("The Archons of "+CMProps.getVar(CMProps.SYSTEM_MUDNAME),head.length()-10)+"]^.^?");
-		java.util.List<PlayerLibrary.ThinPlayer> allUsers=CMLib.database().getExtendedUserList();
-        CharClass C=CMClass.getCharClass("Archon");
-		for(PlayerLibrary.ThinPlayer U : allUsers)
+			head.append(CMStrings.padRight(L("Last"),18)+" ");
+		head.append("] Character Name^.^?\n\r");
+		mob.tell("^x["+CMStrings.centerPreserve(L("The Administrators of @x1",CMProps.getVar(CMProps.Str.MUDNAME)),head.length()-10)+"]^.^?");
+		final java.util.List<PlayerLibrary.ThinPlayer> allUsers=CMLib.database().getExtendedUserList();
+		String mask=CMProps.getVar(CMProps.Str.WIZLISTMASK);
+		if(mask.length()==0)
+			mask="-ANYCLASS +Archon";
+		final MaskingLibrary.CompiledZMask compiledMask=CMLib.masking().maskCompile(mask);
+		for(final PlayerLibrary.ThinPlayer U : allUsers)
 		{
-			if(U.charClass.equals("Archon"))
+			CharClass C;
+			final MOB player = CMLib.players().getPlayer(U.name());
+			if(player != null)
+				C=player.charStats().getCurrentClass();
+			else
+				C=CMClass.getCharClass(U.charClass());
+			if(C==null)
+				C=CMClass.findCharClass(U.charClass());
+			if(((player!=null)&&(CMLib.masking().maskCheck(compiledMask, player, true)))
+			||(CMLib.masking().maskCheck(compiledMask, U)))
 			{
 				head.append("[");
-				head.append(CMStrings.padRight(U.race,8)+" ");
-                if((C==null)||(!C.leveless()))
-    				head.append(CMStrings.padRight(""+U.level,4)+" ");
-                else
-                    head.append(CMStrings.padRight("    ",4)+" ");
-                if(isArchonLooker)
-					head.append(CMStrings.padRight(CMLib.time().date2String(U.last),18)+" ");
-				head.append("] "+CMStrings.padRight(U.name,25));
+				if(C!=null)
+					head.append(CMStrings.padRight(C.name(),16)+" ");
+				else
+					head.append(CMStrings.padRight(L("Unknown"),16)+" ");
+				head.append(CMStrings.padRight(U.race(),8)+" ");
+				if((C==null)||(!C.leveless()))
+					head.append(CMStrings.padRight(""+U.level(),4)+" ");
+				else
+					head.append(CMStrings.padRight("    ",4)+" ");
+				if(isArchonLooker)
+					head.append(CMStrings.padRight(CMLib.time().date2String(U.last()),18)+" ");
+				head.append("] "+U.name());
 				head.append("\n\r");
 			}
 		}
 		mob.tell(head.toString());
 		return false;
 	}
-	
-	public boolean canBeOrdered(){return true;}
 
-	
+	@Override public boolean canBeOrdered(){return true;}
+
+
 }

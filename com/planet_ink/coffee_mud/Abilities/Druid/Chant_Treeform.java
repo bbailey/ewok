@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Druid;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,21 +10,21 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
-
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2002-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,38 +33,42 @@ import java.util.*;
    limitations under the License.
 */
 
-@SuppressWarnings("unchecked")
+
 public class Chant_Treeform extends Chant
 {
-	public String ID() { return "Chant_Treeform"; }
-	public String name(){ return "Treeform";}
-	public String displayText(){return "(Treeform)";}
-	public int classificationCode(){return Ability.ACODE_CHANT|Ability.DOMAIN_SHAPE_SHIFTING;}
-	public int abstractQuality(){return Ability.QUALITY_INDIFFERENT;}
-	public int maxRange(){return adjustedMaxInvokerRange(3);}
-	protected int canAffectCode(){return Ability.CAN_MOBS;}
-	protected int canTargetCode(){return 0;}
+	@Override public String ID() { return "Chant_Treeform"; }
+	private final static String localizedName = CMLib.lang().L("Treeform");
+	@Override public String name() { return localizedName; }
+	private final static String localizedStaticDisplay = CMLib.lang().L("(Treeform)");
+	@Override public String displayText() { return localizedStaticDisplay; }
+	@Override public int classificationCode(){return Ability.ACODE_CHANT|Ability.DOMAIN_SHAPE_SHIFTING;}
+	@Override public int abstractQuality(){return Ability.QUALITY_INDIFFERENT;}
+	@Override public int maxRange(){return adjustedMaxInvokerRange(3);}
+	@Override protected int canAffectCode(){return Ability.CAN_MOBS;}
+	@Override protected int canTargetCode(){return 0;}
 	private CharState oldState=null;
-	public boolean okMessage(Environmental myHost, CMMsg msg)
+	@Override
+	public boolean okMessage(final Environmental myHost, final CMMsg msg)
 	{
-		if((affected==null)||(!(affected instanceof MOB)))
+		if(!(affected instanceof MOB))
 			return true;
 
-		MOB mob=(MOB)affected;
+		final MOB mob=(MOB)affected;
 		if(msg.source().getVictim()==mob)
 			msg.source().setVictim(null);
 		if(mob.isInCombat())
 		{
-			MOB victim=mob.getVictim();
-			if(victim!=null) victim.makePeace();
-			mob.makePeace();
+			final MOB victim=mob.getVictim();
+			if(victim!=null)
+				victim.makePeace(true);
+			mob.makePeace(true);
 		}
 		mob.recoverMaxState();
 		mob.resetToMaxState();
 		mob.curState().setHunger(1000);
 		mob.curState().setThirst(1000);
 		mob.recoverCharStats();
-		mob.recoverEnvStats();
+		mob.recoverPhyStats();
 
 		// when this spell is on a MOBs Affected list,
 		// it should consistantly prevent the mob
@@ -73,30 +78,30 @@ public class Chant_Treeform extends Chant
 			if((msg.sourceMinor()==CMMsg.TYP_ENTER)||(msg.sourceMinor()==CMMsg.TYP_LEAVE))
 				unInvoke();
 			else
-			if((!CMath.bset(msg.sourceMajor(),CMMsg.MASK_ALWAYS))
+			if((!msg.sourceMajor(CMMsg.MASK_ALWAYS))
 			&&(msg.sourceMajor()>0))
 			{
-				mob.tell("Trees can't do that.");
+				mob.tell(L("Trees can't do that."));
 				return false;
 			}
 		}
 		if(msg.amITarget(mob))
 		{
-			if(msg.targetMinor()==CMMsg.TYP_WEAPONATTACK)
+			if((msg.targetMinor()==CMMsg.TYP_WEAPONATTACK)||(CMath.bset(msg.targetMajor(), CMMsg.MASK_MALICIOUS)))
 			{
-				msg.source().tell("Attack a tree?!");
+				msg.source().tell(L("Attack a tree?!"));
 				msg.source().setVictim(null);
 				mob.setVictim(null);
 				return false;
 			}
-			Item item=CMClass.getItem("GenResource");
+			final Item item=CMClass.getItem("GenResource");
 			item.setName(mob.Name());
 			item.setDescription(mob.description());
 			item.setDisplayText(mob.displayText());
 			item.setMaterial(RawMaterial.RESOURCE_WOOD);
 			CMLib.flags().setGettable(item,false);
-			item.envStats().setWeight(2000);
-			CMMsg msg2=CMClass.getMsg(msg.source(),item,msg.targetCode(),null);
+			item.phyStats().setWeight(2000);
+			final CMMsg msg2=CMClass.getMsg(msg.source(),item,msg.targetCode(),null);
 			if(!okMessage(msg.source(),msg2))
 				return false;
 		}
@@ -107,41 +112,44 @@ public class Chant_Treeform extends Chant
 			msg.source().setVictim(null);
 		if(mob.isInCombat())
 		{
-			MOB victim=mob.getVictim();
-			if(victim!=null) victim.makePeace();
-			mob.makePeace();
+			final MOB victim=mob.getVictim();
+			if(victim!=null)
+				victim.makePeace(true);
+			mob.makePeace(true);
 		}
 		return true;
 	}
 
-	public void affectEnvStats(Environmental affected, EnvStats affectableStats)
+	@Override
+	public void affectPhyStats(Physical affected, PhyStats affectableStats)
 	{
-		super.affectEnvStats(affected,affectableStats);
+		super.affectPhyStats(affected,affectableStats);
 		// when this spell is on a MOBs Affected list,
 		// it should consistantly put the mob into
 		// a sleeping state, so that nothing they do
 		// can get them out of it.
-		affectableStats.setName("a tree that reminds you of "+affected.name());
-		affectableStats.setSensesMask(affectableStats.sensesMask()|EnvStats.CAN_NOT_MOVE);
-		affectableStats.setSensesMask(affectableStats.sensesMask()|EnvStats.CAN_NOT_HEAR);
-		affectableStats.setSensesMask(affectableStats.sensesMask()|EnvStats.CAN_NOT_SMELL);
-		affectableStats.setSensesMask(affectableStats.sensesMask()|EnvStats.CAN_NOT_SPEAK);
-		affectableStats.setSensesMask(affectableStats.sensesMask()|EnvStats.CAN_NOT_TASTE);
+		affectableStats.setName(L("a tree that reminds you of @x1",affected.name()));
+		affectableStats.setSensesMask(affectableStats.sensesMask()|PhyStats.CAN_NOT_MOVE);
+		affectableStats.setSensesMask(affectableStats.sensesMask()|PhyStats.CAN_NOT_HEAR);
+		affectableStats.setSensesMask(affectableStats.sensesMask()|PhyStats.CAN_NOT_SMELL);
+		affectableStats.setSensesMask(affectableStats.sensesMask()|PhyStats.CAN_NOT_SPEAK);
+		affectableStats.setSensesMask(affectableStats.sensesMask()|PhyStats.CAN_NOT_TASTE);
 	}
 
 
+	@Override
 	public void unInvoke()
 	{
 		// undo the affects of this spell
-		if((affected==null)||(!(affected instanceof MOB)))
+		if(!(affected instanceof MOB))
 			return;
-		MOB mob=(MOB)affected;
+		final MOB mob=(MOB)affected;
 
 		super.unInvoke();
 		if(canBeUninvoked())
 		{
 			if((mob.location()!=null)&&(!mob.amDead()))
-				mob.location().show(mob,null,CMMsg.MSG_OK_VISUAL,"<S-YOUPOSS> body is no longer treeish.");
+				mob.location().show(mob,null,CMMsg.MSG_OK_VISUAL,L("<S-YOUPOSS> body is no longer treeish."));
 			if(oldState!=null)
 			{
 				mob.curState().setHitPoints(oldState.getHitPoints());
@@ -164,11 +172,12 @@ public class Chant_Treeform extends Chant
 
 
 
-	public boolean invoke(MOB mob, Vector commands, Environmental givenTarget, boolean auto, int asLevel)
+	@Override
+	public boolean invoke(MOB mob, List<String> commands, Physical givenTarget, boolean auto, int asLevel)
 	{
 		if((mob.location().domainType()&Room.INDOORS)>0)
 		{
-			mob.tell("You must be outdoors to try this.");
+			mob.tell(L("You must be outdoors to try this."));
 			return false;
 		}
 
@@ -178,14 +187,10 @@ public class Chant_Treeform extends Chant
 
 		if(target.fetchEffect(this.ID())!=null)
 		{
-			mob.tell(target,null,null,"<S-NAME> <S-IS-ARE> already a tree.");
+			mob.tell(target,null,null,L("<S-NAME> <S-IS-ARE> already a tree."));
 			return false;
 		}
 
-		// the invoke method for spells receives as
-		// parameters the invoker, and the REMAINING
-		// command line parameters, divided into words,
-		// and added as String objects to a vector.
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
 			return false;
 
@@ -194,31 +199,27 @@ public class Chant_Treeform extends Chant
 
 		if(success)
 		{
-			// it worked, so build a copy of this ability,
-			// and add it to the affects list of the
-			// affected MOB.  Then tell everyone else
-			// what happened.
 			invoker=mob;
-			CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),auto?"":"^S<S-NAME> chant(s) to <T-NAMESELF>.^?");
+			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),auto?"":L("^S<S-NAME> chant(s) to <T-NAMESELF>.^?"));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);
 				if(msg.value()<=0)
 				{
-					target.makePeace();
+					target.makePeace(true);
 					CMLib.commands().postStand(target,true);
 					oldState=(CharState)target.curState().copyOf();
-					success=beneficialAffect(mob,target,asLevel,(mob.envStats().level()+(2*super.getXLEVELLevel(mob)))*50);
+					success=beneficialAffect(mob,target,asLevel,(mob.phyStats().level()+(2*getXLEVELLevel(mob)))*50)!=null;
 					if(success)
 					{
-						mob.location().show(target,null,CMMsg.MSG_OK_VISUAL,"<S-NAME> transform(s) into a tree!!");
-						target.tell("To return to your flesh body, try to leave this area.");
+						mob.location().show(target,null,CMMsg.MSG_OK_VISUAL,L("<S-NAME> transform(s) into a tree!!"));
+						target.tell(L("To return to your flesh body, try to leave this area."));
 					}
 				}
 			}
 		}
 		else
-			return beneficialWordsFizzle(mob,target,"<S-NAME> chant(s) to <T-NAMESELF>, but the magic fades.");
+			return beneficialWordsFizzle(mob,target,L("<S-NAME> chant(s) to <T-NAMESELF>, but the magic fades."));
 
 		// return whether it worked
 		return success;

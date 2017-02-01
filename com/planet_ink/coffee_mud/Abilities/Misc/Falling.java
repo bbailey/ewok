@@ -2,6 +2,7 @@ package com.planet_ink.coffee_mud.Abilities.Misc;
 import com.planet_ink.coffee_mud.Abilities.StdAbility;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -10,20 +11,21 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2001-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,82 +34,149 @@ import java.util.*;
    limitations under the License.
 */
 
-@SuppressWarnings("unchecked")
+
 public class Falling extends StdAbility
 {
-	public String ID() { return "Falling"; }
-	public String name(){ return "Falling";}
-	public String displayText(){ return "(Falling)";}
-	protected int canAffectCode(){return CAN_ITEMS|Ability.CAN_MOBS;}
-	protected int canTargetCode(){return 0;}
-	boolean temporarilyDisable=false;
-	public Room room=null;
-	int damageToTake=0;
-	protected int fallTickDown=1;
-
-    protected boolean reversed(){return proficiency()==100;}
-
-    protected boolean isWaterSurface(Room R)
+	@Override
+	public String ID()
 	{
-		if(R==null) return false;
-		if((R.domainType()==Room.DOMAIN_INDOORS_WATERSURFACE)
-		||(R.domainType()==Room.DOMAIN_OUTDOORS_WATERSURFACE))
-			return true;
-		return false;
-	}
-    protected boolean isUnderWater(Room R)
-	{
-		if(R==null) return false;
-		if((R.domainType()==Room.DOMAIN_INDOORS_UNDERWATER)
-		||(R.domainType()==Room.DOMAIN_OUTDOORS_UNDERWATER))
-			return true;
-		return false;
+		return "Falling";
 	}
 
-    protected boolean isAirRoom(Room R)
+	private final static String	localizedName	= CMLib.lang().L("Falling");
+
+	@Override
+	public String name()
 	{
-		if(R==null) return false;
+		return localizedName;
+	}
+
+	private final static String	localizedStaticDisplay	= CMLib.lang().L("(Falling)");
+
+	@Override
+	public String displayText()
+	{
+		return localizedStaticDisplay;
+	}
+
+	@Override
+	protected int canAffectCode()
+	{
+		return CAN_ITEMS | Ability.CAN_MOBS;
+	}
+
+	@Override
+	protected int canTargetCode()
+	{
+		return 0;
+	}
+
+	boolean			temporarilyDisable	= false;
+	public Room		room				= null;
+	boolean			hitTheCeiling		= false;
+	int				damageToTake		= 0;
+	protected int	fallTickDown		= 1;
+
+	protected boolean reversed()
+	{
+		return proficiency() == 100;
+	}
+
+	protected boolean isAirRoom(Room R)
+	{
+		if(R==null)
+			return false;
 		if((R.domainType()==Room.DOMAIN_INDOORS_AIR)
 		||(R.domainType()==Room.DOMAIN_OUTDOORS_AIR))
 			return true;
 		return false;
 	}
 
-    protected boolean canFallFrom(Room fromHere, int direction)
+	protected boolean canFallFrom(Room fromHere, int direction)
 	{
 		if((fromHere==null)||(direction<0)||(direction>=Directions.NUM_DIRECTIONS()))
 			return false;
 
-		Room toHere=fromHere.getRoomInDir(direction);
+		final Room toHere=fromHere.getRoomInDir(direction);
 		if((toHere==null)
 		||(fromHere.getExitInDir(direction)==null)
 		||(!fromHere.getExitInDir(direction).isOpen()))
 			return false;
-		if(isWaterSurface(fromHere)&&isUnderWater(toHere))
+		if(CMLib.flags().isWaterySurfaceRoom(fromHere)&&CMLib.flags().isUnderWateryRoom(toHere))
 			return false;
 		return true;
 	}
 
-    protected boolean stopFalling(MOB mob)
+	@Override
+	public void setMiscText(String newMiscText)
 	{
-		if(reversed()) return true;
+		super.setMiscText(newMiscText);
+		if((newMiscText!=null) && (newMiscText.length()>0))
+		{
+			for(final String parm : CMParms.parse(newMiscText.toUpperCase()))
+			{
+				if(parm.equals("REVERSED"))
+					this.setProficiency(100);
+				else
+				if(parm.equals("NORMAL"))
+					this.setProficiency(0);
+			}
+		}
+	}
+	
+	protected boolean stopFalling(MOB mob)
+	{
+		final Room R=mob.location();
+		if(reversed())
+		{
+			if(!hitTheCeiling)
+			{
+				hitTheCeiling=true;
+				if(R!=null)
+					R.show(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> hit(s) the ceiling.@x1",CMLib.protocol().msp("splat.wav",50)));
+				CMLib.combat().postDamage(mob,mob,this,damageToTake,CMMsg.MASK_ALWAYS|CMMsg.TYP_JUSTICE,-1,null);
+			}
+			return true;
+		}
+		hitTheCeiling=false;
 		unInvoke();
-		Room R=mob.location();
 		if(R!=null)
 		{
 			if(isAirRoom(R))
-				R.show(mob,null,CMMsg.MSG_OK_ACTION,"<S-NAME> stop(s) falling."+CMProps.msp("splat.wav",50));
+				R.show(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> stop(s) falling.@x1",CMLib.protocol().msp("splat.wav",50)));
 			else
-			if(isWaterSurface(R)||isUnderWater(R))
-				R.show(mob,null,CMMsg.MSG_OK_ACTION,"<S-NAME> hit(s) the water."+CMProps.msp("splat.wav",50));
+			if(CMLib.flags().isWaterySurfaceRoom(R)||CMLib.flags().isUnderWateryRoom(R))
+				R.show(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> hit(s) the water.@x1",CMLib.protocol().msp("splat.wav",50)));
 			else
-				R.show(mob,null,CMMsg.MSG_OK_ACTION,"<S-NAME> hit(s) the ground."+CMProps.msp("splat.wav",50));
+			{
+				R.show(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> hit(s) the ground.@x1",CMLib.protocol().msp("splat.wav",50)));
+				if(CMath.div(damageToTake, mob.maxState().getHitPoints())>0.05)
+				{
+					LimbDamage damage = (LimbDamage)mob.fetchEffect("BrokenLimbs");
+					if(damage == null)
+					{
+						damage = (LimbDamage)CMClass.getAbility("BrokenLimbs");
+						damage.setAffectedOne(mob);
+					}
+					List<String> limbs = damage.unaffectedLimbSet();
+					if(limbs.size()>0)
+					{
+						if(mob.fetchEffect(damage.ID()) == null)
+						{
+							mob.addEffect(damage);
+							damage.makeLongLasting();
+						}
+						damage.damageLimb(limbs.get(CMLib.dice().roll(1, limbs.size(), -1)));
+					}
+				}
+			}
 			CMLib.combat().postDamage(mob,mob,this,damageToTake,CMMsg.MASK_ALWAYS|CMMsg.TYP_JUSTICE,-1,null);
 		}
 		mob.delEffect(this);
 		return false;
 	}
 
+	@Override
 	public boolean tick(Tickable ticking, int tickID)
 	{
 		if(!super.tick(ticking,tickID))
@@ -123,17 +192,19 @@ public class Falling extends StdAbility
 		fallTickDown=1;
 
 		int direction=Directions.DOWN;
-		String addStr="down";
+		String addStr=L("down");
 		if(reversed())
 		{
 			direction=Directions.UP;
-			addStr="upwards";
+			addStr=L("upwards");
 		}
 		if(affected instanceof MOB)
 		{
-			MOB mob=(MOB)affected;
-			if(mob==null) return false;
-			if(mob.location()==null) return false;
+			final MOB mob=(MOB)affected;
+			if(mob==null)
+				return false;
+			if(mob.location()==null)
+				return false;
 
 			if(CMLib.flags().isInFlight(mob))
 			{
@@ -146,18 +217,20 @@ public class Falling extends StdAbility
 				return stopFalling(mob);
 			else
 			{
-				if(mob.envStats().weight()<1)
+				if(mob.phyStats().weight()<1)
 				{
-					mob.tell("\n\r\n\rYou are floating gently "+addStr+".\n\r\n\r");
+					mob.tell(L("\n\r\n\rYou are floating gently @x1.\n\r\n\r",addStr));
 				}
 				else
 				{
-					mob.tell("\n\r\n\rYOU ARE FALLING "+addStr.toUpperCase()+"!!\n\r\n\r");
-					if(!reversed())
-						damageToTake+=CMLib.dice().roll(1,(int)Math.round(CMath.mul(CMath.mul(mob.maxState().getHitPoints(),0.1),CMath.div(mob.baseWeight(),150.0))),0);
+					mob.tell(L("\n\r\n\rYOU ARE FALLING @x1!!\n\r\n\r",addStr.toUpperCase()));
+					int damage = CMLib.dice().roll(1,(int)Math.round(CMath.mul(CMath.mul(mob.maxState().getHitPoints(),0.1),CMath.div(mob.baseWeight(),150.0))),0);
+					if(damage > (mob.maxState().getHitPoints()/3))
+						damage = (mob.maxState().getHitPoints()/3);
+					damageToTake=reversed()?damage:(damageToTake+damage);
 				}
 				temporarilyDisable=true;
-				CMLib.tracking().move(mob,direction,false,false);
+				CMLib.tracking().walk(mob,direction,false,false);
 				temporarilyDisable=false;
 				if(!canFallFrom(mob.location(),direction))
 					return stopFalling(mob);
@@ -167,7 +240,7 @@ public class Falling extends StdAbility
 		else
 		if(affected instanceof Item)
 		{
-			Item item=(Item)affected;
+			final Item item=(Item)affected;
 			if((room==null)
 			&&(item.owner()!=null)
 			&&(item.owner() instanceof Room))
@@ -176,8 +249,8 @@ public class Falling extends StdAbility
 			if((room==null)
 			||((room!=null)&&(!room.isContent(item)))
 			||(!CMLib.flags().isGettable(item))
-            ||(item.container()!=null)
-			||(CMLib.flags().isInFlight(item.ultimateContainer()))
+			||(item.container()!=null)
+			||(CMLib.flags().isInFlight(item.ultimateContainer(null)))
 			||(room.getRoomInDir(direction)==null))
 			{
 				unInvoke();
@@ -189,13 +262,13 @@ public class Falling extends StdAbility
 				if((--fallTickDown)>0)
 					return true;
 			}
-			Room nextRoom=room.getRoomInDir(direction);
+			final Room nextRoom=room.getRoomInDir(direction);
 			if(canFallFrom(room,direction))
 			{
-				room.show(invoker,null,item,CMMsg.MSG_OK_ACTION,"<O-NAME> falls "+addStr+".");
-                nextRoom.bringItemHere(item,CMProps.getIntVar(CMProps.SYSTEMI_EXPIRE_PLAYER_DROP),false);
+				room.show(invoker,null,item,CMMsg.MSG_OK_ACTION,L("<O-NAME> falls @x1.",addStr));
+				nextRoom.moveItemTo(item,ItemPossessor.Expire.Player_Drop);
 				room=nextRoom;
-				nextRoom.show(invoker,null,item,CMMsg.MSG_OK_ACTION,"<O-NAME> falls in from "+(reversed()?"below":"above")+".");
+				nextRoom.show(invoker,null,item,CMMsg.MSG_OK_ACTION,L("<O-NAME> falls in from @x1.",(reversed()?"below":"above")));
 				return true;
 			}
 			if(reversed())
@@ -207,15 +280,17 @@ public class Falling extends StdAbility
 		return false;
 	}
 
-	public boolean okMessage(Environmental myHost, CMMsg msg)
+	@Override
+	public boolean okMessage(final Environmental myHost, final CMMsg msg)
 	{
 		if(!super.okMessage(myHost,msg))
 			return false;
 
 		if(temporarilyDisable)
 			return true;
-		MOB mob=msg.source();
-		if((affected!=null)&&(affected instanceof MOB))
+		final MOB mob=msg.source();
+		if(affected instanceof MOB)
+		{
 			if(msg.amISource((MOB)affected))
 			{
 				if(CMLib.flags().isInFlight(mob))
@@ -224,16 +299,20 @@ public class Falling extends StdAbility
 					unInvoke();
 					return true;
 				}
-				if(CMath.bset(msg.targetMajor(),CMMsg.MASK_MOVE))
+				if(msg.targetMajor(CMMsg.MASK_MOVE) 
+				&&(!hitTheCeiling)
+				&&(msg.sourceMinor()!=CMMsg.TYP_FLEE))
 				{
-					msg.source().tell("You are too busy falling to do that right now.");
+					msg.source().tell(L("You are too busy falling to do that right now."));
 					return false;
 				}
 			}
+		}
 		return true;
 	}
 
-	public void executeMsg(Environmental myHost, CMMsg msg)
+	@Override
+	public void executeMsg(final Environmental myHost, final CMMsg msg)
 	{
 		super.executeMsg(myHost,msg);
 		if((affected!=null)&&(affected instanceof MOB)&&(msg.amISource((MOB)affected)))
@@ -244,8 +323,7 @@ public class Falling extends StdAbility
 				unInvoke();
 			}
 			else
-			if((msg.tool()!=null)
-			&&(msg.tool() instanceof Ability)
+			if((msg.tool() instanceof Ability)
 			&&(CMath.bset(((Ability)msg.tool()).flags(),Ability.FLAG_TRANSPORTING)))
 			{
 				damageToTake=0;
@@ -253,42 +331,85 @@ public class Falling extends StdAbility
 			}
 		}
 	}
-	public void affectEnvStats(Environmental affected, EnvStats affectableStats)
+
+	@Override
+	public void affectPhyStats(Physical affected, PhyStats affectableStats)
 	{
-		super.affectEnvStats(affected,affectableStats);
-		if((affectableStats.disposition()&EnvStats.IS_FLYING)==0)
-			affectableStats.setDisposition(affectableStats.disposition()|EnvStats.IS_FALLING);
+		super.affectPhyStats(affected,affectableStats);
+		if((affectableStats.disposition()&PhyStats.IS_FLYING)==0)
+			affectableStats.setDisposition(affectableStats.disposition()|PhyStats.IS_FALLING);
 	}
-	public void setAffectedOne(Environmental being)
+
+	@Override
+	public void setAffectedOne(Physical P)
 	{
-		if(being instanceof Room)
-			room=(Room)being;
+		if(P instanceof Room)
+			room=(Room)P;
 		else
-			super.setAffectedOne(being);
+			super.setAffectedOne(P);
 	}
-	public boolean invoke(MOB mob, Vector commands, Environmental target, boolean auto, int asLevel)
+
+	@Override
+	public boolean invoke(MOB mob, List<String> commands, Physical target, boolean auto, int asLevel)
 	{
-		if(!auto) return false;
-		Environmental E=target;
-		if(E==null) return false;
-		if((E instanceof Item)&&(room==null)) return false;
-		if(E.fetchEffect("Falling")==null)
+		if(!auto)
+			return false;
+		final Physical P=target;
+		if(P==null)
+			return false;
+		if((P instanceof Item)&&(room==null))
+			return false;
+		if(P.fetchEffect("Falling")==null)
 		{
-			Falling F=new Falling();
+			final Falling F=new Falling();
 			F.setProficiency(proficiency());
 			F.invoker=null;
-			if(E instanceof MOB)
-				F.invoker=(MOB)E;
+			if(P instanceof MOB)
+				F.invoker=(MOB)P;
 			else
 				F.invoker=CMClass.getMOB("StdMOB");
 			F.setSavable(false);
 			F.makeLongLasting();
-			E.addEffect(F);
-			if(!(E instanceof MOB))
+			P.addEffect(F);
+			if(!(P instanceof MOB))
 				CMLib.threads().startTickDown(F,Tickable.TICKID_MOB,1);
-			E.recoverEnvStats();
+			P.recoverPhyStats();
 
 		}
 		return true;
+	}
+
+	@Override
+	public void setStat(String code, String val)
+	{
+		if(code==null)
+			return;
+		if(code.equalsIgnoreCase("DAMAGE"))
+			this.damageToTake=CMath.s_int(val);
+		else
+		if(code.equalsIgnoreCase("REVERSED"))
+			this.setProficiency(CMath.s_bool(val)?100:0);
+		else
+		if(code.equalsIgnoreCase("NORMAL"))
+			this.setProficiency(CMath.s_bool(val)?0:100);
+		else
+			super.setStat(code, val);
+	}
+	
+	@Override
+	public String getStat(String code)
+	{
+		if(code==null)
+			return "";
+		if(code.equalsIgnoreCase("DAMAGE"))
+			return ""+this.damageToTake;
+		else
+		if(code.equalsIgnoreCase("REVERSED"))
+			return ""+(this.proficiency()==100);
+		else
+		if(code.equalsIgnoreCase("NORMAL"))
+			return ""+(this.proficiency()==0);
+		else
+			return super.getStat(code);
 	}
 }

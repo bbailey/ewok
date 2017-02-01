@@ -61,7 +61,7 @@
                 return;
             if(factionid.indexOf(' ')>=0)
             {
-                window.alert('No spaces are allowed in your ID!');
+                if(window.alert) window.alert('No spaces are allowed in your ID!');
                 return;
             }
             document.RESOURCES.NEWFACTIONID.value=factionid;
@@ -125,7 +125,7 @@
     </script>
 </head>
 <body BGCOLOR=BLACK>
-<FORM NAME=RESOURCES TARGET=_top METHOD=POST ACTION="faction.cmvp">
+<FORM  ACCEPT-CHARSET="UTF-8" NAME=RESOURCES TARGET=_top METHOD=POST ACTION="faction.cmvp">
 <INPUT TYPE=HIDDEN NAME=AUTH VALUE="@Authenticate?AUTH@">
 <INPUT TYPE=HIDDEN NAME=NEWFACTIONID VALUE="">
 <INPUT TYPE=HIDDEN NAME=REPLACE VALUE="">

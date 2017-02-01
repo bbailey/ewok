@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Druid;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,21 +10,21 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
-
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2002-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,33 +33,36 @@ import java.util.*;
    limitations under the License.
 */
 
-@SuppressWarnings("unchecked")
+
 public class Chant_WindGust extends Chant
 {
-	public String ID() { return "Chant_WindGust"; }
-	public String name(){ return renderedMundane?"wind gust":"Wind Gust";}
-	public String displayText(){return "(Blown Down)";}
-	public int abstractQuality(){return Ability.QUALITY_MALICIOUS;}
-	protected int canAffectCode(){return Ability.CAN_MOBS;}
-	protected int canTargetCode(){return 0;}
-	public int maxRange(){return adjustedMaxInvokerRange(4);}
+	@Override public String ID() { return "Chant_WindGust"; }
+	@Override public String name(){ return renderedMundane?"wind gust":"Wind Gust";}
+	private final static String localizedStaticDisplay = CMLib.lang().L("(Blown Down)");
+	@Override public String displayText() { return localizedStaticDisplay; }
+	@Override public int abstractQuality(){return Ability.QUALITY_MALICIOUS;}
+	@Override protected int canAffectCode(){return Ability.CAN_MOBS;}
+	@Override protected int canTargetCode(){return 0;}
+	@Override public int maxRange(){return adjustedMaxInvokerRange(4);}
 	public boolean doneTicking=false;
-	public long flags(){return Ability.FLAG_MOVING;}
-    public int classificationCode(){return Ability.ACODE_CHANT|Ability.DOMAIN_WEATHER_MASTERY;}
+	@Override public long flags(){return Ability.FLAG_MOVING;}
+	@Override public int classificationCode(){return Ability.ACODE_CHANT|Ability.DOMAIN_WEATHER_MASTERY;}
 
-	public void affectEnvStats(Environmental affected, EnvStats affectableStats)
+	@Override
+	public void affectPhyStats(Physical affected, PhyStats affectableStats)
 	{
-		super.affectEnvStats(affected,affectableStats);
+		super.affectPhyStats(affected,affectableStats);
 		if(!doneTicking)
-			affectableStats.setDisposition(affectableStats.disposition()|EnvStats.IS_SITTING);
+			affectableStats.setDisposition(affectableStats.disposition()|PhyStats.IS_SITTING);
 	}
 
-	public boolean okMessage(Environmental myHost, CMMsg msg)
+	@Override
+	public boolean okMessage(final Environmental myHost, final CMMsg msg)
 	{
-		if((affected==null)||(!(affected instanceof MOB)))
+		if(!(affected instanceof MOB))
 			return true;
 
-		MOB mob=(MOB)affected;
+		final MOB mob=(MOB)affected;
 		if((doneTicking)&&(msg.amISource(mob)))
 			unInvoke();
 		else
@@ -67,11 +71,12 @@ public class Chant_WindGust extends Chant
 		return true;
 	}
 
+	@Override
 	public void unInvoke()
 	{
-		if((affected==null)||(!(affected instanceof MOB)))
+		if(!(affected instanceof MOB))
 			return;
-		MOB mob=(MOB)affected;
+		final MOB mob=(MOB)affected;
 		if(canBeUninvoked())
 			doneTicking=true;
 		super.unInvoke();
@@ -79,7 +84,7 @@ public class Chant_WindGust extends Chant
 		{
 			if((mob.location()!=null)&&(!mob.amDead()))
 			{
-				CMMsg msg=CMClass.getMsg(mob,null,CMMsg.MSG_NOISYMOVEMENT,"<S-NAME> regain(s) <S-HIS-HER> feet.");
+				final CMMsg msg=CMClass.getMsg(mob,null,CMMsg.MSG_NOISYMOVEMENT,L("<S-NAME> regain(s) <S-HIS-HER> feet."));
 				if(mob.location().okMessage(mob,msg))
 				{
 					mob.location().send(mob,msg);
@@ -87,23 +92,20 @@ public class Chant_WindGust extends Chant
 				}
 			}
 			else
-				mob.tell("You regain your feet.");
+				mob.tell(L("You regain your feet."));
 		}
 	}
 
-	public boolean invoke(MOB mob, Vector commands, Environmental givenTarget, boolean auto, int asLevel)
+	@Override
+	public boolean invoke(MOB mob, List<String> commands, Physical givenTarget, boolean auto, int asLevel)
 	{
-		HashSet h=properTargets(mob,givenTarget,auto);
+		final Set<MOB> h=properTargets(mob,givenTarget,auto);
 		if((h==null)||(h.size()==0))
 		{
-			mob.tell("There doesn't appear to be anyone here worth blowing around.");
+			mob.tell(L("There doesn't appear to be anyone here worth blowing around."));
 			return false;
 		}
 
-		// the invoke method for spells receives as
-		// parameters the invoker, and the REMAINING
-		// command line parameters, divided into words,
-		// and added as String objects to a vector.
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
 			return false;
 
@@ -111,50 +113,46 @@ public class Chant_WindGust extends Chant
 
 		if(success)
 		{
-			if(mob.location().show(mob,null,this,verbalCastCode(mob,null,auto),(auto?"^JA horrendous wind gust blows through here.^?":"^S<S-NAME> chant(s) at <S-HIS-HER> enemies.^?")+CMProps.msp("wind.wav",40)))
-			for(Iterator f=h.iterator();f.hasNext();)
-			{
-				MOB target=(MOB)f.next();
-
-				// it worked, so build a copy of this ability,
-				// and add it to the affects list of the
-				// affected MOB.  Then tell everyone else
-				// what happened.
-				CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),"<T-NAME> get(s) blown back!");
-				if((mob.location().okMessage(mob,msg))&&(target.fetchEffect(this.ID())==null))
+			if(mob.location().show(mob,null,this,verbalCastCode(mob,null,auto),L(auto?"^JA horrendous wind gust blows through here.^?":"^S<S-NAME> chant(s) at <S-HIS-HER> enemies.^?")+CMLib.protocol().msp("wind.wav",40)))
+				for (final Object element : h)
 				{
-					if((msg.value()<=0)&&(target.location()==mob.location()))
-					{
-						int howLong=2;
-						if((mob.location().getArea().getClimateObj().weatherType(mob.location())==Climate.WEATHER_WINDY)
-						||(mob.location().getArea().getClimateObj().weatherType(mob.location())==Climate.WEATHER_DUSTSTORM)
-						||(mob.location().getArea().getClimateObj().weatherType(mob.location())==Climate.WEATHER_THUNDERSTORM))
-							howLong=4;
+					final MOB target=(MOB)element;
 
-						MOB victim=target.getVictim();
-						if((victim!=null)&&(target.rangeToTarget()>=0))
-							target.setAtRange(target.rangeToTarget()+(howLong/2));
-						if(target.rangeToTarget()>target.location().maxRange())
-							target.setAtRange(target.location().maxRange());
-						mob.location().send(mob,msg);
-						if((!CMLib.flags().isInFlight(target))
-						&&(CMLib.dice().rollPercentage()>(((target.charStats().getStat(CharStats.STAT_DEXTERITY)*2)+target.envStats().level()))-(5*howLong))
-						&&(target.charStats().getBodyPart(Race.BODY_LEG)>0))
+					final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),L("<T-NAME> get(s) blown back!"));
+					if((mob.location().okMessage(mob,msg))&&(target.fetchEffect(this.ID())==null))
+					{
+						if((msg.value()<=0)&&(target.location()==mob.location()))
 						{
-							mob.location().show(target,null,CMMsg.MSG_OK_ACTION,"<S-NAME> fall(s) down!");
-							doneTicking=false;
-							success=maliciousAffect(mob,target,asLevel,howLong,-1);
+							int howLong=2;
+							if((mob.location().getArea().getClimateObj().weatherType(mob.location())==Climate.WEATHER_WINDY)
+							||(mob.location().getArea().getClimateObj().weatherType(mob.location())==Climate.WEATHER_DUSTSTORM)
+							||(mob.location().getArea().getClimateObj().weatherType(mob.location())==Climate.WEATHER_THUNDERSTORM))
+								howLong=4;
+
+							final MOB victim=target.getVictim();
+							if((victim!=null)&&(target.rangeToTarget()>=0))
+								target.setRangeToTarget(target.rangeToTarget()+(howLong/2));
+							if(target.rangeToTarget()>target.location().maxRange())
+								target.setRangeToTarget(target.location().maxRange());
+							mob.location().send(mob,msg);
+							if((!CMLib.flags().isInFlight(target))
+							&&(CMLib.dice().rollPercentage()>(((target.charStats().getStat(CharStats.STAT_DEXTERITY)*2)+target.phyStats().level()))-(5*howLong))
+							&&(target.charStats().getBodyPart(Race.BODY_LEG)>0))
+							{
+								mob.location().show(target,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> fall(s) down!"));
+								doneTicking=false;
+								success=maliciousAffect(mob,target,asLevel,howLong,-1)!=null;
+							}
+							if(target.getVictim()!=null)
+								target.getVictim().setRangeToTarget(target.rangeToTarget());
+							if(mob.getVictim()==null) mob.setVictim(null); // correct range
+							if(target.getVictim()==null) target.setVictim(null); // correct range
 						}
-						if(target.getVictim()!=null)
-							target.getVictim().setAtRange(target.rangeToTarget());
-						if(mob.getVictim()==null) mob.setVictim(null); // correct range
-						if(target.getVictim()==null) target.setVictim(null); // correct range
 					}
 				}
-			}
 		}
 		else
-			return maliciousFizzle(mob,null,"<S-NAME> chant(s), but nothing happens.");
+			return maliciousFizzle(mob,null,L("<S-NAME> chant(s), but nothing happens."));
 
 
 		// return whether it worked

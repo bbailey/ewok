@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Languages;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,20 +10,21 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Lee Fox
+/*
+   Copyright 2000-2016 Lee Fox
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -31,45 +33,56 @@ import java.util.*;
    limitations under the License.
 */
 
-@SuppressWarnings("unchecked")
 public class Drowish extends StdLanguage
 {
-	public String ID() { return "Drowish"; }
-	public String name(){ return "Drowish";}
-	public static Vector wordLists=null;
-	private static boolean mapped=false;
+	@Override
+	public String ID()
+	{
+		return "Drowish";
+	}
+
+	private final static String localizedName = CMLib.lang().L("Drowish");
+	@Override
+	public String name()
+	{
+		return localizedName;
+	}
+
+	public static List<String[]> wordLists=null;
 	public Drowish()
 	{
 		super();
-		if(!mapped){mapped=true;
-					CMLib.ableMapper().addCharAbilityMapping("All",1,ID(),false);}
 	}
-	public Vector translationVector(String language)
+
+	@Override
+	public List<String[]> translationVector(String language)
 	{
 		if(wordLists==null)
 		{
-			String[] one={"a","e","i","o","á","é","í","ó"};
-			String[] two={"os","vi","ne","vo","li","eh","no","ai","by","et","ce","un","il"};
-			String[] three={"ána","cil","sar","tan","hel","loa","si'r","hep","yur","nol","hol","qua","éth"};
-			String[] four={"séya","qual","quel","lara","uqua","sana","yava","mas'se","yan'na","quettaparma","manna","manan","merme","carma","harno","harne","varno","essar","saira","cilta","veuma","norta","turme","saita"};
-			String[] five={"cuiva","cuina","nonwa","imire","nauta","cilta","entuc","norta","latin","lòtea","veuya","veuro","apama","hampa","nurta","firta","saira","holle","herwa","uquen","arcoa","calte","cemma","hanta","tan'en"};
-			String[] six={"mahtale","porisal'que","hairie","tararan","amba'rwa","lati'na","olòtie","amawil","apacen","yavinqua","apalume","lin'quil'ea","menelwa","alassea","nurmea","parmasse","ceniril","heldasse","imirin","eari'na","calaten'gew","lapselunga","ria'nna","eneques"};
-			wordLists=new Vector();
-			wordLists.addElement(one);
-			wordLists.addElement(two);
-			wordLists.addElement(three);
-			wordLists.addElement(four);
-			wordLists.addElement(five);
-			wordLists.addElement(six);
+			final String[] one={"a","e","i","o","Ã¡","Ã©","Ã­","Ã³"};
+			final String[] two={"os","vi","ne","vo","li","eh","no","ai","by","et","ce","un","il"};
+			final String[] three={"Ã¡na","cil","sar","tan","hel","loa","si'r","hep","yur","nol","hol","qua","Ã©th"};
+			final String[] four={"sÃ©ya","qual","quel","lara","uqua","sana","yava","mas'se","yan'na","quettaparma","manna","manan","merme","carma","harno","harne","varno","essar","saira","cilta","veuma","norta","turme","saita"};
+			final String[] five={"cuiva","cuina","nonwa","imire","nauta","cilta","entuc","norta","latin","lÃ²tea","veuya","veuro","apama","hampa","nurta","firta","saira","holle","herwa","uquen","arcoa","calte","cemma","hanta","tan'en"};
+			final String[] six={"mahtale","porisal'que","hairie","tararan","amba'rwa","lati'na","olÃ²tie","amawil","apacen","yavinqua","apalume","lin'quil'ea","menelwa","alassea","nurmea","parmasse","ceniril","heldasse","imirin","eari'na","calaten'gew","lapselunga","ria'nna","eneques"};
+			wordLists=new Vector<String[]>();
+			wordLists.add(one);
+			wordLists.add(two);
+			wordLists.add(three);
+			wordLists.add(four);
+			wordLists.add(five);
+			wordLists.add(six);
 		}
 		return wordLists;
 	}
-	private static final Hashtable hashwords=new Hashtable();
-	public Hashtable translationHash(String language)
+
+	private static final Hashtable<String,String> hashwords=new Hashtable<String,String>();
+	@Override
+	public Map<String, String> translationHash(String language)
 	{
 		if((hashwords!=null)&&(hashwords.size()>0))
 			return hashwords;
-		
+
 		hashwords.put("NOBLE","c'rintri");
 		hashwords.put("DAUGHTER","dalharil");
 		hashwords.put("SON","dalharuk");
@@ -728,10 +741,10 @@ public class Drowish extends StdLanguage
 		hashwords.put("50TH","hueszithar");
 		hashwords.put("HUNDREDTH","ravhelar");
 		hashwords.put("THOUSANDTH","szithrelar");
-//		
+//
 //		These are words for which the Drow do not have a translation for since the concepts are lost to them.
 //		Thus, they are translated straight.
-//		
+//
 		hashwords.put("JOY","joy");
 		hashwords.put("COMPASSION","compassion");
 		hashwords.put("HOPE","hope");

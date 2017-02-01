@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Thief;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,21 +10,21 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
-
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2004-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -31,21 +32,65 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
+
 public class Thief_Autosneak extends ThiefSkill
 {
-	public String ID() { return "Thief_Autosneak"; }
-	public String displayText() {return "(AutoSneak)";}
-	public String name(){ return "AutoSneak";}
-	protected int canAffectCode(){return CAN_MOBS;}
-	protected int canTargetCode(){return 0;}
-	public int abstractQuality(){return Ability.QUALITY_OK_SELF;}
-	private static final String[] triggerStrings = {"AUTOSNEAK"};
-	public String[] triggerStrings(){return triggerStrings;}
-    public int classificationCode() {   return Ability.ACODE_SKILL|Ability.DOMAIN_STEALTHY; }
-	protected boolean noRepeat=false;
+	@Override
+	public String ID()
+	{
+		return "Thief_Autosneak";
+	}
 
-	public boolean okMessage(Environmental myHost, CMMsg msg)
+	@Override
+	public String displayText()
+	{
+		return L("(AutoSneak)");
+	}
+
+	private final static String	localizedName	= CMLib.lang().L("AutoSneak");
+
+	@Override
+	public String name()
+	{
+		return localizedName;
+	}
+
+	@Override
+	protected int canAffectCode()
+	{
+		return CAN_MOBS;
+	}
+
+	@Override
+	protected int canTargetCode()
+	{
+		return 0;
+	}
+
+	@Override
+	public int abstractQuality()
+	{
+		return Ability.QUALITY_OK_SELF;
+	}
+
+	private static final String[]	triggerStrings	= I(new String[] { "AUTOSNEAK" });
+
+	@Override
+	public String[] triggerStrings()
+	{
+		return triggerStrings;
+	}
+
+	@Override
+	public int classificationCode()
+	{
+		return Ability.ACODE_SKILL | Ability.DOMAIN_STEALTHY;
+	}
+
+	protected boolean	noRepeat	= false;
+
+	@Override
+	public boolean okMessage(final Environmental myHost, final CMMsg msg)
 	{
 		if(!super.okMessage(myHost,msg))
 			return false;
@@ -59,22 +104,28 @@ public class Thief_Autosneak extends ThiefSkill
 		&&(((MOB)affected).location()!=null))
 		{
 			int dir=-1;
-			MOB mob=(MOB)affected;
+			final MOB mob=(MOB)affected;
 			for(int d=Directions.NUM_DIRECTIONS()-1;d>=0;d--)
+			{
 				if((mob.location().getRoomInDir(d)==msg.target())
 				||(mob.location().getReverseExit(d)==msg.tool())
 				||(mob.location().getExitInDir(d)==msg.tool()))
-				{ dir=d; break;}
+				{
+					dir = d;
+					break;
+				}
+			}
 			if(dir>=0)
 			{
 				Ability A=mob.fetchAbility("Thief_Sneak");
-				if(A==null) A=mob.fetchAbility("Ranger_Sneak");
+				if(A==null)
+					A=mob.fetchAbility("Ranger_Sneak");
 				if(A!=null)
 				{
 					noRepeat=true;
-					if(A.invoke(mob,CMParms.parse(Directions.getDirectionName(dir)),null,false,0))
+					if(A.invoke(mob,CMParms.parse(CMLib.directions().getDirectionName(dir)),null,false,0))
 					{
-						int[] usage=A.usageCost(mob,false);
+						final int[] usage=A.usageCost(mob,false);
 						if(CMath.bset(A.usageType(),Ability.USAGE_HITPOINTS)&&(usage[USAGEINDEX_HITPOINTS]>0))
 							mob.curState().adjHitPoints(usage[USAGEINDEX_HITPOINTS]/2,mob.maxState());
 						if(CMath.bset(A.usageType(),Ability.USAGE_MANA)&&(usage[USAGEINDEX_MANA]>0))
@@ -83,7 +134,7 @@ public class Thief_Autosneak extends ThiefSkill
 							mob.curState().adjMovement(usage[USAGEINDEX_MOVEMENT]/2,mob.maxState());
 					}
 					if(CMLib.dice().rollPercentage()<10)
-						helpProficiency(mob);
+						helpProficiency(mob, 0);
 					noRepeat=false;
 				}
 				return false;
@@ -92,29 +143,30 @@ public class Thief_Autosneak extends ThiefSkill
 		return true;
 	}
 
-	public boolean invoke(MOB mob, Vector commands, Environmental givenTarget, boolean auto, int asLevel)
+	@Override
+	public boolean invoke(MOB mob, List<String> commands, Physical givenTarget, boolean auto, int asLevel)
 	{
 		if((mob.fetchEffect(ID())!=null))
 		{
-			mob.tell("You are no longer automatically sneaking around.");
+			mob.tell(L("You are no longer automatically sneaking around."));
 			mob.delEffect(mob.fetchEffect(ID()));
 			return false;
 		}
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
 			return false;
 
-		boolean success=proficiencyCheck(mob,0,auto);
+		final boolean success=proficiencyCheck(mob,0,auto);
 
 		if(success)
 		{
-			mob.tell("You will now automatically sneak around while you move.");
+			mob.tell(L("You will now automatically sneak around while you move."));
 			beneficialAffect(mob,mob,asLevel,adjustedLevel(mob,asLevel));
-			Ability A=mob.fetchEffect(ID());
-			if(A!=null) A.makeLongLasting();
+			final Ability A=mob.fetchEffect(ID());
+			if(A!=null)
+				A.makeLongLasting();
 		}
 		else
-			beneficialVisualFizzle(mob,null,"<S-NAME> attempt(s) to get into <S-HIS-HER> sneaking stance, but fail(s).");
+			beneficialVisualFizzle(mob,null,L("<S-NAME> attempt(s) to get into <S-HIS-HER> sneaking stance, but fail(s)."));
 		return success;
 	}
-
 }

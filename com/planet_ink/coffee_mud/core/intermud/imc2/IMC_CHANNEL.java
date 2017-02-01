@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.core.intermud.imc2;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,6 +10,7 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -16,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 /**
  * IMC2 version 0.10 - an inter-mud communications protocol
- * Copyright (C) 1996 & 1997 Oliver Jowett <oliver@randomly.org>
+ * Copyright (C) 1996 - 1997 Oliver Jowett: oliver@randomly.org
  *
  * IMC2 Gold versions 1.00 though 2.00 are developed by MudWorld.
  * Copyright (C) 1999 - 2002 Haslage Net Electronics (Anthony R. Haslage)
@@ -45,24 +47,24 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
  *
  */
 public class IMC_CHANNEL {
-    
-    public int perm_level;
-    public String name = ""; /* name of channel */
-    public String owner = ""; /* owner (singular) of channel */
-    public String operators = ""; /* current operators of channel */
 
-    public int policy;
+	public int perm_level;
+	public String name = ""; /* name of channel */
+	public String owner = ""; /* owner (singular) of channel */
+	public String operators = ""; /* current operators of channel */
 
-    public String invited = "";
-    public String excluded = "";
-    public String active = "";
+	public int policy;
 
-    public String local_name = "";
-    public int level;
-    public String regformat  = "";
-    public String emoteformat = "";
-    public String socformat = "";
-    public String history = "";
-    public boolean refreshed;
-    
+	public String invited = "";
+	public String excluded = "";
+	public String active = "";
+
+	public String local_name = "";
+	public int level;
+	public String regformat  = "";
+	public String emoteformat = "";
+	public String socformat = "";
+	public String history = "";
+	public boolean refreshed;
+
 }

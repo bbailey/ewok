@@ -1,6 +1,10 @@
 package com.planet_ink.coffee_mud.WebMacros;
+
+import com.planet_ink.coffee_web.interfaces.*;
+import com.planet_ink.coffee_web.util.CWThread;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -13,16 +17,17 @@ import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
+
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2010-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -30,73 +35,123 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
 public class ForumInfo extends StdWebMacro
 {
-	public String name()	{return this.getClass().getName().substring(this.getClass().getName().lastIndexOf('.')+1);}
+	@Override public String name() { return "ForumInfo"; }
 
-	public String runMacro(ExternalHTTPRequests httpReq, String parm)
+	@Override
+	public String runMacro(HTTPRequest httpReq, String parm, HTTPResponse httpResp)
 	{
-		Hashtable parms=parseParms(parm);
-		String last=httpReq.getRequestParameter("JOURNAL");
-		if(last==null) 
+		final java.util.Map<String,String> parms=parseParms(parm);
+		final String last=httpReq.getUrlParameter("JOURNAL");
+		if(last==null)
 			return " @break@";
-		
-		MOB M = Authenticate.getAuthenticatedMob(httpReq);
-		if((CMLib.journals().isArchonJournalName(last))&&((M==null)||(!CMSecurity.isASysOp(M))))
-		    return " @break@";
-		JournalsLibrary.ForumJournal journal = CMLib.journals().getForumJournal(last);
-		if(journal == null) 
+		boolean securityOverride=false;
+		if((Thread.currentThread() instanceof CWThread)
+		&&CMath.s_bool(((CWThread)Thread.currentThread()).getConfig().getMiscProp("ADMIN"))
+		&&parms.containsKey("ALLFORUMJOURNALS"))
+			securityOverride=true;
+
+		final MOB M = Authenticate.getAuthenticatedMob(httpReq);
+		if((!securityOverride)&&(CMLib.journals().isArchonJournalName(last))&&((M==null)||(!CMSecurity.isASysOp(M))))
 			return " @break@";
-		
+
+		final Clan setClan=CMLib.clans().getClan(httpReq.getUrlParameter("CLAN"));
+		final JournalsLibrary.ForumJournal journal=CMLib.journals().getForumJournal(last,setClan);
+		if(journal == null)
+			return " @break@";
+
+		final StringBuffer str=new StringBuffer("");
+		if(parms.containsKey("ISSMTPFORWARD"))
+		{
+			@SuppressWarnings("unchecked")
+			final
+			TreeMap<String, JournalsLibrary.SMTPJournal> set=(TreeMap<String, JournalsLibrary.SMTPJournal>) Resources.getResource("SYSTEM_SMTP_JOURNALS");
+			final JournalsLibrary.SMTPJournal entry =(set!=null) ? set.get(last.toUpperCase().trim()) : null;
+			final String email=((M!=null) &&(M.playerStats()!=null) && (M.playerStats().getEmail()!=null)) ? M.playerStats().getEmail() : "";
+			str.append( ((entry!=null) && (email.length()>0)) ? Boolean.toString(entry.forward()) : "false").append(", ");
+		}
+
+		if(parms.containsKey("ISSMTPSUBSCRIBER"))
+		{
+			final Map<String, List<String>> lists=Resources.getCachedMultiLists("mailinglists.txt",true);
+			final List<String> mylist=lists.get(last);
+			str.append( ((mylist!=null)&&(M!=null)) ? Boolean.toString(mylist.contains(M.Name())) : "false").append(", ");
+		}
+
+		if(parms.containsKey("SMTPADDRESS"))
+		{
+			@SuppressWarnings("unchecked")
+			final
+			TreeMap<String, JournalsLibrary.SMTPJournal> set=(TreeMap<String, JournalsLibrary.SMTPJournal>) Resources.getResource("SYSTEM_SMTP_JOURNALS");
+			final JournalsLibrary.SMTPJournal entry =(set!=null) ? set.get(last.toUpperCase().trim()) : null;
+			if((entry!=null)&&(entry.forward()))
+			{
+				str.append( entry.name().replace(' ','_')+"@"+CMProps.getVar(CMProps.Str.MUDDOMAIN)).append(", ");
+			}
+		}
+
 		if(parms.containsKey("CANADMIN")||parms.containsKey("ISADMIN"))
-			return ""+journal.authorizationCheck(M, ForumJournalFlags.ADMIN);
-		
+			str.append( ""+journal.authorizationCheck(M, ForumJournalFlags.ADMIN)).append(", ");
+
 		if(parms.containsKey("CANPOST"))
-			return ""+journal.authorizationCheck(M, ForumJournalFlags.POST);
-		
+			str.append( ""+journal.authorizationCheck(M, ForumJournalFlags.POST)).append(", ");
+
 		if(parms.containsKey("CANREAD"))
-			return ""+journal.authorizationCheck(M, ForumJournalFlags.READ);
-		
+			str.append( ""+journal.authorizationCheck(M, ForumJournalFlags.READ)).append(", ");
+
 		if(parms.containsKey("CANREPLY"))
-			return ""+journal.authorizationCheck(M, ForumJournalFlags.REPLY);
-		
+			str.append( ""+journal.authorizationCheck(M, ForumJournalFlags.REPLY)).append(", ");
+
 		if(parms.containsKey("ADMINMASK"))
-			return ""+journal.adminMask();
-		
+			str.append( ""+journal.adminMask()).append(", ");
+
 		if(parms.containsKey("READMASK"))
-			return ""+journal.readMask();
-		
+			str.append( ""+journal.readMask()).append(", ");
+
 		if(parms.containsKey("POSTMASK"))
-			return ""+journal.postMask();
-		
+			str.append( ""+journal.postMask()).append(", ");
+
 		if(parms.containsKey("REPLYMASK"))
-			return ""+journal.replyMask();
-		
-		JournalsLibrary.JournalSummaryStats stats = CMLib.journals().getJournalStats(last);
-		if(journal == null) 
+			str.append( ""+journal.replyMask()).append(", ");
+
+		if(parms.containsKey("ID"))
+			str.append( ""+journal.NAME()).append(", ");
+
+		if(parms.containsKey("NAME"))
+			str.append( ""+journal.NAME()).append(", ");
+
+		if(parms.containsKey("EXPIRE"))
+			str.append( "").append(", ");
+
+		final JournalsLibrary.JournalMetaData metaData = CMLib.journals().getJournalStats(journal);
+		if(metaData == null)
 			return " @break@";
-		
+
 		if(parms.containsKey("POSTS"))
-			return ""+stats.posts;
-		
+			str.append( ""+metaData.posts()).append(", ");
+
 		if(parms.containsKey("THREADS"))
-			return ""+stats.threads;
-		
+			str.append( ""+metaData.threads()).append(", ");
+
 		if(parms.containsKey("SHORTDESC"))
-			return ""+stats.shortIntro;
-		
+			str.append( ""+metaData.shortIntro()).append(", ");
+
 		if(parms.containsKey("LONGDESC"))
-			return ""+stats.longIntro;
-		
+			str.append( ""+metaData.longIntro()).append(", ");
+
 		if(parms.containsKey("IMAGEPATH"))
 		{
-			if((stats.imagePath==null)
-			||(stats.imagePath.trim().length()==0))
-				return "images/lilcm.jpg";
-			return ""+stats.threads;
+			if((metaData.imagePath()==null)
+			||(metaData.imagePath().trim().length()==0))
+				str.append( L("images/lilcm.jpg")).append(", ");
+			else
+				str.append( ""+metaData.threads()).append(", ");
 		}
-		
-		return "";
+
+		String strstr=str.toString();
+		if(strstr.endsWith(", "))
+			strstr=strstr.substring(0,strstr.length()-2);
+		return clearWebMacros(strstr);
 	}
 }

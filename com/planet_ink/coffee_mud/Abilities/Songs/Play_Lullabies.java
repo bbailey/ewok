@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Songs;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,6 +10,7 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -17,14 +19,14 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2003-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -34,31 +36,38 @@ import java.util.*;
 */
 public class Play_Lullabies extends Play
 {
-	public String ID() { return "Play_Lullabies"; }
-	public String name(){ return "Lullabies";}
-	public int abstractQuality(){ return Ability.QUALITY_MALICIOUS;}
-	protected boolean maliciousButNotAggressiveFlag(){return true;}
+	@Override public String ID() { return "Play_Lullabies"; }
+	private final static String localizedName = CMLib.lang().L("Lullabies");
+	@Override public String name() { return localizedName; }
+	@Override public int abstractQuality(){ return Ability.QUALITY_MALICIOUS;}
+	@Override protected boolean maliciousButNotAggressiveFlag(){return true;}
 
 	boolean asleep=false;
-	public void affectEnvStats(Environmental affected, EnvStats affectableStats)
+	@Override
+	public void affectPhyStats(Physical affected, PhyStats affectableStats)
 	{
-		super.affectEnvStats(affected,affectableStats);
-		if(invoker==null) return;
-		if(affected==invoker) return;
+		super.affectPhyStats(affected,affectableStats);
+		if(invoker==null)
+			return;
+		if(affected==invoker)
+			return;
 		if(asleep)
-			affectableStats.setDisposition(affectableStats.disposition()|EnvStats.IS_SLEEPING);
+			affectableStats.setDisposition(affectableStats.disposition()|PhyStats.IS_SLEEPING);
 	}
 
 
+	@Override
 	public boolean tick(Tickable ticking, int tickID)
 	{
 		if(!super.tick(ticking,tickID))
 			return false;
 
-		MOB mob=(MOB)affected;
-		if(mob==null) return true;
-		if(mob==invoker) return true;
-		boolean oldasleep=asleep;
+		final MOB mob=(MOB)affected;
+		if(mob==null)
+			return true;
+		if(mob==invoker)
+			return true;
+		final boolean oldasleep=asleep;
 		if(CMLib.dice().rollPercentage()>(50-(2*getXLEVELLevel(invoker()))))
 			asleep=true;
 		else
@@ -68,20 +77,21 @@ public class Play_Lullabies extends Play
 			if(oldasleep)
 			{
 				if(CMLib.flags().isSleeping(mob))
-					mob.envStats().setDisposition(mob.envStats().disposition()-EnvStats.IS_SLEEPING);
-				mob.location().show(mob,null,CMMsg.MSG_QUIETMOVEMENT,"<S-NAME> wake(s) up.");
+					mob.phyStats().setDisposition(mob.phyStats().disposition()-PhyStats.IS_SLEEPING);
+				mob.location().show(mob,null,CMMsg.MSG_QUIETMOVEMENT,L("<S-NAME> wake(s) up."));
 			}
 			else
 			{
-				mob.location().show(mob,null,CMMsg.MSG_NOISYMOVEMENT,"<S-NAME> fall(s) asleep.");
-				mob.envStats().setDisposition(mob.envStats().disposition()|EnvStats.IS_SLEEPING);
+				mob.location().show(mob,null,CMMsg.MSG_NOISYMOVEMENT,L("<S-NAME> fall(s) asleep."));
+				mob.phyStats().setDisposition(mob.phyStats().disposition()|PhyStats.IS_SLEEPING);
 			}
 		}
 
 		return true;
 	}
 
-	public boolean okMessage(Environmental myHost, CMMsg msg)
+	@Override
+	public boolean okMessage(final Environmental myHost, final CMMsg msg)
 	{
 		if(!super.okMessage(myHost,msg))
 			return false;
@@ -93,8 +103,8 @@ public class Play_Lullabies extends Play
 			return true;
 
 
-		if((!CMath.bset(msg.sourceMajor(),CMMsg.MASK_ALWAYS))
-		&&(msg.targetMinor()==CMMsg.TYP_STAND)&&(asleep))
+		if((!msg.sourceMajor(CMMsg.MASK_ALWAYS))
+		&&((msg.targetMinor()==CMMsg.TYP_STAND)||(msg.sourceMinor()==CMMsg.TYP_SIT))&&(asleep))
 			return false;
 		return true;
 	}

@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Items.Weapons;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,19 +10,20 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2001-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -31,7 +33,12 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 */
 public class Sabre extends StdWeapon
 {
-	public String ID(){	return "Sabre";}
+	@Override
+	public String ID()
+	{
+		return "Sabre";
+	}
+
 	public Sabre()
 	{
 		super();
@@ -39,15 +46,15 @@ public class Sabre extends StdWeapon
 		setName("a sabre");
 		setDisplayText("a sabre has been dropped by someone.");
 		setDescription("A slender piece of metal with a fancy silver basket-hilt.");
-		baseEnvStats().setAbility(0);
-		baseEnvStats().setLevel(2);
-		baseEnvStats.setWeight(5);
-		baseEnvStats().setAttackAdjustment(0);
-		baseEnvStats().setDamage(6);
+		basePhyStats().setAbility(0);
+		basePhyStats().setLevel(2);
+		basePhyStats.setWeight(5);
+		basePhyStats().setAttackAdjustment(0);
+		basePhyStats().setDamage(6);
 		baseGoldValue=15;
-		recoverEnvStats();
+		recoverPhyStats();
 		material=RawMaterial.RESOURCE_STEEL;
-		weaponType=TYPE_SLASHING;//?????????
+		weaponDamageType=TYPE_SLASHING;//?????????
 		weaponClassification=Weapon.CLASS_SWORD;
 	}
 

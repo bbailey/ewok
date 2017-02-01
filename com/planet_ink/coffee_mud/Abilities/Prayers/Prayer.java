@@ -2,6 +2,7 @@ package com.planet_ink.coffee_mud.Abilities.Prayers;
 import com.planet_ink.coffee_mud.Abilities.StdAbility;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -10,6 +11,7 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -17,13 +19,13 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2000-2010 Bo Zimmerman
+   Copyright 2001-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,19 +34,60 @@ import java.util.*;
    limitations under the License.
 */
 
-@SuppressWarnings("unchecked")
+
 public class Prayer extends StdAbility
 {
-	public String ID() { return "Prayer"; }
-	public String name(){ return "a Prayer";}
-	public String displayText(){ return "";}
-	protected int canAffectCode(){return 0;}
-	protected int canTargetCode(){return CAN_MOBS;}
-	public int abstractQuality(){ return Ability.QUALITY_INDIFFERENT;}
-	private static final String[] triggerStrings = {"PRAY","PR"};
-	public String[] triggerStrings(){return triggerStrings;}
-	public int classificationCode(){return Ability.ACODE_PRAYER;}
+	@Override
+	public String ID()
+	{
+		return "Prayer";
+	}
 
+	private final static String	localizedName	= CMLib.lang().L("a Prayer");
+
+	@Override
+	public String name()
+	{
+		return localizedName;
+	}
+
+	@Override
+	public String displayText()
+	{
+		return "";
+	}
+
+	@Override
+	protected int canAffectCode()
+	{
+		return 0;
+	}
+
+	@Override
+	protected int canTargetCode()
+	{
+		return CAN_MOBS;
+	}
+
+	@Override
+	public int abstractQuality()
+	{
+		return Ability.QUALITY_INDIFFERENT;
+	}
+
+	private static final String[]	triggerStrings	= I(new String[] { "PRAY", "PR" });
+
+	@Override
+	public String[] triggerStrings()
+	{
+		return triggerStrings;
+	}
+
+	@Override
+	public int classificationCode()
+	{
+		return Ability.ACODE_PRAYER;
+	}
 
 	protected String prayWord(MOB mob)
 	{
@@ -91,35 +134,33 @@ public class Prayer extends StdAbility
 		return "praying";
 	}
 
-	public boolean invoke(MOB mob, Vector commands, Environmental target, boolean auto, int asLevel)
+	protected static boolean prayerAlignmentCheck(StdAbility A, MOB mob, boolean auto)
 	{
-		if(!super.invoke(mob,commands,target,auto,asLevel))
-			return false;
 		if((!auto)
 		&&(!mob.isMonster())
-		&&(!disregardsArmorCheck(mob))
-		&&(mob.isMine(this))
-		&&(!appropriateToMyFactions(mob)))
+		&&(!A.disregardsArmorCheck(mob))
+		&&(mob.isMine(A))
+		&&(!A.appropriateToMyFactions(mob)))
 		{
 			int hq=500;
-			if(CMath.bset(flags(),Ability.FLAG_HOLY))
+			if(CMath.bset(A.flags(),Ability.FLAG_HOLY))
 			{
-				if(!CMath.bset(flags(),Ability.FLAG_UNHOLY))
+				if(!CMath.bset(A.flags(),Ability.FLAG_UNHOLY))
 					hq=1000;
 			}
 			else
-			if(CMath.bset(flags(),Ability.FLAG_UNHOLY))
+			if(CMath.bset(A.flags(),Ability.FLAG_UNHOLY))
 				hq=0;
 
 			int basis=0;
 			if(hq==0)
-				basis=CMLib.factions().getAlignPurity(mob.fetchFaction(CMLib.factions().AlignID()),Faction.ALIGN_EVIL);
+				basis=CMLib.factions().getAlignPurity(mob.fetchFaction(CMLib.factions().AlignID()),Faction.Align.EVIL);
 			else
 			if(hq==1000)
-				basis=CMLib.factions().getAlignPurity(mob.fetchFaction(CMLib.factions().AlignID()),Faction.ALIGN_GOOD);
+				basis=CMLib.factions().getAlignPurity(mob.fetchFaction(CMLib.factions().AlignID()),Faction.Align.GOOD);
 			else
 			{
-				basis=CMLib.factions().getAlignPurity(mob.fetchFaction(CMLib.factions().AlignID()),Faction.ALIGN_NEUTRAL);
+				basis=CMLib.factions().getAlignPurity(mob.fetchFaction(CMLib.factions().AlignID()),Faction.Align.NEUTRAL);
 				basis-=10;
 			}
 
@@ -127,18 +168,28 @@ public class Prayer extends StdAbility
 				return true;
 
 			if(hq==0)
-				mob.tell("The evil nature of "+name()+" disrupts your prayer.");
+				mob.tell(A.L("The evil nature of @x1 disrupts your prayer.",A.name()));
 			else
 			if(hq==1000)
-				mob.tell("The goodness of "+name()+" disrupts your prayer.");
+				mob.tell(A.L("The goodness of @x1 disrupts your prayer.",A.name()));
 			else
 			if(CMLib.flags().isGood(mob))
-				mob.tell("The anti-good nature of "+name()+" disrupts your thought.");
+				mob.tell(A.L("The anti-good nature of @x1 disrupts your thought.",A.name()));
 			else
 			if(CMLib.flags().isEvil(mob))
-				mob.tell("The anti-evil nature of "+name()+" disrupts your thought.");
+				mob.tell(A.L("The anti-evil nature of @x1 disrupts your thought.",A.name()));
 			return false;
 		}
+		return true;
+	}
+	
+	@Override
+	public boolean invoke(MOB mob, List<String> commands, Physical target, boolean auto, int asLevel)
+	{
+		if(!super.invoke(mob,commands,target,auto,asLevel))
+			return false;
+		if(!prayerAlignmentCheck(this,mob,auto))
+			return false;
 		return true;
 	}
 

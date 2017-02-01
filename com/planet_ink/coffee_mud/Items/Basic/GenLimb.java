@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Items.Basic;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -17,14 +18,14 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2004-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -34,7 +35,12 @@ import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 */
 public class GenLimb extends StdLimb
 {
-	public String ID(){	return "GenLimb";}
+	@Override
+	public String ID()
+	{
+		return "GenLimb";
+	}
+
 	protected String	readableText="";
 	public GenLimb()
 	{
@@ -44,47 +50,73 @@ public class GenLimb extends StdLimb
 		setDescription("");
 	}
 
-	public boolean isGeneric(){return true;}
+	@Override
+	public boolean isGeneric()
+	{
+		return true;
+	}
 
+	@Override
 	public String text()
 	{
 		return CMLib.coffeeMaker().getPropertiesStr(this,false);
 	}
 
-	public String readableText(){return readableText;}
-	public void setReadableText(String text){readableText=text;}
+	@Override
+	public String readableText()
+	{
+		return readableText;
+	}
+
+	@Override
+	public void setReadableText(String text)
+	{
+		readableText=text;
+	}
+
+	@Override
 	public void setMiscText(String newText)
 	{
 		miscText="";
 		CMLib.coffeeMaker().setPropertiesStr(this,newText,false);
-		recoverEnvStats();
+		recoverPhyStats();
 	}
 
-    public String getStat(String code)
-    {
-        if(CMLib.coffeeMaker().getGenItemCodeNum(code)>=0)
-            return CMLib.coffeeMaker().getGenItemStat(this,code);
-        return CMProps.getStatCodeExtensionValue(getStatCodes(), xtraValues, code);
-    }
-    public void setStat(String code, String val)
-    {
-        if(CMLib.coffeeMaker().getGenItemCodeNum(code)>=0)
-            CMLib.coffeeMaker().setGenItemStat(this,code,val);
-        CMProps.setStatCodeExtensionValue(getStatCodes(), xtraValues, code,val);
-    }
-    private static String[] codes=null;
-    public String[] getStatCodes()
-    {
-        if(codes==null)
-            codes=CMProps.getStatCodesList(GenericBuilder.GENITEMCODES,this);
-        return codes; 
-    }
+	@Override
+	public String getStat(String code)
+	{
+		if(CMLib.coffeeMaker().getGenItemCodeNum(code)>=0)
+			return CMLib.coffeeMaker().getGenItemStat(this,code);
+		return CMProps.getStatCodeExtensionValue(getStatCodes(), xtraValues, code);
+	}
+
+	@Override
+	public void setStat(String code, String val)
+	{
+		if(CMLib.coffeeMaker().getGenItemCodeNum(code)>=0)
+			CMLib.coffeeMaker().setGenItemStat(this,code,val);
+		CMProps.setStatCodeExtensionValue(getStatCodes(), xtraValues, code,val);
+	}
+
+	private static String[] codes=null;
+	@Override
+	public String[] getStatCodes()
+	{
+		if(codes==null)
+			codes=CMProps.getStatCodesList(CMParms.toStringArray(GenericBuilder.GenItemCode.values()),this);
+		return codes;
+	}
+
+	@Override
 	public boolean sameAs(Environmental E)
 	{
-		if(!(E instanceof GenLimb)) return false;
+		if(!(E instanceof GenLimb))
+			return false;
 		for(int i=0;i<getStatCodes().length;i++)
+		{
 			if(!E.getStat(getStatCodes()[i]).equals(getStat(getStatCodes()[i])))
 				return false;
+		}
 		return true;
 	}
 }

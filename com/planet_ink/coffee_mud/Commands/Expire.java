@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Commands;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,6 +10,7 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -16,13 +18,13 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2000-2010 Bo Zimmerman
+   Copyright 2005-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -30,78 +32,147 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
+
 public class Expire extends StdCommand
 {
-    public Expire(){}
+	public Expire(){}
 
-    public boolean execute(MOB mob, Vector commands, int metaFlags)
-        throws java.io.IOException
-    {
-        if(mob.session()==null) return false;
-    	AccountStats stats = null;
-        MOB M=null;
-        commands.removeElementAt(0);
-        if(commands.size()<1) {
-        	if(CMProps.getIntVar(CMProps.SYSTEMI_COMMONACCOUNTSYSTEM)>1)
-	            mob.tell("You must use the format EXPIRE [ACCOUNT NAME] or EXPIRE [ACCOUNT NAME] [NUMBER OF DAYS]");
-        	else
-	            mob.tell("You must use the format EXPIRE [PLAYER NAME] or EXPIRE [PLAYER NAME] [NUMBER OF DAYS]");
-            return false;
-        }
-        else 
-        if(commands.size()==1)
-        {
-            String playerName=CMStrings.capitalizeAndLower((String)commands.elementAt(0));
-        	if(CMProps.getIntVar(CMProps.SYSTEMI_COMMONACCOUNTSYSTEM)>1)
-        		stats = CMLib.players().getLoadAccount(playerName);
-        	else
-        	if(CMLib.players().playerExists(playerName))
-        	{
-        		M=CMLib.players().getLoadPlayer(playerName);
-        		if(M!=null)
-        			stats = CMLib.players().getLoadPlayer(playerName).playerStats();
-        	}
-            if(stats==null)
-            {
-                mob.tell("No player/account named '"+playerName+"' was found.");
-                return false;
-            }
-            long timeLeft=stats.getAccountExpiration()-System.currentTimeMillis();
-            mob.tell("Player '"+playerName+"' currently has "+(CMLib.english().returnTime(timeLeft,0))+" left.");
-            return false;
-        }
-        else 
-        {
-            long days=CMath.s_long((String)commands.elementAt(1))*1000*60*60*24;
-            String playerName=CMStrings.capitalizeAndLower((String)commands.elementAt(0));
-        	if(CMProps.getIntVar(CMProps.SYSTEMI_COMMONACCOUNTSYSTEM)>1)
-        		stats = CMLib.players().getLoadAccount(playerName);
-        	else
-        	if(CMLib.players().playerExists(playerName))
-        	{
-        		M=CMLib.players().getLoadPlayer(playerName);
-        		if(M!=null)
-	        		stats = M.playerStats();
-        	}
-            if(stats==null)
-            {
-                mob.tell("No player/account named '"+playerName+"' was found.");
-                return false;
-            }
-        	stats.setLastUpdated(System.currentTimeMillis());
-            stats.setAccountExpiration(days+System.currentTimeMillis());
-            mob.tell("Player '"+playerName+"' now has "+(CMLib.english().returnTime(stats.getAccountExpiration()-System.currentTimeMillis(),0))+" days left.");
-            return false;
-        }
-    }
+	private void unprotect(AccountStats stats)
+	{
+		if(stats instanceof PlayerStats)
+		{
+			final PlayerStats P=(PlayerStats)stats;
+			final List<String> secFlags=CMParms.parseSemicolons(P.getSetSecurityFlags(null),true);
+			if(secFlags.contains(CMSecurity.SecFlag.NOEXPIRE.name()))
+			{
+				secFlags.remove(CMSecurity.SecFlag.NOEXPIRE.name());
+				P.getSetSecurityFlags(CMParms.toSemicolonListString(secFlags));
+			}
+		}
+		else
+		if(stats instanceof PlayerAccount)
+		{
+			final PlayerAccount A=(PlayerAccount)stats;
+			A.setFlag(PlayerAccount.AccountFlag.NOEXPIRE, false);
+		}
+	}
 
-    private String[] access={"EXPIRE"};
-    public String[] getAccessWords(){return access;}
+	@Override
+	public boolean execute(MOB mob, List<String> commands, int metaFlags)
+		throws java.io.IOException
+	{
+		if(mob.session()==null)
+			return false;
+		AccountStats stats = null;
+		MOB M=null;
+		commands.remove(0);
+		if(commands.size()<1)
+		{
+			if(CMProps.isUsingAccountSystem())
+				mob.tell(L("You must use the format EXPIRE [ACCOUNT NAME] or EXPIRE [ACCOUNT NAME] [NUMBER OF DAYS/NEVER/NOW]"));
+			else
+				mob.tell(L("You must use the format EXPIRE [PLAYER NAME] or EXPIRE [PLAYER NAME] [NUMBER OF DAYS/NEVER/NOW]"));
+			return false;
+		}
+		else
+		if(commands.size()==1)
+		{
+			final String playerName=CMStrings.capitalizeAndLower(commands.get(0));
+			if(CMProps.isUsingAccountSystem())
+				stats = CMLib.players().getLoadAccount(playerName);
+			else
+			if(CMLib.players().playerExists(playerName))
+			{
+				M=CMLib.players().getLoadPlayer(playerName);
+				if(M!=null)
+					stats = CMLib.players().getLoadPlayer(playerName).playerStats();
+			}
+			if(stats==null)
+			{
+				mob.tell(L("No player/account named '@x1' was found.",playerName));
+				return false;
+			}
+			unprotect(stats);
+			final long timeLeft=stats.getAccountExpiration()-System.currentTimeMillis();
+			if(timeLeft<=0)
+				mob.tell(L("Player/Account '@x1' is now expired.",playerName));
+			else
+				mob.tell(L("Player/Account '@x1' currently has @x2 left.",playerName,(CMLib.english().returnTime(timeLeft,0))));
+			return false;
+		}
+		else
+		{
+			long days;
+			final String howLong=commands.get(1);
+			if(howLong.equalsIgnoreCase("never"))
+				days=Long.MAX_VALUE;
+			else
+			if(howLong.equalsIgnoreCase("now"))
+				days=0;
+			else
+			if(!CMath.isLong(howLong))
+			{
+				mob.tell(L("'@x1' is now a proper value.  Try a number of days, the word NOW or the word NEVER.",howLong));
+				return false;
+			}
+			else
+				days=CMath.s_long(howLong)*1000*60*60*24;
+			final String playerName=CMStrings.capitalizeAndLower(commands.get(0));
+			if(CMProps.isUsingAccountSystem())
+				stats = CMLib.players().getLoadAccount(playerName);
+			else
+			if(CMLib.players().playerExists(playerName))
+			{
+				M=CMLib.players().getLoadPlayer(playerName);
+				if(M!=null)
+					stats = M.playerStats();
+			}
+			if(stats==null)
+			{
+				mob.tell(L("No player/account named '@x1' was found.",playerName));
+				return false;
+			}
+			stats.setLastUpdated(System.currentTimeMillis());
+			if(days==Long.MAX_VALUE)
+			{
+				if(stats instanceof PlayerStats)
+				{
+					final PlayerStats P=(PlayerStats)stats;
+					final List<String> secFlags=CMParms.parseSemicolons(P.getSetSecurityFlags(null),true);
+					if(!secFlags.contains(CMSecurity.SecFlag.NOEXPIRE.name()))
+					{
+						secFlags.add(CMSecurity.SecFlag.NOEXPIRE.name());
+						P.getSetSecurityFlags(CMParms.toSemicolonListString(secFlags));
+					}
+				}
+				else
+				if(stats instanceof PlayerAccount)
+				{
+					final PlayerAccount A=(PlayerAccount)stats;
+					A.setFlag(PlayerAccount.AccountFlag.NOEXPIRE, true);
+				}
+				mob.tell(L("Player/Account '@x1' is now protected from expiration.",playerName));
+			}
+			else
+			{
+				unprotect(stats);
+				stats.setAccountExpiration(days+System.currentTimeMillis());
+				final long timeLeft=stats.getAccountExpiration()-System.currentTimeMillis();
+				if(timeLeft<=0)
+					mob.tell(L("Player/Account '@x1' is now expired.",playerName));
+				else
+					mob.tell(L("Player/Account '@x1' now has @x2 days left.",playerName,(CMLib.english().returnTime(timeLeft,0))));
+			}
+			return false;
+		}
+	}
 
-    
-    public boolean canBeOrdered(){return false;}
-    public boolean securityCheck(MOB mob){return CMSecurity.isAllowed(mob,mob.location(),"CMDPLAYERS");}
+	private final String[] access=I(new String[]{"EXPIRE"});
+	@Override public String[] getAccessWords(){return access;}
 
-    
+
+	@Override public boolean canBeOrdered(){return false;}
+	@Override public boolean securityCheck(MOB mob){return CMSecurity.isAllowed(mob,mob.location(),CMSecurity.SecFlag.CMDPLAYERS);}
+
+
 }

@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Behaviors;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -17,14 +18,14 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2003-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,11 +33,11 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
+
 public class ProtectedCitizen extends ActiveTicker
 {
-	public String ID(){return "ProtectedCitizen";}
-	protected int canImproveCode(){return Behavior.CAN_MOBS;}
+	@Override public String ID(){return "ProtectedCitizen";}
+	@Override protected int canImproveCode(){return Behavior.CAN_MOBS;}
 	protected static String zapper=null;
 	protected static String defcityguard="cityguard";
 	protected static String[] defclaims={"Help! I'm being attacked!","Help me!!"};
@@ -48,11 +49,18 @@ public class ProtectedCitizen extends ActiveTicker
 
 	public ProtectedCitizen()
 	{
-        super();
+		super();
 		minTicks=1; maxTicks=3; chance=99; radius=7; maxAssistance=1;
 		tickReset();
 	}
 
+	@Override
+	public String accountForYourself()
+	{
+		return "whiney citizen";
+	}
+
+	@Override
 	public void setParms(String parms)
 	{
 		super.setParms(parms);
@@ -66,9 +74,11 @@ public class ProtectedCitizen extends ActiveTicker
 
 	public String getCityguardName()
 	{
-		if(cityguard!=null) return "-NAME \"+"+cityguard+"\"";
-		if(zapper!=null) return zapper;
-		String s=getParmsNoTicks();
+		if(cityguard!=null)
+			return "-NAME \"+"+cityguard+"\"";
+		if(zapper!=null)
+			return zapper;
+		final String s=getParmsNoTicks();
 		if(s.length()==0)
 		{ cityguard=defcityguard; return "-NAME \"+"+cityguard+"\"";}
 		char c=';';
@@ -79,11 +89,11 @@ public class ProtectedCitizen extends ActiveTicker
 		cityguard=s.substring(0,x).trim();
 		if(cityguard.length()==0)
 		{ cityguard=defcityguard; return "-NAME \"+"+cityguard+"\"";}
-		if((cityguard.indexOf("+")>0)
-		||(cityguard.indexOf("-")>0)
-		||(cityguard.indexOf(">")>0)
-		||(cityguard.indexOf("<")>0)
-		||(cityguard.indexOf("=")>0))
+		if((cityguard.indexOf('+')>0)
+		||(cityguard.indexOf('-')>0)
+		||(cityguard.indexOf('>')>0)
+		||(cityguard.indexOf('<')>0)
+		||(cityguard.indexOf('=')>0))
 		{
 			zapper=cityguard;
 			cityguard=null;
@@ -94,32 +104,48 @@ public class ProtectedCitizen extends ActiveTicker
 
 	public String[] getClaims()
 	{
-		if(claims!=null) return claims;
+		if(claims!=null)
+			return claims;
 		String s=getParmsNoTicks();
 		if(s.length()==0)
-		{ claims=defclaims; return claims;}
+		{
+			claims = defclaims;
+			return claims;
+		}
 
 		char c=';';
 		int x=s.indexOf(c);
-		if(x<0){ c='/'; x=s.indexOf(c);}
+		if (x < 0)
+		{
+			c = '/';
+			x = s.indexOf(c);
+		}
 		if(x<0)
-		{ claims=defclaims; return claims;}
+		{
+			claims = defclaims;
+			return claims;
+		}
 		s=s.substring(x+1).trim();
 		if(s.length()==0)
-		{ claims=defclaims; return claims;}
-		Vector V=new Vector();
+		{
+			claims = defclaims;
+			return claims;
+		}
+		final Vector<String> V=new Vector<String>();
 		x=s.indexOf(c);
 		while(x>=0)
 		{
-			String str=s.substring(0,x).trim();
+			final String str=s.substring(0,x).trim();
 			s=s.substring(x+1).trim();
-			if(str.length()>0)V.addElement(str);
+			if(str.length()>0)
+				V.addElement(str);
 			x=s.indexOf(c);
 		}
-		if(s.length()>0)V.addElement(s);
+		if(s.length()>0)
+			V.addElement(s);
 		claims=new String[V.size()];
 		for(int i=0;i<V.size();i++)
-			claims[i]=(String)V.elementAt(i);
+			claims[i]=V.elementAt(i);
 		return claims;
 	}
 
@@ -128,7 +154,7 @@ public class ProtectedCitizen extends ActiveTicker
 		int assistance=0;
 		for(int i=0;i<mob.location().numInhabitants();i++)
 		{
-			MOB M=mob.location().fetchInhabitant(i);
+			final MOB M=mob.location().fetchInhabitant(i);
 			if((M!=null)
 			&&(M!=mob)
 			&&(M.getVictim()==mob.getVictim()))
@@ -137,31 +163,32 @@ public class ProtectedCitizen extends ActiveTicker
 		if(assistance>=maxAssistance)
 			return false;
 
-		String claim=getClaims()[CMLib.dice().roll(1,getClaims().length,-1)].trim();
+		final String claim=getClaims()[CMLib.dice().roll(1,getClaims().length,-1)].trim();
 		if(claim.startsWith(","))
-			mob.doCommand(CMParms.parse("EMOTE \""+claim.substring(1).trim()+"\""),Command.METAFLAG_FORCED);
+			mob.doCommand(CMParms.parse("EMOTE \""+claim.substring(1).trim()+"\""),MUDCmdProcessor.METAFLAG_FORCED);
 		else
-			mob.doCommand(CMParms.parse("YELL \""+claim+"\""),Command.METAFLAG_FORCED);
+			mob.doCommand(CMParms.parse("YELL \""+claim+"\""),MUDCmdProcessor.METAFLAG_FORCED);
 
-		Room thisRoom=mob.location();
-		Vector V=new Vector();
+		final Room thisRoom=mob.location();
+		final Vector<Room> V=new Vector<Room>();
 		TrackingLibrary.TrackingFlags flags;
-		flags = new TrackingLibrary.TrackingFlags()
-				.add(TrackingLibrary.TrackingFlag.OPENONLY);
-		if(!wander) flags.add(TrackingLibrary.TrackingFlag.AREAONLY);
+		flags = CMLib.tracking().newFlags()
+				.plus(TrackingLibrary.TrackingFlag.OPENONLY);
+		if(!wander)
+			flags.plus(TrackingLibrary.TrackingFlag.AREAONLY);
 		CMLib.tracking().getRadiantRooms(thisRoom,V,flags,null,radius,null);
 		for(int v=0;v<V.size();v++)
 		{
-			Room R=(Room)V.elementAt(v);
+			final Room R=V.elementAt(v);
 			MOB M=null;
 			if(R.getArea().Name().equals(mob.location().getArea().Name()))
 				for(int i=0;i<R.numInhabitants();i++)
 				{
-					MOB M2=R.fetchInhabitant(i);
+					final MOB M2=R.fetchInhabitant(i);
 					if((M2!=null)
 					&&(M2.mayIFight(mob.getVictim()))
 					&&(M2!=mob.getVictim())
-					&&(CMLib.flags().aliveAwakeMobileUnbound(M2,true)
+					&&(CMLib.flags().isAliveAwakeMobileUnbound(M2,true)
 					&&(!M2.isInCombat())
 					&&(CMLib.flags().isMobile(M2))
 					&&(CMLib.masking().maskCheck(getCityguardName(),M2,false))
@@ -179,15 +206,16 @@ public class ProtectedCitizen extends ActiveTicker
 					CMLib.combat().postAttack(M,mob.getVictim(),M.fetchWieldedItem());
 				else
 				{
-					int dir=CMLib.tracking().radiatesFromDir(R,V);
+					final int dir=CMLib.tracking().radiatesFromDir(R,V);
 					if(dir>=0)
-						CMLib.tracking().move(M,dir,false,false);
+						CMLib.tracking().walk(M,dir,false,false);
 				}
 			}
 		}
 		return true;
 	}
 
+	@Override
 	public boolean tick(Tickable ticking, int tickID)
 	{
 		super.tick(ticking,tickID);

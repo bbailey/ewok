@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Items.Basic;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -13,18 +14,19 @@ import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
-
 import java.util.*;
-import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.XMLLibrary.XMLTag;
+
+/*
+   Copyright 2003-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,61 +34,84 @@ import com.planet_ink.coffee_mud.Libraries.interfaces.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
 public class GenCaged extends GenItem implements CagedAnimal
 {
-	public String ID(){	return "GenCaged";}
+	@Override
+	public String ID()
+	{
+		return "GenCaged";
+	}
+
 	public GenCaged()
 	{
 		super();
 		setName("a caged creature");
-		baseEnvStats.setWeight(150);
+		basePhyStats.setWeight(150);
 		setDisplayText("a caged creature sits here.");
 		setDescription("");
 		baseGoldValue=5;
-		baseEnvStats().setLevel(1);
+		basePhyStats().setLevel(1);
 		setMaterial(RawMaterial.RESOURCE_MEAT);
-		recoverEnvStats();
+		recoverPhyStats();
 	}
-    protected byte[]    readableText=null;
-    public String readableText(){return readableText==null?"":CMLib.encoder().decompressString(readableText);}
-    public void setReadableText(String text){readableText=(text.trim().length()==0)?null:CMLib.encoder().compressString(text);}
+
+	protected byte[]	readableText=null;
+	@Override
+	public String readableText()
+	{
+		return readableText==null?"":CMLib.encoder().decompressString(readableText);
+	}
+
+	@Override
+	public void setReadableText(String text)
+	{
+		readableText=(text.trim().length()==0)?null:CMLib.encoder().compressString(text);
+	}
+
+	@Override
 	public boolean cageMe(MOB M)
 	{
-		if(M==null) return false;
-		if(!M.isMonster()) return false;
+		if(M==null)
+			return false;
+		if(!M.isMonster())
+			return false;
 		name=M.Name();
 		displayText=M.displayText();
 		setDescription(M.description());
-		baseEnvStats().setLevel(M.baseEnvStats().level());
-		baseEnvStats().setWeight(M.baseEnvStats().weight());
-		baseEnvStats().setHeight(M.baseEnvStats().height());
-		StringBuffer itemstr=new StringBuffer("");
+		basePhyStats().setLevel(M.basePhyStats().level());
+		basePhyStats().setWeight(M.basePhyStats().weight());
+		basePhyStats().setHeight(M.basePhyStats().height());
+		final StringBuffer itemstr=new StringBuffer("");
 		itemstr.append("<MOBITEM>");
 		itemstr.append(CMLib.xml().convertXMLtoTag("MICLASS",CMClass.classID(M)));
 		itemstr.append(CMLib.xml().convertXMLtoTag("MISTART",CMLib.map().getExtendedRoomID(M.getStartRoom())));
 		itemstr.append(CMLib.xml().convertXMLtoTag("MIDATA",CMLib.coffeeMaker().getPropertiesStr(M,true)));
 		itemstr.append("</MOBITEM>");
 		setCageText(itemstr.toString());
-		recoverEnvStats();
+		recoverPhyStats();
 		return true;
 	}
-    
-    public void destroy()
-    {
-        if((CMSecurity.isDebugging("MISSINGKIDS"))&&(fetchEffect("Age")!=null)&&CMath.isInteger(fetchEffect("Age").text())&&(CMath.s_int(fetchEffect("Age").text())>Short.MAX_VALUE))
-            Log.debugOut("MISSKIDS",new Exception(Name()+" went missing form "+CMLib.map().getExtendedRoomID(CMLib.map().roomLocation(this))));
-        super.destroy();
-    }
-    
-	public void executeMsg(Environmental myHost, CMMsg msg)
+
+	@Override
+	public void destroy()
+	{
+		if((CMSecurity.isDebugging(CMSecurity.DbgFlag.MISSINGKIDS))
+		&&(fetchEffect("Age")!=null)
+		&&CMath.isInteger(fetchEffect("Age").text())
+		&&(CMath.s_int(fetchEffect("Age").text())>Short.MAX_VALUE))
+			Log.debugOut("MISSKIDS",new Exception(Name()+" went missing form "+CMLib.map().getDescriptiveExtendedRoomID(CMLib.map().roomLocation(this))));
+		super.destroy();
+	}
+
+	@Override
+	public void executeMsg(final Environmental myHost, final CMMsg msg)
 	{
 		if((msg.amITarget(this)
 			||((msg.tool()==this)&&(msg.target()==container())&&(container()!=null)))
-		&&((baseEnvStats().ability()&ABILITY_MOBPROGRAMMATICALLY)==0)
+		&&((getCageFlagsBitmap()&CagedAnimal.CAGEFLAG_TO_MOB_PROGRAMMATICALLY)==0)
 		&&((msg.targetMinor()==CMMsg.TYP_GET)||(msg.targetMinor()==CMMsg.TYP_DROP)))
 		{
-			MOB M=unCageMe();
+			final MOB M=unCageMe();
 			if((M!=null)&&(msg.source().location()!=null))
 				M.bringToLife(msg.source().location(),true);
 			destroy();
@@ -94,26 +119,29 @@ public class GenCaged extends GenItem implements CagedAnimal
 		}
 		super.executeMsg(myHost,msg);
 	}
+
+	@Override
 	public MOB unCageMe()
 	{
 		MOB M=null;
-		if(cageText().length()==0) return M;
-		Vector buf=CMLib.xml().parseAllXML(cageText());
+		if(cageText().length()==0)
+			return M;
+		final List<XMLLibrary.XMLTag> buf=CMLib.xml().parseAllXML(cageText());
 		if(buf==null)
 		{
 			Log.errOut("Caged","Error parsing 'MOBITEM'.");
 			return M;
 		}
-		XMLLibrary.XMLpiece iblk=CMLib.xml().getPieceFromPieces(buf,"MOBITEM");
-		if((iblk==null)||(iblk.contents==null))
+		final XMLTag iblk=CMLib.xml().getPieceFromPieces(buf,"MOBITEM");
+		if((iblk==null)||(iblk.contents()==null))
 		{
 			Log.errOut("Caged","Error parsing 'MOBITEM'.");
 			return M;
 		}
-		String itemi=CMLib.xml().getValFromPieces(iblk.contents,"MICLASS");
-		String startr=CMLib.xml().getValFromPieces(iblk.contents,"MISTART");
-		Environmental newOne=CMClass.getMOB(itemi);
-		Vector idat=CMLib.xml().getRealContentsFromPieces(iblk.contents,"MIDATA");
+		final String itemi=iblk.getValFromPieces("MICLASS");
+		final String startr=iblk.getValFromPieces("MISTART");
+		final Environmental newOne=CMClass.getMOB(itemi);
+		final List<XMLLibrary.XMLTag> idat=iblk.getContentsFromPieces("MIDATA");
 		if((idat==null)||(newOne==null)||(!(newOne instanceof MOB)))
 		{
 			Log.errOut("Caged","Error parsing 'MOBITEM' data.");
@@ -121,22 +149,42 @@ public class GenCaged extends GenItem implements CagedAnimal
 		}
 		CMLib.coffeeMaker().setPropertiesStr(newOne,idat,true);
 		M=(MOB)newOne;
-		M.baseEnvStats().setRejuv(0);
+		M.basePhyStats().setRejuv(PhyStats.NO_REJUV);
 		M.setStartRoom(null);
 		if(M.isGeneric())
 			CMLib.coffeeMaker().resetGenMOB(M,M.text());
 		if((startr.length()>0)&&(!startr.equalsIgnoreCase("null")))
 		{
-			Room R=CMLib.map().getRoom(startr);
+			final Room R=CMLib.map().getRoom(startr);
 			if(R!=null)
 				M.setStartRoom(R);
 		}
 		return M;
 	}
-	public String cageText(){ return CMLib.xml().restoreAngleBrackets(readableText());}
+
+	@Override
+	public String cageText()
+	{
+		return CMLib.xml().restoreAngleBrackets(readableText());
+	}
+
+	@Override
 	public void setCageText(String text)
 	{
 		setReadableText(CMLib.xml().parseOutAngleBrackets(text));
 		CMLib.flags().setReadable(this,false);
+	}
+	
+	@Override
+	public int getCageFlagsBitmap()
+	{
+		return basePhyStats().ability();
+	}
+
+	@Override
+	public void setCageFlagsBitmap(int bitmap)
+	{
+		basePhyStats.setAbility(bitmap);
+		phyStats.setAbility(bitmap);
 	}
 }

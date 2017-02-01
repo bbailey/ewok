@@ -21,9 +21,9 @@
 	</script>
 </head>
 <BODY>
-<FORM NAME=AREAEDIT TARGET=_top METHOD=POST ACTION="/grinder/editexit.cmvp">
+<FORM  ACCEPT-CHARSET="UTF-8" NAME=AREAEDIT TARGET=_top METHOD=POST ACTION="/grinder/editexit.cmvp">
 <INPUT TYPE=HIDDEN NAME=AUTH VALUE="@Authenticate?AUTH@">
-<INPUT TYPE=HIDDEN NAME=AREA VALUE="@AreaName@">
+<INPUT TYPE=HIDDEN NAME=AREA VALUE="@AreaID@">
 <INPUT TYPE=HIDDEN NAME=MAPSTYLE VALUE="@RequestParameter?MAPSTYLE@">
 <INPUT TYPE=HIDDEN NAME=MAPLEVEL VALUE="@RequestParameter?MAPLEVEL@">
 <INPUT TYPE=HIDDEN NAME=ROOM VALUE="@RequestParameter?ROOM@">
@@ -31,7 +31,7 @@
 <INPUT TYPE=HIDDEN NAME=OLDROOM VALUE="@RequestParameter?OLDROOM@">
 <INPUT TYPE=HIDDEN NAME=OLDLINK VALUE="@RequestParameter?OLDLINK@">
 </FONT>
-<IMG SRC="/grinder/images/grinder.gif" WIDTH=10% HEIGHT=75% ALT="" ALIGN=LEFT BORDER="0">
+<IMG SRC="/grinder/images/grinder.gif" WIDTH=80 HEIGHT=80 ALT="" ALIGN=LEFT BORDER="0">
 <B>@RequestParameter?LINK@ Exit From @RequestParameter?ROOM@ (@RoomName@) to @RequestParameter?LINKSTO@</B>
 <BR>
 <INPUT TYPE=BUTTON NAME=EDITEXIT VALUE="Edit Exit" ONCLICK="Clicked('editexit.cmvp');">

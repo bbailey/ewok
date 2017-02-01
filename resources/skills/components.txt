@@ -5,7 +5,7 @@
 #    Spell_Sleep=([COMPONENT PARAMETER])&&([COMPONENT PARAMETER])||([COMPONENT PARAMETER])&&..etc..
 # [COMPONENT PARAMETER] are as follows:
 #    Spell_sleep=([DISPOSITION]:[FATE]:[AMOUNT]:[COMPONENT ID]:[MASK])
-# [DISPOSITION] is either: inventory, held, worn (default inventory)
+# [DISPOSITION] is either: inventory, held, worn, nearby, onground (default inventory)
 # [FATE] is either: consumed, kept (default consumed)
 # [AMOUNT] is the number of amount of the component required (default 1)
 # [COMPONENT ID] is one of the following:
@@ -19,8 +19,7 @@
 # Spell_Sleep=(held:consumed:1:cotton:-CLASS +MAGE) || (inventory:consumed:10:sand:-CLASS +MAGE)
 #   (the above requires either cotton in hand, or 10 sand in inventory to cast sleep -- applies only to mages)
 # Woodchopping=(held:kept:1:*axe*:)
-#   (the above requires an item what the characters "axe" in the name to do woodchopping)
+#   (the above requires an item with the characters "axe" in the name to do woodchopping)
 
-
-Thief_Autocaltrops=(inventory:consumed:10:metal:)
-Bandaging=(inventory:consumed:1:CLOTH:)||(held:consumed:5:DUST:-race +elf)
+Thief_Autocaltrops=(inventory:consumed:10:metal:)||(inventory:consumed:10:mithril:)
+BANDAGING=(inventory:consumed:1:CLOTH:)||(held:consumed:5:DUST:-race +elf)

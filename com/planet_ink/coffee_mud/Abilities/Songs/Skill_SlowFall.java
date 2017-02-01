@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Songs;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,6 +10,7 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -16,14 +18,14 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2003-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -33,41 +35,45 @@ import java.util.*;
 */
 public class Skill_SlowFall extends BardSkill
 {
-	public String ID() { return "Skill_SlowFall"; }
-	public String name(){return "Slow Fall";}
-	public String displayText(){return activated?"(Slow Fall)":"";}
-	public int abstractQuality(){ return Ability.QUALITY_INDIFFERENT;}
-	protected int canAffectCode(){return CAN_MOBS;}
-	public boolean isAutoInvoked(){return true;}
-	public boolean canBeUninvoked(){return false;}
-    public int classificationCode() {   return Ability.ACODE_SKILL|Ability.DOMAIN_FITNESS; }
+	@Override public String ID() { return "Skill_SlowFall"; }
+	private final static String localizedName = CMLib.lang().L("Slow Fall");
+	@Override public String name() { return localizedName; }
+	@Override public String displayText(){return activated?"(Slow Fall)":"";}
+	@Override public int abstractQuality(){ return Ability.QUALITY_INDIFFERENT;}
+	@Override protected int canAffectCode(){return CAN_MOBS;}
+	@Override public boolean isAutoInvoked(){return true;}
+	@Override public boolean canBeUninvoked(){return false;}
+	@Override public int classificationCode() {   return Ability.ACODE_SKILL|Ability.DOMAIN_FITNESS; }
 	public boolean activated=false;
 
-	public void affectEnvStats(Environmental affected, EnvStats affectableStats)
+	@Override
+	public void affectPhyStats(Physical affected, PhyStats affectableStats)
 	{
-		super.affectEnvStats(affected,affectableStats);
-		if(activated) affectableStats.setWeight(0);
+		super.affectPhyStats(affected,affectableStats);
+		if(activated)
+			affectableStats.setWeight(0);
 	}
 
+	@Override
 	public boolean tick(Tickable ticking, int tickID)
 	{
 		if(affected!=null)
 		{
-			if((affected.fetchEffect("Falling")!=null)
+			if((CMath.bset(affected.phyStats().disposition(),PhyStats.IS_FALLING))
 			   &&((!(affected instanceof MOB))
 				  ||(((MOB)affected).fetchAbility(ID())==null)
 				  ||proficiencyCheck((MOB)affected,0,false)))
 			{
 				activated=true;
-				affected.recoverEnvStats();
+				affected.recoverPhyStats();
 				if(affected instanceof MOB)
-					helpProficiency((MOB)affected);
+					helpProficiency((MOB)affected, 0);
 			}
 			else
 			if(activated)
 			{
 				activated=false;
-				affected.recoverEnvStats();
+				affected.recoverPhyStats();
 			}
 		}
 		return super.tick(ticking,tickID);

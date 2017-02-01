@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.MOBS;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,6 +10,7 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -16,14 +18,14 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2003-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -33,7 +35,11 @@ import java.util.*;
 */
 public class UmberHulk extends StdMOB
 {
-	public String ID(){return "UmberHulk";}
+	@Override
+	public String ID()
+	{
+		return "UmberHulk";
+	}
 	Random randomizer = new Random();
 	int confuseDown=3;
 
@@ -41,12 +47,12 @@ public class UmberHulk extends StdMOB
 	{
 		super();
 
-		Username="an Umber Hulk";
+		username="an Umber Hulk";
 		setDescription("An 8 foot tall, 5 foot wide mass of meanness just waiting to eat....");
 		setDisplayText("A huge Umber Hulk eyes you.");
-		CMLib.factions().setAlignment(this,Faction.ALIGN_EVIL);
+		CMLib.factions().setAlignment(this,Faction.Align.EVIL);
 		setMoney(10);
-		baseEnvStats.setWeight(350);
+		basePhyStats.setWeight(350);
 		setWimpHitPoint(0);
 
 		baseCharStats().setStat(CharStats.STAT_INTELLIGENCE,8);
@@ -54,23 +60,24 @@ public class UmberHulk extends StdMOB
 		baseCharStats().setMyRace(CMClass.getRace("UmberHulk"));
 		baseCharStats().getMyRace().startRacing(this,false);
 
-		baseEnvStats().setAbility(0);
-		baseEnvStats().setLevel(8);
-		baseEnvStats().setAttackAdjustment(baseEnvStats().attackAdjustment()+20);
-		baseEnvStats().setDamage(baseEnvStats().damage()+12);
-		baseEnvStats().setArmor(0);
-		baseEnvStats().setSpeed(2.0);
-		baseEnvStats().setSensesMask(EnvStats.CAN_SEE_DARK | EnvStats.CAN_SEE_INFRARED);
+		basePhyStats().setAbility(0);
+		basePhyStats().setLevel(8);
+		basePhyStats().setAttackAdjustment(basePhyStats().attackAdjustment()+20);
+		basePhyStats().setDamage(basePhyStats().damage()+12);
+		basePhyStats().setArmor(60);
+		basePhyStats().setSpeed(2.0);
+		basePhyStats().setSensesMask(PhyStats.CAN_SEE_DARK | PhyStats.CAN_SEE_INFRARED);
 
-		baseState.setHitPoints(CMLib.dice().roll(baseEnvStats().level(),20,baseEnvStats().level()));
+		baseState.setHitPoints(CMLib.dice().roll(basePhyStats().level(),20,basePhyStats().level()));
 
 		recoverMaxState();
 		resetToMaxState();
-		recoverEnvStats();
+		recoverPhyStats();
 		recoverCharStats();
 	}
 
 
+	@Override
 	public boolean tick(Tickable ticking, int tickID)
 	{
 		if((!amDead())&&(tickID==Tickable.TICKID_MOB))
@@ -83,25 +90,29 @@ public class UmberHulk extends StdMOB
 		}
 		return super.tick(ticking,tickID);
 	}
-    public void addNaturalAbilities()
-    {
-        Ability confuse=CMClass.getAbility("Spell_Confusion");
-		if(confuse==null) return;
 
-    }
+	public void addNaturalAbilities()
+	{
+		final Ability confuse=CMClass.getAbility("Spell_Confusion");
+		if(confuse==null)
+			return;
+
+	}
+
 	protected boolean confuse()
 	{
 		if(this.location()==null)
 			return true;
 
-      Ability confuse=CMClass.getAbility("Spell_Confusion");
+	  Ability confuse=CMClass.getAbility("Spell_Confusion");
 		confuse.setProficiency(75);
 		if(this.fetchAbility(confuse.ID())==null)
 		   this.addAbility(confuse);
 		else
 			confuse =this.fetchAbility(confuse.ID());
 
-		if(confuse!=null) confuse.invoke(this,null,false,0);
+		if(confuse!=null)
+			confuse.invoke(this,null,false,0);
 		return true;
 	}
 

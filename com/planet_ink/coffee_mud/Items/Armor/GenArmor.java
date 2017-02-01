@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Items.Armor;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -17,14 +18,14 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2001-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -34,68 +35,108 @@ import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 */
 public class GenArmor extends StdArmor
 {
-	public String ID(){	return "GenArmor";}
+	@Override
+	public String ID()
+	{
+		return "GenArmor";
+	}
+
 	protected String	readableText="";
 	public GenArmor()
 	{
 		super();
 
 		setName("a generic armor piece");
-		baseEnvStats.setWeight(25);
+		basePhyStats.setWeight(25);
 		setDisplayText("a generic piece of armor sits here.");
 		setDescription("");
 		baseGoldValue=5;
 		properWornBitmap=Wearable.IN_INVENTORY;
 		wornLogicalAnd=false;
-		baseEnvStats().setLevel(1);
-		baseEnvStats().setArmor(10);
-		recoverEnvStats();
+		basePhyStats().setLevel(1);
+		basePhyStats().setArmor(10);
+		recoverPhyStats();
 		material=RawMaterial.RESOURCE_LEATHER;
 	}
 
 
-	public boolean isGeneric(){return true;}
+	@Override
+	public boolean isGeneric()
+	{
+		return true;
+	}
 
 
+	@Override
 	public String text()
 	{
 		return CMLib.coffeeMaker().getPropertiesStr(this,false);
 	}
-	public String readableText(){return readableText;}
-	public void setReadableText(String text){readableText=text;}
-    public String keyName()
-    {
-        return readableText;
-    }
-    public void setKeyName(String newKeyName)
-    {
-        readableText=newKeyName;
-    }
 
+	@Override
+	public String readableText()
+	{
+		return readableText;
+	}
+
+	@Override
+	public void setReadableText(String text)
+	{
+		readableText=text;
+	}
+
+	@Override
+	public String keyName()
+	{
+		return readableText;
+	}
+
+	@Override
+	public void setKeyName(String newKeyName)
+	{
+		readableText=newKeyName;
+	}
+
+	@Override
 	public void setMiscText(String newText)
 	{
 		miscText="";
 		CMLib.coffeeMaker().setPropertiesStr(this,newText,false);
-		recoverEnvStats();
+		recoverPhyStats();
 	}
-	private final static String[] MYCODES={"HASLOCK","HASLID","CAPACITY","CONTAINTYPES","LAYER","LAYERATTRIB"};
+
+	private final static String[] MYCODES={"HASLOCK","HASLID","CAPACITY","CONTAINTYPES","RESETTIME","LAYER","LAYERATTRIB","DEFCLOSED","DEFLOCKED"};
+	@Override
 	public String getStat(String code)
 	{
 		if(CMLib.coffeeMaker().getGenItemCodeNum(code)>=0)
 			return CMLib.coffeeMaker().getGenItemStat(this,code);
 		switch(getCodeNum(code))
 		{
-		case 0: return ""+hasALock();
-		case 1: return ""+hasALid();
-		case 2: return ""+capacity();
-		case 3: return ""+containTypes();
-		case 4: return ""+getClothingLayer();
-		case 5: return ""+getLayerAttributes();
-        default:
-            return CMProps.getStatCodeExtensionValue(getStatCodes(), xtraValues, code);
-        }
+		case 0:
+			return "" + hasALock();
+		case 1:
+			return "" + hasADoor();
+		case 2:
+			return "" + capacity();
+		case 3:
+			return "" + containTypes();
+		case 4:
+			return "" + openDelayTicks();
+		case 5:
+			return "" + getClothingLayer();
+		case 6:
+			return "" + getLayerAttributes();
+		case 7:
+			return "" + defaultsClosed();
+		case 8:
+			return "" + defaultsLocked();
+		default:
+			return CMProps.getStatCodeExtensionValue(getStatCodes(), xtraValues, code);
+		}
 	}
-	
+
+	@Override
 	public void setStat(String code, String val)
 	{
 		if(CMLib.coffeeMaker().getGenItemCodeNum(code)>=0)
@@ -103,28 +144,58 @@ public class GenArmor extends StdArmor
 		else
 		switch(getCodeNum(code))
 		{
-		case 0: setLidsNLocks(hasALid(),isOpen(),CMath.s_bool(val),false); break;
-		case 1: setLidsNLocks(CMath.s_bool(val),isOpen(),hasALock(),false); break;
-		case 2: setCapacity(CMath.s_parseIntExpression(val)); break;
-		case 3: setContainTypes(CMath.s_parseBitLongExpression(Container.CONTAIN_DESCS,val)); break;
-		case 4: setClothingLayer((short)CMath.s_parseIntExpression(val)); break;
-		case 5: setLayerAttributes((short)CMath.s_parseListLongExpression(Armor.LAYERMASK_DESCS,val)); break;
-        default:
-            CMProps.setStatCodeExtensionValue(getStatCodes(), xtraValues, code, val);
-            break;
+		case 0:
+			setDoorsNLocks(hasADoor(), isOpen(), defaultsClosed(), CMath.s_bool(val), false, CMath.s_bool(val) && defaultsLocked());
+			break;
+		case 1:
+			setDoorsNLocks(CMath.s_bool(val), isOpen(), CMath.s_bool(val) && defaultsClosed(), hasALock(), false, defaultsLocked());
+			break;
+		case 2:
+			setCapacity(CMath.s_parseIntExpression(val));
+			break;
+		case 3:
+			setContainTypes(CMath.s_parseBitLongExpression(Container.CONTAIN_DESCS, val));
+			break;
+		case 4:
+			setOpenDelayTicks(CMath.s_parseIntExpression(val));
+			break;
+		case 5:
+			setClothingLayer((short) CMath.s_parseIntExpression(val));
+			break;
+		case 6:
+			setLayerAttributes((short) CMath.s_parseListLongExpression(Armor.LAYERMASK_DESCS, val));
+			break;
+		case 7:
+			setDoorsNLocks(hasADoor(), isOpen(), CMath.s_bool(val), hasALock(), isLocked(), defaultsLocked());
+			break;
+		case 8:
+			setDoorsNLocks(hasADoor(), isOpen(), defaultsClosed(), hasALock(), isLocked(), CMath.s_bool(val));
+			break;
+		default:
+			CMProps.setStatCodeExtensionValue(getStatCodes(), xtraValues, code, val);
+			break;
 		}
 	}
-	protected int getCodeNum(String code){
+
+	@Override
+	protected int getCodeNum(String code)
+	{
 		for(int i=0;i<MYCODES.length;i++)
-			if(code.equalsIgnoreCase(MYCODES[i])) return i;
+		{
+			if(code.equalsIgnoreCase(MYCODES[i]))
+				return i;
+		}
 		return -1;
 	}
+
 	private static String[] codes=null;
+	@Override
 	public String[] getStatCodes()
 	{
-		if(codes!=null) return codes;
-        String[] MYCODES=CMProps.getStatCodesList(GenArmor.MYCODES,this);
-		String[] superCodes=GenericBuilder.GENITEMCODES;
+		if(codes!=null)
+			return codes;
+		final String[] MYCODES=CMProps.getStatCodesList(GenArmor.MYCODES,this);
+		final String[] superCodes=CMParms.toStringArray(GenericBuilder.GenItemCode.values());
 		codes=new String[superCodes.length+MYCODES.length];
 		int i=0;
 		for(;i<superCodes.length;i++)
@@ -133,13 +204,18 @@ public class GenArmor extends StdArmor
 			codes[i]=MYCODES[x];
 		return codes;
 	}
+
+	@Override
 	public boolean sameAs(Environmental E)
 	{
-		if(!(E instanceof GenArmor)) return false;
-		String[] codes=getStatCodes();
+		if(!(E instanceof GenArmor))
+			return false;
+		final String[] codes=getStatCodes();
 		for(int i=0;i<codes.length;i++)
+		{
 			if(!E.getStat(codes[i]).equals(getStat(codes[i])))
 				return false;
+		}
 		return true;
 	}
 }

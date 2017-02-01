@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Items.Basic;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,6 +10,7 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -18,13 +20,13 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2000-2010 Bo Zimmerman
+   Copyright 2003-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,10 +34,14 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
 public class StdTub extends StdRideable implements Drink
 {
-	public String ID(){	return "StdTub";}
+	@Override
+	public String ID()
+	{
+		return "StdTub";
+	}
+
 	protected int amountOfThirstQuenched=250;
 	protected int amountOfLiquidHeld=2000;
 	protected int amountOfLiquidRemaining=2000;
@@ -47,7 +53,7 @@ public class StdTub extends StdRideable implements Drink
 	{
 		super();
 		setName("a tub");
-		baseEnvStats.setWeight(100);
+		basePhyStats.setWeight(100);
 		capacity=1000;
 		containType=Container.CONTAIN_LIQUID;
 		setDisplayText("a tub sits here.");
@@ -56,47 +62,102 @@ public class StdTub extends StdRideable implements Drink
 		material=RawMaterial.RESOURCE_CLAY;
 		rideBasis=Rideable.RIDEABLE_SIT;
 		riderCapacity=4;
-		recoverEnvStats();
+		recoverPhyStats();
 	}
 
-	public long decayTime(){return decayTime;}
-	public void setDecayTime(long time){decayTime=time;}
-    public boolean disappearsAfterDrinking(){return disappearsAfterDrinking;}
-	public int thirstQuenched(){return amountOfThirstQuenched;}
-	public int liquidHeld(){return amountOfLiquidHeld;}
-	public int liquidRemaining(){return amountOfLiquidRemaining;}
-	public int liquidType(){
+	@Override
+	public long decayTime()
+	{
+		return decayTime;
+	}
+
+	@Override
+	public void setDecayTime(long time)
+	{
+		decayTime=time;
+	}
+
+	@Override
+	public boolean disappearsAfterDrinking()
+	{
+		return disappearsAfterDrinking;
+	}
+
+	@Override
+	public int thirstQuenched()
+	{
+		return amountOfThirstQuenched;
+	}
+
+	@Override
+	public int liquidHeld()
+	{
+		return amountOfLiquidHeld;
+	}
+
+	@Override
+	public int liquidRemaining()
+	{
+		return amountOfLiquidRemaining;
+	}
+
+	@Override
+	public int liquidType()
+	{
 		if((material()&RawMaterial.MATERIAL_MASK)==RawMaterial.MATERIAL_LIQUID)
 			return material();
 		return liquidType;
 	}
-	public void setLiquidType(int newLiquidType){liquidType=newLiquidType;}
 
-	public void setThirstQuenched(int amount){amountOfThirstQuenched=amount;}
-	public void setLiquidHeld(int amount){amountOfLiquidHeld=amount;}
-	public void setLiquidRemaining(int amount){amountOfLiquidRemaining=amount;}
-
-	public boolean containsDrink()
+	@Override
+	public void setLiquidType(int newLiquidType)
 	{
-        if((!CMLib.flags().isGettable(this))
-        &&(owner()!=null)
-        &&(owner() instanceof Room)
-        &&(((Room)owner()).getArea()!=null)
-        &&(((Room)owner()).getArea().getClimateObj().weatherType((Room)owner())==Climate.WEATHER_DROUGHT))
-            return false;
-        if(liquidRemaining()<1)
-        {
-            Vector V=getContents();
-            for(int v=0;v<V.size();v++)
-                if((V.elementAt(v) instanceof Item)
-                &&(V.elementAt(v) instanceof Drink)
-                &&((((Item)V.elementAt(v)).material()&RawMaterial.MATERIAL_MASK)==RawMaterial.MATERIAL_LIQUID))
-                    return true;
-            return false;
-        }
-        return true;
+		liquidType=newLiquidType;
 	}
 
+	@Override
+	public void setThirstQuenched(int amount)
+	{
+		amountOfThirstQuenched=amount;
+	}
+
+	@Override
+	public void setLiquidHeld(int amount)
+	{
+		amountOfLiquidHeld=amount;
+	}
+
+	@Override
+	public void setLiquidRemaining(int amount)
+	{
+		amountOfLiquidRemaining=amount;
+	}
+
+	protected int getExtraLiquidResourceType()
+	{
+		final List<Item> V=getContents();
+		for(int v=0;v<V.size();v++)
+			if((V.get(v) instanceof Drink)
+			&&((V.get(v).material()&RawMaterial.MATERIAL_MASK)==RawMaterial.MATERIAL_LIQUID))
+				return V.get(v).material();
+		return -1;
+	}
+
+	@Override
+	public boolean containsDrink()
+	{
+		if((!CMLib.flags().isGettable(this))
+		&&(owner()!=null)
+		&&(owner() instanceof Room)
+		&&(((Room)owner()).getArea()!=null)
+		&&(((Room)owner()).getArea().getClimateObj().weatherType((Room)owner())==Climate.WEATHER_DROUGHT))
+			return false;
+		if(liquidRemaining()<1)
+			return (getExtraLiquidResourceType()>0);
+		return true;
+	}
+
+	@Override
 	public String stateString(Rider R)
 	{
 		switch(rideBasis)
@@ -115,11 +176,14 @@ public class StdTub extends StdRideable implements Drink
 		}
 		return "riding in";
 	}
+
+	@Override
 	public String putString(Rider R)
 	{
 		return "in";
 	}
 
+	@Override
 	public String mountString(int commandType, Rider R)
 	{
 		switch(rideBasis)
@@ -139,6 +203,8 @@ public class StdTub extends StdRideable implements Drink
 		}
 		return "board(s)";
 	}
+
+	@Override
 	public String dismountString(Rider R)
 	{
 		switch(rideBasis)
@@ -157,6 +223,8 @@ public class StdTub extends StdRideable implements Drink
 		}
 		return "disembark(s) from";
 	}
+
+	@Override
 	public String stateStringSubject(Rider R)
 	{
 		switch(rideBasis)
@@ -176,61 +244,59 @@ public class StdTub extends StdRideable implements Drink
 		return "";
 	}
 
-	public boolean okMessage(Environmental myHost, CMMsg msg)
+	@Override
+	public boolean okMessage(final Environmental myHost, final CMMsg msg)
 	{
 		if(!super.okMessage(myHost,msg))
 			return false;
 		if(msg.amITarget(this))
 		{
-			MOB mob=msg.source();
+			final MOB mob=msg.source();
 			switch(msg.targetMinor())
 			{
 			case CMMsg.TYP_DRINK:
-				if((mob.isMine(this))||(envStats().weight()>1000)||(!CMLib.flags().isGettable(this)))
+				if((mob.isMine(this))||(phyStats().weight()>1000)||(!CMLib.flags().isGettable(this)))
 				{
 					if(!containsDrink())
 					{
-						mob.tell(name()+" is empty.");
+						mob.tell(L("@x1 is empty.",name()));
 						return false;
 					}
 					if((liquidType()==RawMaterial.RESOURCE_SALTWATER)
 					||(liquidType()==RawMaterial.RESOURCE_LAMPOIL))
 					{
-						mob.tell("You don't want to be drinking "+RawMaterial.CODES.NAME(liquidType()).toLowerCase()+".");
+						mob.tell(L("You don't want to be drinking @x1.",RawMaterial.CODES.NAME(liquidType()).toLowerCase()));
 						return false;
 					}
 					return true;
 				}
-				mob.tell("You don't have that.");
+				mob.tell(L("You don't have that."));
 				return false;
 			case CMMsg.TYP_FILL:
 				if((liquidRemaining()>=amountOfLiquidHeld)
 				&&(liquidHeld()<500000))
 				{
-					mob.tell(name()+" is full.");
+					mob.tell(L("@x1 is full.",name()));
 					return false;
 				}
-				if((msg.tool()!=null)
-				&&(msg.tool()!=msg.target())
+				if((msg.tool()!=msg.target())
 				&&(msg.tool() instanceof Drink))
 				{
-					Drink thePuddle=(Drink)msg.tool();
+					final Drink thePuddle=(Drink)msg.tool();
 					if(!thePuddle.containsDrink())
 					{
-						mob.tell(thePuddle.name()+" is empty.");
+						mob.tell(L("@x1 is empty.",thePuddle.name()));
 						return false;
 					}
 					if((liquidRemaining()>0)&&(liquidType()!=thePuddle.liquidType()))
 					{
-						mob.tell("There is still some "+RawMaterial.CODES.NAME(liquidType()).toLowerCase()
-								 +" left in "+name()+".  You must empty it before you can fill it with "
-								 +RawMaterial.CODES.NAME(thePuddle.liquidType()).toLowerCase()+".");
+						mob.tell(L("There is still some @x1 left in @x2.  You must empty it before you can fill it with @x3.",RawMaterial.CODES.NAME(liquidType()).toLowerCase(),name(),RawMaterial.CODES.NAME(thePuddle.liquidType()).toLowerCase()));
 						return false;
 
 					}
 					return true;
 				}
-				mob.tell("You can't fill "+name()+" from that.");
+				mob.tell(L("You can't fill @x1 from that.",name()));
 				return false;
 			default:
 				break;
@@ -239,65 +305,69 @@ public class StdTub extends StdRideable implements Drink
 		return true;
 	}
 
-    public int amountTakenToFillMe(Drink theSource)
-    {
-        int amountToTake=amountOfLiquidHeld-amountOfLiquidRemaining;
-        if(amountOfLiquidHeld>=500000)
-            amountToTake=theSource.liquidRemaining();
-        if(amountToTake>theSource.liquidRemaining())
-            amountToTake=theSource.liquidRemaining();
-        return amountToTake;
-    }
-
-	public void executeMsg(Environmental myHost, CMMsg msg)
+	@Override
+	public int amountTakenToFillMe(Drink theSource)
 	{
-	    if((msg.source().riding()==this)
-        &&(CMath.bset(msg.sourceMajor(),CMMsg.MASK_MOVE)
-            ||((msg.tool() instanceof Social)
-                &&((msg.tool().Name().toUpperCase().startsWith("BATHE"))
-                ||(msg.tool().Name().toUpperCase().startsWith("WASH")))))
-	    &&(msg.source().playerStats()!=null)
-	    &&(msg.source().playerStats().getHygiene()>0)
-	    &&(msg.source().soulMate()==null))
-		    msg.source().playerStats().adjHygiene(PlayerStats.HYGIENE_WATERCLEAN);
+		int amountToTake=amountOfLiquidHeld-amountOfLiquidRemaining;
+		if(amountOfLiquidHeld>=500000)
+			amountToTake=theSource.liquidRemaining();
+		if(amountToTake>theSource.liquidRemaining())
+			amountToTake=theSource.liquidRemaining();
+		return amountToTake;
+	}
+
+	@Override
+	public void executeMsg(final Environmental myHost, final CMMsg msg)
+	{
+		if((msg.source().riding()==this)
+		&&(CMLib.commands().isHygienicMessage(msg, 0, PlayerStats.HYGIENE_WATERCLEAN)))
+		{
+			final int extraRsc=getExtraLiquidResourceType();
+			if((amountOfLiquidRemaining>1)
+			&&(this.liquidType==RawMaterial.RESOURCE_FRESHWATER)
+			&&((extraRsc<0)||(extraRsc==RawMaterial.RESOURCE_FRESHWATER)))
+			{
+				CMLib.commands().handleHygienicMessage(msg, 0, PlayerStats.HYGIENE_WATERCLEAN);
+			}
+		}
 
 		if(msg.amITarget(this))
 		{
-			MOB mob=msg.source();
+			final MOB mob=msg.source();
 			switch(msg.targetMinor())
 			{
 			case CMMsg.TYP_DRINK:
 				amountOfLiquidRemaining-=amountOfThirstQuenched;
-				boolean thirsty=mob.curState().getThirst()<=0;
-				boolean full=!mob.curState().adjThirst(amountOfThirstQuenched,mob.maxState().maxThirst(mob.baseWeight()));
+				final boolean thirsty=mob.curState().getThirst()<=0;
+				final boolean full=!mob.curState().adjThirst(amountOfThirstQuenched,mob.maxState().maxThirst(mob.baseWeight()));
 				if(thirsty)
-					mob.tell("You are no longer thirsty.");
+					mob.tell(L("You are no longer thirsty."));
 				else
 				if(full)
-					mob.tell("You have drunk all you can.");
+					mob.tell(L("You have drunk all you can."));
 				if(disappearsAfterDrinking)
-                {
-                    destroy();
-                    return;
-                }
+				{
+					destroy();
+					return;
+				}
 				break;
 			case CMMsg.TYP_FILL:
-				if((msg.tool()!=null)&&(msg.tool() instanceof Drink))
+				if((msg.tool() instanceof Drink))
 				{
-					Drink thePuddle=(Drink)msg.tool();
-					int amountToTake=amountTakenToFillMe(thePuddle);
+					final Drink thePuddle=(Drink)msg.tool();
+					final int amountToTake=amountTakenToFillMe(thePuddle);
 					thePuddle.setLiquidRemaining(thePuddle.liquidRemaining()-amountToTake);
 					if(amountOfLiquidRemaining<=0)
 						setLiquidType(thePuddle.liquidType());
-					if( ( (long)amountOfLiquidRemaining + (long)amountToTake ) <= (long)Integer.MAX_VALUE )
+					if( ( (long)amountOfLiquidRemaining + (long)amountToTake ) <= Integer.MAX_VALUE )
 						amountOfLiquidRemaining+=amountToTake;
 					if(amountOfLiquidRemaining>amountOfLiquidHeld)
 						amountOfLiquidRemaining=amountOfLiquidHeld;
 					if((amountOfLiquidRemaining<=0)&&(disappearsAfterDrinking))
-                    {
+					{
 						destroy();
-                        return;
-                    }
+						return;
+					}
 				}
 				break;
 			default:

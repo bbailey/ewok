@@ -1,6 +1,9 @@
 package com.planet_ink.coffee_mud.WebMacros;
+
+import com.planet_ink.coffee_web.interfaces.*;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -12,19 +15,19 @@ import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
+
 import java.util.*;
+import java.lang.reflect.Method;
 import java.net.*;
 
-
-
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2002-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,153 +35,193 @@ import java.net.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
 public class Authenticate extends StdWebMacro
 {
-	public String name()	{return this.getClass().getName().substring(this.getClass().getName().lastIndexOf('.')+1);}
-	public boolean isAdminMacro()	{return false;}
+	@Override public String name() { return "Authenticate"; }
+	@Override public boolean isAdminMacro()    {return false;}
+	private static final long ONE_REAL_DAY=(long)1000*60*60*24;
 
-	public String runMacro(ExternalHTTPRequests httpReq, String parm)
+	@Override
+	public String runMacro(HTTPRequest httpReq, String parm, HTTPResponse httpResp)
 	{
-		Hashtable parms=parseParms(parm);
+		final java.util.Map<String,String> parms=parseParms(parm);
 		if((parms!=null)&&(parms.containsKey("AUTH")))
 		{
-		    try
-		    {
-				return URLEncoder.encode(Encrypt(getLogin(httpReq))+"-"+Encrypt(getPassword(httpReq)),"UTF-8");
-		    }
-		    catch(Exception u)
-		    {
-		        return "false";
-		    }
+			try
+			{
+				final String loginUrlStr= URLEncoder.encode(Authenticate.Encrypt(Authenticate.getLogin(httpReq)),"UTF-8");
+				final String passwordUrlStr=URLEncoder.encode(Authenticate.Encrypt(Authenticate.getPassword(httpReq)),"UTF-8");
+				return loginUrlStr+"-"+passwordUrlStr;
+			}
+			catch(final Exception u)
+			{
+				return "false";
+			}
 		}
-		String login=getLogin(httpReq);
+		final String login=getLogin(httpReq);
 		if((parms!=null)&&(parms.containsKey("SETPLAYER")))
-			httpReq.addRequestParameters("PLAYER",login);
+			httpReq.addFakeUrlParameter("PLAYER",login);
+		if((parms!=null)&&(parms.containsKey("SETACCOUNT"))&&(CMProps.isUsingAccountSystem()))
+		{
+			final MOB mob=getAuthenticatedMob(httpReq);
+			if((mob!=null)&&(mob.playerStats()!=null)&&(mob.playerStats().getAccount()!=null))
+				httpReq.addFakeUrlParameter("ACCOUNT",mob.playerStats().getAccount().getAccountName());
+		}
 		if(authenticated(httpReq,login,getPassword(httpReq)))
 			return "true";
 		return "false";
 	}
-	
-    protected static final char[] ABCs="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz1234567890".toCharArray();
-    protected static final char[] FILTER;
-    protected static final int[] ABCDEXs;
-    static 
-    {
-    	// this is coffeemud's unsophisticated rot(mac address) encryption system.
-    	char[] filterc = "wrinkletellmetrueisthereanythingasnastyasyouwellmaybesothenumber7470issprettybad".toCharArray(); 
-    	try
-    	{
-    		NetworkInterface ni = NetworkInterface.getByInetAddress(InetAddress.getLocalHost());
-    		byte[] mac = ni.getHardwareAddress();
-    		if(mac != null)
-    		{
-    			int i=0;
-    			while(i<filterc.length)
-    			{
-    				filterc[i]=ABCs[Math.abs(mac[i % mac.length]) % ABCs.length];
-    				i++;
-    			}
-    		}
-    	} catch(Exception e) {
-    		Log.errOut("Authenticate",e);
-    	}
-    	FILTER=filterc;
-    	int[] abcdex=new int[256];
-    	for(int i=0;i<ABCs.length;i++)
-    		abcdex[ABCs[i]]=i+1;
-    	ABCDEXs=abcdex;
-    }
 
-	public static boolean authenticated(ExternalHTTPRequests httpReq, String login, String password)
+	protected static byte[] FILTER=null;
+	public static byte[] getFilter()
 	{
-		MOB mob=CMLib.players().getLoadPlayer(login);
+		if(FILTER==null)
+		{
+			// this is coffeemud's unsophisticated xor(mac address) encryption system.
+			final byte[] filterc = new String("wrinkletellmetrueisthereanythingasnastyasyouwellmaybesothenumber7470issprettybad").getBytes();
+			FILTER=new byte[256];
+			try
+			{
+				for(int i=0;i<256;i++)
+					FILTER[i]=filterc[i % filterc.length];
+				final String domain=CMProps.getVar(CMProps.Str.MUDDOMAIN);
+				if(domain.length()>0)
+					for(int i=0;i<256;i++)
+						FILTER[i]^=domain.charAt(i % domain.length());
+				final String name=CMProps.getVar(CMProps.Str.MUDNAME);
+				if(name.length()>0)
+					for(int i=0;i<256;i++)
+						FILTER[i]^=name.charAt(i % name.length());
+				final String email=CMProps.getVar(CMProps.Str.ADMINEMAIL);
+				if(email.length()>0)
+					for(int i=0;i<256;i++)
+						FILTER[i]^=email.charAt(i % email.length());
+				for(final Enumeration<NetworkInterface> nie = NetworkInterface.getNetworkInterfaces(); nie.hasMoreElements();)
+				{
+					final NetworkInterface ni = nie.nextElement();
+					if(ni != null)
+					{
+						final byte[] mac = ni.getHardwareAddress();
+						if((mac != null) && (mac.length > 0))
+						{
+							for(int i=0;i<256;i++)
+								FILTER[i]^=Math.abs(mac[i % mac.length]);
+						}
+					}
+				}
+			}
+			catch(final Exception e)
+			{
+				e.printStackTrace();
+			}
+		}
+		return FILTER;
+	}
+
+	protected static byte[] EnDeCrypt(byte[] bytes)
+	{
+		final byte[] FILTER=getFilter();
+		for ( int i = 0, j = 0; i < bytes.length; i++, j++ )
+		{
+		   if ( j >= FILTER.length ) j = 0;
+		   bytes[i]=(byte)((bytes[i] ^ FILTER[j]) & 0xff);
+		}
+		return bytes;
+	}
+
+	protected static String Encrypt(String ENCRYPTME)
+	{
+		try
+		{
+			final byte[] buf=B64Encoder.B64encodeBytes(EnDeCrypt(ENCRYPTME.getBytes()),B64Encoder.DONT_BREAK_LINES).getBytes();
+			final StringBuilder s=new StringBuilder("");
+			for(final byte b : buf)
+			{
+				String s2=Integer.toHexString(b);
+				while(s2.length()<2)
+					s2="0"+s2;
+				s.append(s2);
+			}
+			return s.toString();
+		}
+		catch(final Exception e)
+		{
+			return "";
+		}
+	}
+
+	protected static String Decrypt(String DECRYPTME)
+	{
+		try
+		{
+			final byte[] buf=new byte[DECRYPTME.length()/2];
+			for(int i=0;i<DECRYPTME.length();i+=2)
+				buf[i/2]=(byte)(Integer.parseInt(DECRYPTME.substring(i,i+2),16) & 0xff);
+			return new String(EnDeCrypt(B64Encoder.B64decode(new String(buf))));
+		}
+		catch(final Exception e)
+		{
+			return "";
+		}
+	}
+
+	public static boolean authenticated(HTTPRequest httpReq, String login, String password)
+	{
+		if(!CMProps.getBoolVar(CMProps.Bool.MUDSTARTED))
+			return false;
+		final MOB mob=CMLib.players().getLoadPlayer(login);
 		if((mob!=null)
 		&&(mob.playerStats()!=null)
-		&&(mob.playerStats().password().equalsIgnoreCase(password))
+		&&(mob.playerStats().matchesPassword(password))
 		&&(mob.Name().trim().length()>0)
 		&&(!CMSecurity.isBanned(mob.Name())))
-			return true;
-		if(CMProps.getIntVar(CMProps.SYSTEMI_COMMONACCOUNTSYSTEM)>0)
 		{
-			PlayerAccount acct=CMLib.players().getLoadAccount(login);
-			if((acct!=null)
-			&&(acct.password().equalsIgnoreCase(password))
-			&&(!CMSecurity.isBanned(acct.accountName())))
-				return true;
+			final long lastLogin = System.currentTimeMillis() - mob.playerStats().getLastDateTime();
+			if(lastLogin > ONE_REAL_DAY)
+				mob.playerStats().setLastDateTime(System.currentTimeMillis());
+			return true;
 		}
-			
+		if(CMProps.isUsingAccountSystem())
+		{
+			final PlayerAccount acct=CMLib.players().getLoadAccount(login);
+			if((acct!=null)
+			&&(acct.matchesPassword(password))
+			&&(!CMSecurity.isBanned(acct.getAccountName())))
+			{
+				final long lastLogin = System.currentTimeMillis() - acct.getLastDateTime();
+				if(lastLogin > ONE_REAL_DAY)
+					acct.setLastDateTime(System.currentTimeMillis());
+				return true;
+			}
+		}
 		return false;
 	}
 
-    protected static String Encrypt(String ENCRYPTME)
+	public static MOB getAuthenticatedMob(HTTPRequest httpReq)
 	{
-    	char[] INTOME=new char[ENCRYPTME.length()];
-    	char[] ENCRYPTMEC = ENCRYPTME.toCharArray(); 
-		for(int i=0; i<ENCRYPTMEC.length;i++)
+		if(httpReq.getRequestObjects().get("AUTHENTICATED_USER")!=null)
 		{
-			char c = ENCRYPTMEC[i];
-			INTOME[i]=c;
-			int dex = ABCDEXs[c]-1; 
-			if (dex>=0)
-			{
-				for(int f=i;f<FILTER.length;f+=ENCRYPTMEC.length)
-				{
-					dex = dex + ABCDEXs[FILTER[f]];
-					if (dex>=ABCs.length)
-						dex = dex-ABCs.length;
-					INTOME[i]=ABCs[dex];
-				}
-			}
+			final Object o=httpReq.getRequestObjects().get("AUTHENTICATED_USER");
+			if(!(o instanceof MOB))
+				return null;
+			return (MOB)o;
 		}
-		return new String(INTOME);
-	}
-
-    protected static String Decrypt(String DECRYPTME)
-	{
-    	char[] INTOME=new char[DECRYPTME.length()];
-    	char[] DECRYPTMEC = DECRYPTME.toCharArray(); 
-		for(int i=0; i<DECRYPTMEC.length;i++)
+		MOB mob=null;
+		final String login = getLogin(httpReq);
+		if((login != null)&&(login.length()>0))
 		{
-			char c = DECRYPTMEC[i];
-			INTOME[i]=c;
-			int dex = ABCDEXs[c]-1; 
-			if (dex >=0)
-			{
-				for(int f=i;f<FILTER.length;f+=DECRYPTMEC.length)
-				{
-					dex = dex - ABCDEXs[FILTER[f]];
-					if (dex<0)
-						dex = dex+ABCs.length;
-					INTOME[i]=ABCs[dex];
-				}
-			}
-		}
-		return new String(INTOME);
-	}
-
-    public static MOB getAuthenticatedMob(ExternalHTTPRequests httpReq)
-    {
-    	if(httpReq.getRequestObjects().containsKey("AUTHENTICATED_USER"))
-    	{
-    		Object o=httpReq.getRequestObjects().get("AUTHENTICATED_USER");
-    		if(!(o instanceof MOB)) return null;
-    		return (MOB)o;
-    	}
-    	MOB mob=null;
-    	String login = getLogin(httpReq);
-    	if((login != null)&&(login.length()>0))
-    	{
-	    	String password = getPassword(httpReq);
+			final String password = getPassword(httpReq);
 			mob=CMLib.players().getLoadPlayer(login);
-			if((mob==null)||(mob.playerStats()==null))
+			if((mob==null)
+			||(mob.playerStats()==null)
+			||((CMProps.isUsingAccountSystem()) && (mob.playerStats().getAccount()==null)))
 			{
-				if(CMProps.getIntVar(CMProps.SYSTEMI_COMMONACCOUNTSYSTEM)>0)
+				if(CMProps.isUsingAccountSystem())
 				{
-					PlayerAccount acct=CMLib.players().getLoadAccount(login);
+					final PlayerAccount acct=CMLib.players().getLoadAccount(login);
 					if((acct!=null)
-					&&(acct.password().equalsIgnoreCase(password))
-					&&(!CMSecurity.isBanned(acct.accountName())))
+					&&(acct.matchesPassword(password))
+					&&(!CMSecurity.isBanned(acct.getAccountName())))
 						mob=acct.getAccountMob();
 					else
 						mob=null;
@@ -187,67 +230,73 @@ public class Authenticate extends StdWebMacro
 					mob=null;
 			}
 			else
-			if((!mob.playerStats().password().equalsIgnoreCase(password))
+			if((!mob.playerStats().matchesPassword(password))
 			||(mob.Name().trim().length()==0)
 			||(CMSecurity.isBanned(mob.Name()))
-			||((mob.playerStats().getAccount()!=null)&&(CMSecurity.isBanned(mob.playerStats().getAccount().accountName()))))
+			||((mob.playerStats().getAccount()!=null)&&(CMSecurity.isBanned(mob.playerStats().getAccount().getAccountName()))))
 				mob=null;
-    	}
-    	if(mob!=null)
+		}
+		if(mob!=null)
 			httpReq.getRequestObjects().put("AUTHENTICATED_USER",mob);
-    	else
+		else
 			httpReq.getRequestObjects().put("AUTHENTICATED_USER",new Object());
 		return mob;
-    }
-    
-	public static String getLogin(ExternalHTTPRequests httpReq)
+	}
+
+	public static String getLogin(HTTPRequest httpReq)
 	{
-		String login=httpReq.getRequestParameter("LOGIN");
+		String login=httpReq.getUrlParameter("LOGIN");
 		if((login!=null)&&(login.length()>0))
 		{
-			if(CMProps.getIntVar(CMProps.SYSTEMI_COMMONACCOUNTSYSTEM)>0)
+			if(CMProps.isUsingAccountSystem())
 			{
-				PlayerAccount acct = CMLib.players().getLoadAccount(login);
+				final PlayerAccount acct = CMLib.players().getLoadAccount(login);
 				if(acct != null)
 				{
 					MOB highestM = null;
-					if(acct.isPlayer(login))
-						highestM=CMLib.players().getLoadPlayer(login);
-					else
-					for(Enumeration<MOB> m = acct.getLoadPlayers();m.hasMoreElements();)
+					final String playerName=acct.findPlayer(login);
+					if(playerName!=null)
 					{
-						MOB M=m.nextElement();
+						login=playerName;
+						highestM=CMLib.players().getLoadPlayer(login);
+					}
+					else
+					for(final Enumeration<MOB> m = acct.getLoadPlayers();m.hasMoreElements();)
+					{
+						final MOB M=m.nextElement();
 						if((highestM==null)
-						||((M!=null)&&(M.baseEnvStats().level()>highestM.baseEnvStats().level())))
+						||((M!=null)&&(M.basePhyStats().level()>highestM.basePhyStats().level())))
 							highestM = M;
 					}
 					if(highestM!=null)
 					{
 						if(!highestM.Name().equals(login))
-							httpReq.addRequestParameters("LOGIN", highestM.Name());
+							httpReq.addFakeUrlParameter("LOGIN", highestM.Name());
 						return highestM.Name();
 					}
 				}
 			}
 			return login;
 		}
-		String auth=httpReq.getRequestParameter("AUTH");
-		if(auth==null) return "";
-		int x = auth.indexOf('-');
-		if(x>=0) 
+		final String auth=httpReq.getUrlParameter("AUTH");
+		if(auth==null)
+			return "";
+		final int x = auth.indexOf('-');
+		if(x>=0)
 			login=Decrypt(auth.substring(0,x));
 		return login;
 	}
 
-	public static String getPassword(ExternalHTTPRequests httpReq)
+	public static String getPassword(HTTPRequest httpReq)
 	{
-		String password=httpReq.getRequestParameter("PASSWORD");
+		String password=httpReq.getUrlParameter("PASSWORD");
 		if((password!=null)&&(password.length()>0))
 			return password;
-		String auth=httpReq.getRequestParameter("AUTH");
-		if(auth==null) return "";
-		int x = auth.indexOf('-');
-		if(x>=0) 
+		final String auth=httpReq.getUrlParameter("AUTH");
+		if(auth==null)
+			return "";
+		final int x = auth.indexOf('-');
+		if(x>=0)
 			password=Decrypt(auth.substring(x+1));
 		return password;
 	}

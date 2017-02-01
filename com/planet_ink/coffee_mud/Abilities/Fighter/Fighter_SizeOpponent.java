@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Fighter;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,20 +10,21 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2003-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -31,46 +33,45 @@ import java.util.*;
    limitations under the License.
 */
 
-@SuppressWarnings("unchecked")
+
 public class Fighter_SizeOpponent extends FighterSkill
 {
-	public String ID() { return "Fighter_SizeOpponent"; }
-	public String name(){ return "Opponent Knowledge";}
-	private static final String[] triggerStrings = {"SIZEUP","OPPONENT"};
-	public int abstractQuality(){return Ability.QUALITY_INDIFFERENT;}
-	public String[] triggerStrings(){return triggerStrings;}
-	protected int canAffectCode(){return 0;}
-	protected int canTargetCode(){return Ability.CAN_MOBS;}
-    public int classificationCode(){return Ability.ACODE_SKILL|Ability.DOMAIN_COMBATLORE;}
+	@Override public String ID() { return "Fighter_SizeOpponent"; }
+	private final static String localizedName = CMLib.lang().L("Opponent Knowledge");
+	@Override public String name() { return localizedName; }
+	private static final String[] triggerStrings =I(new String[] {"SIZEUP","OPPONENT"});
+	@Override public int abstractQuality(){return Ability.QUALITY_INDIFFERENT;}
+	@Override public String[] triggerStrings(){return triggerStrings;}
+	@Override protected int canAffectCode(){return 0;}
+	@Override protected int canTargetCode(){return Ability.CAN_MOBS;}
+	@Override public int classificationCode(){return Ability.ACODE_SKILL|Ability.DOMAIN_COMBATLORE;}
 
-	public boolean invoke(MOB mob, Vector commands, Environmental givenTarget, boolean auto, int asLevel)
+	@Override
+	public boolean invoke(MOB mob, List<String> commands, Physical givenTarget, boolean auto, int asLevel)
 	{
-		MOB target=getTarget(mob,commands,givenTarget);
-		if(target==null) return false;
+		final MOB target=getTarget(mob,commands,givenTarget);
+		if(target==null)
+			return false;
 
-		// the invoke method for spells receives as
-		// parameters the invoker, and the REMAINING
-		// command line parameters, divided into words,
-		// and added as String objects to a vector.
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
 			return false;
 
 		// now see if it worked
-		boolean success=proficiencyCheck(mob,0,auto);
+		final boolean success=proficiencyCheck(mob,0,auto);
 		if(success)
 		{
 			invoker=mob;
-			CMMsg msg=CMClass.getMsg(mob,target,this,CMMsg.MSG_LOOK|(auto?CMMsg.MASK_ALWAYS:0),"<S-NAME> size(s) up <T-NAMESELF> with <S-HIS-HER> eyes.");
+			final CMMsg msg=CMClass.getMsg(mob,target,this,CMMsg.MSG_LOOK|(auto?CMMsg.MASK_ALWAYS:0),L("<S-NAME> size(s) up <T-NAMESELF> with <S-HIS-HER> eyes."));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);
-				StringBuffer buf=new StringBuffer(target.name()+" looks to have "+target.curState().getHitPoints()+" out of "+target.maxState().getHitPoints()+" hit points.\n\r");
-				buf.append(target.charStats().HeShe()+" looks like "+target.charStats().heshe()+" is "+CMLib.combat().fightingProwessStr(target)+" and is "+CMLib.combat().armorStr(target)+".");
+				final StringBuffer buf=new StringBuffer(L("@x1 looks to have @x2 out of @x3 hit points.\n\r",target.name(mob),""+target.curState().getHitPoints(),""+target.maxState().getHitPoints()));
+				buf.append(L("@x1 looks like @x2 is @x3 and is @x4.",target.charStats().HeShe(),target.charStats().heshe(),CMStrings.removeColors(CMLib.combat().fightingProwessStr(target)),CMStrings.removeColors(CMLib.combat().armorStr(target))));
 				mob.tell(buf.toString());
 			}
 		}
 		else
-			return beneficialVisualFizzle(mob,target,"<S-NAME> size(s) up <T-NAMESELF> with <S-HIS-HER> eyes, but look(s) confused.");
+			return beneficialVisualFizzle(mob,target,L("<S-NAME> size(s) up <T-NAMESELF> with <S-HIS-HER> eyes, but look(s) confused."));
 
 		// return whether it worked
 		return success;

@@ -1,9 +1,11 @@
 package com.planet_ink.coffee_mud.Libraries;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.DatabaseEngine.PlayerData;
 import com.planet_ink.coffee_mud.Libraries.interfaces.MoneyLibrary.MoneyDenomination;
+import com.planet_ink.coffee_mud.Libraries.interfaces.XMLLibrary.XMLTag;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -16,17 +18,16 @@ import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
-
 import java.util.*;
 
 /*
-   Copyright 2000-2010 Bo Zimmerman
+   Copyright 2005-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -34,429 +35,569 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
 public class BeanCounter extends StdLibrary implements MoneyLibrary
 {
-    public String ID(){return "BeanCounter";}
-    public Hashtable<String,MoneyDenomination[]> currencies=new Hashtable<String,MoneyDenomination[]>();
-    public static Hashtable<String,MoneyDenomination[]> defaultCurrencies=new Hashtable<String,MoneyDenomination[]>();
-    public Vector<String> allCurrencyNames=new Vector<String>();
-    public Hashtable allCurrencyDenominationNames=new Hashtable();
+	@Override public String ID(){return "BeanCounter";}
+	public Hashtable<String,MoneyDenomination[]> currencies=new Hashtable<String,MoneyDenomination[]>();
+	public static Hashtable<String,MoneyDenomination[]> defaultCurrencies=new Hashtable<String,MoneyDenomination[]>();
+	public Vector<String> allCurrencyNames=new Vector<String>();
+	public Hashtable<String,List<String>> allCurrencyDenominationNames=new Hashtable<String,List<String>>();
 
-	public void unloadCurrencySet(String currency)
+	private class MoneyDenominationImpl implements MoneyDenomination
 	{
-	    String code=currency.toUpperCase().trim();
-	    int x=code.indexOf("=");
-	    if(x>=0) code=code.substring(0,x).trim();
-	    if((code.length()>0)&&(currencies.containsKey(code)))
-	    {
-	        allCurrencyNames.removeElement(code);
-            currencies.remove(code);
-            allCurrencyDenominationNames.remove(code);
-	    }
-	}
-
-    public MoneyDenomination[] createCurrencySet(String currency)
-    { 
-    	return createCurrencySet(currencies,currency);
-    }
-    
-	protected MoneyDenomination[] createCurrencySet(Hashtable currencies, String currency)
-	{
-	    int x=currency.indexOf("=");
-	    if(x<0) return null;
-	    String code=currency.substring(0,x).trim().toUpperCase();
-	    if(currencies.containsKey(code))
-	        return (MoneyDenomination[])currencies.get(code);
-        currency=currency.substring(x+1).trim();
-        Vector CV=CMParms.parseSemicolons(currency,true);
-        Vector<MoneyDenomination> DV=new Vector<MoneyDenomination>();
-        String s=null;
-        String num=null;
-        double d=0.0;
-        Vector currencyNames=new Vector();
-        for(int v=0;v<CV.size();v++)
-        {
-            s=(String)CV.elementAt(v);
-            x=s.indexOf(" ");
-            if(x<0) continue;
-            num=s.substring(0,x).trim();
-            if(CMath.isDouble(num))
-                d=CMath.s_double(num);
-            else
-            if(CMath.isInteger(num))
-                d=(double)CMath.s_int(num);
-            else
-                continue;
-            s=s.substring(x+1).trim();
-            String shortName="";
-            if(s.endsWith(")"))
-            {
-                x=s.lastIndexOf(" ");
-                if((x>0)&&(x<s.length()-1)&&(s.charAt(x+1)=='('))
-                {
-                    shortName=s.substring(x+2,s.length()-1).trim();
-                    s=s.substring(0,x).trim();
-                }
-            }
-            if((s.length()>0)&&(d>0.0))
-            {
-                int insertAt=-1;
-                for(int i=0;i<DV.size();i++)
-                    if(((MoneyDenomination)DV.elementAt(i)).value>d)
-                    { insertAt=i; break;}
-                if((insertAt<0)||(insertAt>=DV.size()))
-	                DV.addElement(new MoneyDenomination(d,s,shortName));
-                else
-                    DV.insertElementAt(new MoneyDenomination(d,s,shortName),insertAt);
-                currencyNames.addElement(s);
-                if(shortName.length()>0)
-                    currencyNames.add(shortName);
-            }
-        }
-        MoneyDenomination[] DVs=new MoneyDenomination[DV.size()];
-        for(int i=0;i<DV.size();i++)
-        	DVs[i]=(MoneyDenomination)DV.elementAt(i);
-        currencies.put(code,DVs);
-        allCurrencyNames.addElement(code);
-        allCurrencyDenominationNames.put(code,currencyNames);
-        return DVs;
-	}
-
-	public int getDenominationIndex(String currency, double value)
-	{
-		MoneyDenomination[] DV=getCurrencySet(currency);
-		if(DV!=null)
-		for(int d=0;d<DV.length;d++)
-			if(value==DV[d].value) return d;
-		return -1;
+		private final double value;
+		private final String name;
+		private final String abbr;
+		
+		@Override
+		public double value()
+		{
+			return value;
+		}
+		
+		@Override
+		public String name()
+		{
+			return name;
+		}
+		
+		@Override
+		public String abbr()
+		{
+			return abbr;
+		}
+		
+		protected MoneyDenominationImpl(double value,String name,String abbr)
+		{
+			this.value=value;
+			this.name=name;
+			this.abbr=abbr;
+		}
 	}
 	
-	public MoneyDenomination[] getCurrencySet(String currency)
+	@Override
+	public void unloadCurrencySet(String currency)
 	{
-	    if(currency==null) return null;
-	    String code=currency.toUpperCase().trim();
-	    int x=code.indexOf("=");
-	    if(x<0)
-	    {
-	        if(currencies.containsKey(code))
-	            return (MoneyDenomination[])currencies.get(code);
-            if(defaultCurrencies.size()==0)
-            {
-                createCurrencySet(defaultCurrencies,defaultCurrencyDefinition);
-                createCurrencySet(defaultCurrencies,goldStandard);
-                createCurrencySet(defaultCurrencies,copperStandard);
-            }
-            if(defaultCurrencies.containsKey(code))
-                return (MoneyDenomination[])defaultCurrencies.get(code);
-	        return null;
-	    }
-        code=code.substring(0,x).trim();
-        if(currencies.containsKey(code))
-            return (MoneyDenomination[])currencies.get(code);
-        return createCurrencySet(currency);
+		String code=currency.toUpperCase().trim();
+		final int x=code.indexOf('=');
+		if(x>=0)
+			code=code.substring(0,x).trim();
+		if(currencies.containsKey(code))
+		{
+			allCurrencyNames.removeElement(code);
+			currencies.remove(code);
+			allCurrencyDenominationNames.remove(code);
+		}
 	}
 
-	public Vector getAllCurrencies()
-	{ 
+	@Override
+	public MoneyDenomination[] createCurrencySet(String currency)
+	{
+		return createCurrencySet(currencies,currency);
+	}
+
+	protected MoneyDenomination[] createCurrencySet(Hashtable<String,MoneyDenomination[]> currencies, String currency)
+	{
+		int x=currency.indexOf('=');
+		if(x<0)
+			return null;
+		final String code=currency.substring(0,x).trim().toUpperCase();
+		if(currencies.containsKey(code))
+			return currencies.get(code);
+		currency=currency.substring(x+1).trim();
+		final List<String> CV=CMParms.parseSemicolons(currency,true);
+		final Vector<MoneyDenomination> DV=new Vector<MoneyDenomination>();
+		String s=null;
+		String num=null;
+		double d=0.0;
+		final Vector<String> currencyNames=new Vector<String>();
+		for(int v=0;v<CV.size();v++)
+		{
+			s=CV.get(v);
+			x=s.indexOf(' ');
+			if(x<0)
+				continue;
+			num=s.substring(0,x).trim();
+			if(CMath.isDouble(num))
+				d=CMath.s_double(num);
+			else
+			if(CMath.isInteger(num))
+				d=CMath.s_int(num);
+			else
+				continue;
+			s=s.substring(x+1).trim();
+			String shortName="";
+			if(s.endsWith(")"))
+			{
+				x=s.lastIndexOf(' ');
+				if((x>0)&&(x<s.length()-1)&&(s.charAt(x+1)=='('))
+				{
+					shortName=s.substring(x+2,s.length()-1).trim();
+					s=s.substring(0,x).trim();
+				}
+			}
+			if((s!=null)&&(s.length()>0)&&(d>0.0))
+			{
+				int insertAt=-1;
+				for(int i=0;i<DV.size();i++)
+				{
+					if(DV.elementAt(i).value()>d)
+					{
+						insertAt = i;
+						break;
+					}
+				}
+				if((insertAt<0)||(insertAt>=DV.size()))
+					DV.addElement(new MoneyDenominationImpl(d,s,shortName));
+				else
+					DV.insertElementAt(new MoneyDenominationImpl(d,s,shortName),insertAt);
+				currencyNames.addElement(s);
+				if(shortName.length()>0)
+					currencyNames.add(shortName);
+			}
+		}
+		final MoneyDenomination[] DVs=new MoneyDenominationImpl[DV.size()];
+		for(int i=0;i<DV.size();i++)
+			DVs[i]=DV.elementAt(i);
+		currencies.put(code,DVs);
+		allCurrencyNames.addElement(code);
+		allCurrencyDenominationNames.put(code,currencyNames);
+		return DVs;
+	}
+
+	@Override
+	public int getDenominationIndex(String currency, double value)
+	{
+		final MoneyDenomination[] DV=getCurrencySet(currency);
+		if(DV!=null)
+		for(int d=0;d<DV.length;d++)
+		{
+			if(value==DV[d].value())
+				return d;
+		}
+		return -1;
+	}
+
+	@Override
+	public MoneyDenomination[] getCurrencySet(String currency)
+	{
+		if(currency==null)
+			return null;
+		String code=currency.toUpperCase().trim();
+		final int x=code.indexOf('=');
+		if(x<0)
+		{
+			if(currencies.containsKey(code))
+				return currencies.get(code);
+			if(defaultCurrencies.size()==0)
+			{
+				createCurrencySet(defaultCurrencies,defaultCurrencyDefinition);
+				createCurrencySet(defaultCurrencies,goldStandard);
+				createCurrencySet(defaultCurrencies,copperStandard);
+				createCurrencySet(defaultCurrencies,creditStandard);
+				createCurrencySet(defaultCurrencies,dollarStandard);
+			}
+			if(defaultCurrencies.containsKey(code))
+				return defaultCurrencies.get(code);
+			return null;
+		}
+		code=code.substring(0,x).trim();
+		if(currencies.containsKey(code))
+			return currencies.get(code);
+		return createCurrencySet(currency);
+	}
+
+	@Override
+	public List<String> getAllCurrencies()
+	{
 		return allCurrencyNames;
 	}
 
-	public Vector getDenominationNameSet(String currency)
+	@Override
+	public List<String> getDenominationNameSet(String currency)
 	{
-	    if(allCurrencyDenominationNames.containsKey(currency))
-	        return (Vector)allCurrencyDenominationNames.get(currency);
-        return new Vector();
+		if(allCurrencyDenominationNames.containsKey(currency))
+			return allCurrencyDenominationNames.get(currency);
+		return new Vector<String>(1);
 	}
 
+	@Override
 	public double lowestAbbreviatedDenomination(String currency)
 	{
-		MoneyDenomination[] DV=getCurrencySet(currency);
-	    if(DV!=null)
-	    {
-	        for(int i=0;i<DV.length;i++)
-	            if(DV[i].abbr.length()>0)
-	                return DV[i].value;
-	        return getLowestDenomination(currency);
-	    }
-	    return 1.0;
+		final MoneyDenomination[] DV=getCurrencySet(currency);
+		if(DV!=null)
+		{
+			for (final MoneyDenomination element : DV)
+			{
+				if(element.abbr().length()>0)
+					return element.value();
+			}
+			return getLowestDenomination(currency);
+		}
+		return 1.0;
 	}
 
+	@Override
 	public double lowestAbbreviatedDenomination(String currency, double absoluteAmount)
 	{
-		MoneyDenomination[] DV=getCurrencySet(currency);
-	    if(DV!=null)
-	    {
-	        double absoluteLowest=lowestAbbreviatedDenomination(currency);
-	        double lowestDenom=Double.MAX_VALUE;
-	        double diff=0.0;
-	        double denom=0.0;
-	        long num=0;
-	        for(int i=DV.length-1;i>=0;i--)
-	            if(DV[i].abbr.length()>0)
-	            {
-	                denom=DV[i].value;
-	                if(denom<absoluteAmount)
-	                {
-	                    num=Math.round(Math.floor(absoluteAmount/denom));
-		                diff=Math.abs(absoluteAmount-CMath.mul(denom,num));
-		                if(((diff/absoluteAmount)<0.05)&&(num>=10))
-		                {
-		                    lowestDenom=denom;
-		                    break;
-		                }
-	                }
-	            }
-	        if(lowestDenom==Double.MAX_VALUE) lowestDenom=absoluteLowest;
-	        return lowestDenom;
-	    }
-        return 1.0;
+		final MoneyDenomination[] DV=getCurrencySet(currency);
+		if(DV!=null)
+		{
+			final double absoluteLowest=lowestAbbreviatedDenomination(currency);
+			double lowestDenom=Double.MAX_VALUE;
+			double diff=0.0;
+			double denom=0.0;
+			long num=0;
+			for(int i=DV.length-1;i>=0;i--)
+			{
+				if(DV[i].abbr().length()>0)
+				{
+					denom=DV[i].value();
+					if(denom<absoluteAmount)
+					{
+						num=Math.round(Math.floor(absoluteAmount/denom));
+						diff=Math.abs(absoluteAmount-CMath.mul(denom,num));
+						if(((diff/absoluteAmount)<0.05)&&(num>=10))
+						{
+							lowestDenom=denom;
+							break;
+						}
+					}
+				}
+			}
+			if(lowestDenom==Double.MAX_VALUE)
+				lowestDenom=absoluteLowest;
+			return lowestDenom;
+		}
+		return 1.0;
 	}
 
+	@Override
 	public double abbreviatedRePrice(MOB shopkeeper, double absoluteAmount)
-	{  
+	{
 		return abbreviatedRePrice(getCurrency(shopkeeper),absoluteAmount);
 	}
-	
+
+	@Override
 	public double abbreviatedRePrice(String currency, double absoluteAmount)
 	{
-	    double lowDenom=lowestAbbreviatedDenomination(currency,absoluteAmount);
-	    long lowAmt=Math.round(absoluteAmount/lowDenom);
-	    return CMath.mul(lowDenom,lowAmt);
+		final double lowDenom=lowestAbbreviatedDenomination(currency,absoluteAmount);
+		final long lowAmt=Math.round(absoluteAmount/lowDenom);
+		return CMath.mul(lowDenom,lowAmt);
 	}
-	
+
+	@Override
 	public String abbreviatedPrice(MOB shopkeeper, double absoluteAmount)
-	{ 
+	{
 		return abbreviatedPrice(getCurrency(shopkeeper),absoluteAmount);
 	}
-	
+
+	@Override
 	public String abbreviatedPrice(String currency, double absoluteAmount)
 	{
-	    double lowDenom=lowestAbbreviatedDenomination(currency,absoluteAmount);
-	    long lowAmt=Math.round(absoluteAmount/lowDenom);
-	    String denominationShortCode=getDenominationShortCode(currency,lowDenom);
-	    if(denominationShortCode.length()==0)
-		    return ""+lowAmt;
-	    return lowAmt+denominationShortCode;
+		final double lowDenom=lowestAbbreviatedDenomination(currency,absoluteAmount);
+		final long lowAmt=Math.round(absoluteAmount/lowDenom);
+		final String denominationShortCode=getDenominationShortCode(currency,lowDenom);
+		if(denominationShortCode.length()==0)
+			return ""+lowAmt;
+		return lowAmt+denominationShortCode;
 	}
 
+	@Override
 	public String getDenominationShortCode(String currency, double denomination)
 	{
-		MoneyDenomination[] DV=getCurrencySet(currency);
-	    if(DV==null) return "";
-	    for(int d=0;d<DV.length;d++)
-	        if(DV[d].value==denomination)
-	            return DV[d].abbr;
-	    return "";
+		final MoneyDenomination[] DV=getCurrencySet(currency);
+		if(DV==null)
+			return "";
+		for (final MoneyDenomination element : DV)
+		{
+			if(element.value()==denomination)
+				return element.abbr();
+		}
+		return "";
 	}
 
+	@Override
 	public double getLowestDenomination(String currency)
 	{
-		MoneyDenomination[] DV=getCurrencySet(currency);
-	    if((DV==null)||(DV.length==0)) return 1.0;
-	    return DV[0].value;
+		final MoneyDenomination[] DV=getCurrencySet(currency);
+		if((DV==null)||(DV.length==0))
+			return 1.0;
+		return DV[0].value();
 	}
 
+	@Override
 	public String getDenominationName(String currency)
-	{ 
+	{
 		return getDenominationName(currency,getLowestDenomination(currency));
 	}
 
+	@Override
 	public String getDenominationName(String currency, double denomination, long number)
 	{
-	    String s=getDenominationName(currency,denomination);
-	    if(s.toUpperCase().endsWith("(S)"))
-	    {
-	        if(number>1)
-	            return number+" "+s.substring(0,s.length()-3)+s.charAt(s.length()-2);
-            return number+" "+s.substring(0,s.length()-3);
-	    }
-        return number+" "+s;
+		final String s=getDenominationName(currency,denomination);
+		if(s.toUpperCase().endsWith("(S)"))
+		{
+			if(number>1)
+				return number+" "+s.substring(0,s.length()-3)+s.charAt(s.length()-2);
+			return number+" "+s.substring(0,s.length()-3);
+		}
+		return number+" "+s;
 	}
 
+	@Override
 	public double getBestDenomination(String currency, double absoluteValue)
 	{
-		MoneyDenomination[] DV=getCurrencySet(currency);
+		final MoneyDenomination[] DV=getCurrencySet(currency);
 		double denom=0.0;
 		if(DV!=null)
 		{
-			double low=getLowestDenomination(currency);
+			final double low=getLowestDenomination(currency);
 			for(int d=DV.length-1;d>=0;d--)
 			{
-			    denom=DV[d].value;
-			    if((denom<=absoluteValue)
-			    &&(absoluteValue-(Math.floor(absoluteValue/denom)*denom)<low))
-			        return denom;
+				denom=DV[d].value();
+				if((denom<=absoluteValue)
+				&&(absoluteValue-(Math.floor(absoluteValue/denom)*denom)<low))
+					return denom;
 			}
 		}
 		return denom;
 	}
-	
-    public double getBestDenomination(String currency, int numberOfCoins, double absoluteValue)
-    {
-    	MoneyDenomination[] DV=getCurrencySet(currency);
-        double bestDenom=0.0;
-        if(DV!=null)
-        {
-            for(int d=DV.length-1;d>=0;d--)
-            {
-                double denom=DV[d].value;
-                if(((denom*((double)numberOfCoins))<=absoluteValue)
-                &&(denom>bestDenom))
-                    bestDenom=denom;
-            }
-        }
-        return bestDenom;
-    }
-    
+
+	@Override
+	public double getBestDenomination(String currency, int numberOfCoins, double absoluteValue)
+	{
+		final MoneyDenomination[] DV=getCurrencySet(currency);
+		double bestDenom=0.0;
+		if(DV!=null)
+		{
+			for(int d=DV.length-1;d>=0;d--)
+			{
+				final double denom=DV[d].value();
+				if(((denom*(numberOfCoins))<=absoluteValue)
+				&&(denom>bestDenom))
+					bestDenom=denom;
+			}
+		}
+		return bestDenom;
+	}
+
+	@Override
 	public double[] getBestDenominations(String currency, double absoluteValue)
 	{
-		MoneyDenomination[] DV=getCurrencySet(currency);
-		Vector V=new Vector();
+		final MoneyDenomination[] DV=getCurrencySet(currency);
+		final Vector<Double> V=new Vector<Double>();
 		if(DV!=null)
 		for(int d=DV.length-1;d>=0;d--)
 		{
-		    double denom=DV[d].value;
-		    if(denom<=absoluteValue)
-		    {
-		        long number=Math.round(Math.floor(absoluteValue/denom));
-		        if(number>0)
-		        {
-		            V.addElement(Double.valueOf(denom));
-		            absoluteValue-=CMath.mul(denom,number);
-		        }
-		    }
+			final double denom=DV[d].value();
+			if(denom<=absoluteValue)
+			{
+				final long number=Math.round(Math.floor(absoluteValue/denom));
+				if(number>0)
+				{
+					V.addElement(Double.valueOf(denom));
+					absoluteValue-=CMath.mul(denom,number);
+				}
+			}
 		}
-		double[] ds=new double[V.size()];
+		final double[] ds=new double[V.size()];
 		for(int d=0;d<V.size();d++)
-			ds[d]=((Double)V.elementAt(d)).doubleValue();
+			ds[d]=V.elementAt(d).doubleValue();
 		return ds;
 	}
-	
+
+	@Override
 	public String getConvertableDescription(String currency, double denomination)
 	{
-	    double low=getLowestDenomination(currency);
-	    if(low==denomination) return "";
-	    return "Equal to "+getDenominationName(currency,low,Math.round(Math.floor(denomination/low)))+".";
+		final double low=getLowestDenomination(currency);
+		if(low==denomination)
+			return "";
+		return "Equal to "+getDenominationName(currency,low,Math.round(Math.floor(denomination/low)))+".";
 	}
 
+	@Override
+	public String getDenominationName(final MOB mob, double denomination)
+	{
+		return getDenominationName(getCurrency(mob), denomination);
+	}
+
+	@Override
 	public String getDenominationName(String currency, double denomination)
 	{
 		MoneyDenomination[] DV=getCurrencySet(currency);
-	    if((DV==null)||(DV.length==0)) DV=getCurrencySet("");
-	    if((DV==null)||(DV.length==0)) return "unknown!";
-	    int closestX=getDenominationIndex(currency, denomination);
-	    if(closestX<0)
-	    for(int i=0;i<DV.length;i++)
-	    	if(DV[i].value<=denomination)
-	    	{
-		        if((DV[i].value==denomination)
-    	        ||(closestX<0)
-    	        ||((denomination-DV[i].value)<(denomination-DV[closestX].value)))
-    	            closestX=i;
-	    	}
-	    if(closestX<0)
-	        return "unknown";
-        return DV[closestX].name;
+		if((DV==null)||(DV.length==0))
+			DV=getCurrencySet("");
+		if((DV==null)||(DV.length==0))
+			return "unknown!";
+		int closestX=getDenominationIndex(currency, denomination);
+		if(closestX<0)
+		for(int i=0;i<DV.length;i++)
+		{
+			if(DV[i].value()<=denomination)
+			{
+				if((DV[i].value()==denomination)
+				||(closestX<0)
+				||((denomination-DV[i].value())<(denomination-DV[closestX].value())))
+					closestX=i;
+			}
+		}
+		if(closestX<0)
+			return "unknown";
+		return DV[closestX].name();
 	}
 
+	@Override
 	public String nameCurrencyShort(MOB mob, double absoluteValue)
-	{   
+	{
 		return nameCurrencyShort(getCurrency(mob),absoluteValue);
 	}
-	
+
+	@Override
 	public String nameCurrencyShort(MOB mob, int absoluteValue)
-	{   
-		return nameCurrencyShort(getCurrency(mob),(double)absoluteValue);
+	{
+		return nameCurrencyShort(getCurrency(mob),absoluteValue);
 	}
-	
+
+	@Override
 	public String nameCurrencyShort(String currency, double absoluteValue)
 	{
-		double denom=getBestDenomination(currency,absoluteValue);
+		final double denom=getBestDenomination(currency,absoluteValue);
 		if(denom>0.0)
-		    return getDenominationName(currency,denom,Math.round(Math.floor(absoluteValue/denom)));
-	    return getDenominationName(currency,denom,Math.round(Math.floor(absoluteValue)));
+			return getDenominationName(currency,denom,Math.round(Math.floor(absoluteValue/denom)));
+		return getDenominationName(currency,denom,Math.round(Math.floor(absoluteValue)));
 	}
-	
+
+	@Override
 	public String nameCurrencyLong(MOB mob, double absoluteValue)
-	{   
+	{
 		return nameCurrencyLong(getCurrency(mob),absoluteValue);
 	}
-	
+
+	@Override
 	public String nameCurrencyLong(MOB mob, int absoluteValue)
-	{   
-		return nameCurrencyLong(getCurrency(mob),(double)absoluteValue);
+	{
+		return nameCurrencyLong(getCurrency(mob),absoluteValue);
 	}
-	
+
+	@Override
 	public String nameCurrencyLong(String currency, double absoluteValue)
 	{
-	    StringBuffer str=new StringBuffer("");
-		double[] ds=getBestDenominations(currency,absoluteValue);
-		for(int d=0;d<ds.length;d++)
+		final StringBuffer str=new StringBuffer("");
+		final double[] ds=getBestDenominations(currency,absoluteValue);
+		for (final double denom : ds)
 		{
-		    double denom=ds[d];
-	        long number=Math.round(Math.floor(absoluteValue/denom));
-	        String name=getDenominationName(currency,denom,number);
-            absoluteValue-=CMath.mul(denom,number);
-            if(str.length()>0) str.append(", ");
-            str.append(name);
+			final long number=Math.round(Math.floor(absoluteValue/denom));
+			final String name=getDenominationName(currency,denom,number);
+			absoluteValue-=CMath.mul(denom,number);
+			if(str.length()>0)
+				str.append(", ");
+			str.append(name);
 		}
 		return str.toString();
 	}
 
-	public Coins makeBestCurrency(MOB mob, double absoluteValue, Environmental owner, Item container)
-	{ 
+	@Override
+	public Coins makeBestCurrency(MOB mob, double absoluteValue, Environmental owner, Container container)
+	{
 		return makeBestCurrency(getCurrency(mob),absoluteValue,owner,container);
 	}
-	
-	public Coins makeBestCurrency(String currency, double absoluteValue, Environmental owner, Item container)
+
+	@Override
+	public Coins makeBestCurrency(String currency, double absoluteValue, Environmental owner, Container container)
 	{
-	    Coins C=makeBestCurrency(currency,absoluteValue);
-	    if(C!=null)
-	    {
-		    if(owner instanceof Room)
-		        ((Room)owner).addItem(C);
-		    if(owner instanceof MOB)
-		        ((MOB)owner).addInventory(C);
-		    C.setContainer(container);
-		    C.recoverEnvStats();
-	    }
-	    return C;
+		final Coins C=makeBestCurrency(currency,absoluteValue);
+		if(C!=null)
+		{
+			if(owner instanceof Room)
+				((Room)owner).addItem(C);
+			if(owner instanceof MOB)
+				((MOB)owner).addItem(C);
+			C.setContainer(container);
+			C.recoverPhyStats();
+		}
+		return C;
 	}
 
-	protected void parseDebt(Vector<DebtItem> debt, String debtor, String xml)
+	protected void parseDebt(Vector<DebtItem> debt, final String debtor, String xml)
 	{
-		Vector V=CMLib.xml().parseAllXML(xml);
+		final List<XMLLibrary.XMLTag> V=CMLib.xml().parseAllXML(xml);
 		if(xml==null){ Log.errOut("BeanCounter","Unable to parse: "+xml); return ;}
-		Vector debtData=CMLib.xml().getRealContentsFromPieces(V,"DEBT");
+		final List<XMLLibrary.XMLTag> debtData=CMLib.xml().getContentsFromPieces(V,"DEBT");
 		if(debtData==null){ Log.errOut("BeanCounter","Unable to get debt data"); return ;}
 		for(int p=0;p<debtData.size();p++)
 		{
-			XMLLibrary.XMLpiece ablk=(XMLLibrary.XMLpiece)debtData.elementAt(p);
-			if((!ablk.tag.equalsIgnoreCase("OWE"))||(ablk.contents==null)||(ablk.contents.size()==0)) continue;
-			String owed=CMLib.xml().getValFromPieces(ablk.contents,"TO");
-			double amt=CMLib.xml().getDoubleFromPieces(ablk.contents,"AMT");
-			String reason=CMLib.xml().getValFromPieces(ablk.contents,"FOR");
-			long due=CMLib.xml().getLongFromPieces(ablk.contents,"DUE");
-			double interest=CMLib.xml().getDoubleFromPieces(ablk.contents,"INT");
-			debt.addElement(new DebtItem(debtor,owed,amt,reason,due,interest));
+			final XMLTag ablk=debtData.get(p);
+			if((!ablk.tag().equalsIgnoreCase("OWE"))||(ablk.contents()==null)||(ablk.contents().size()==0))
+				continue;
+			final String owed=ablk.getValFromPieces("TO");
+			final double amt=ablk.getDoubleFromPieces("AMT");
+			final String reason=ablk.getValFromPieces("FOR");
+			final long due=ablk.getLongFromPieces("DUE");
+			final double interest=ablk.getDoubleFromPieces("INT");
+			debt.addElement(new DebtItem()
+			{
+				double amount = amt;
+
+				@Override
+				public String debtor()
+				{
+					return debtor;
+				}
+
+				@Override
+				public String owedTo()
+				{
+					return owed;
+				}
+
+				@Override
+				public double amt()
+				{
+					return amount;
+				}
+
+				@Override
+				public void setAmt(double amt)
+				{
+					amount = amt;
+				}
+
+				@Override
+				public long due()
+				{
+					return due;
+				}
+
+				@Override
+				public double interest()
+				{
+					return interest;
+				}
+
+				@Override
+				public String reason()
+				{
+					return reason;
+				}
+			});
 		}
 	}
-	
+
 	protected String unparseDebt(Vector<DebtItem> debt, String name, String owedTo)
 	{
-		StringBuffer xml=new StringBuffer("<DEBT>");
+		final StringBuffer xml=new StringBuffer("<DEBT>");
 		for(int d=0;d<debt.size();d++)
 		{
-			if((debt.elementAt(d).debtor.equalsIgnoreCase(name))
-			&&(debt.elementAt(d).owedTo.equalsIgnoreCase(owedTo)))
+			if((debt.elementAt(d).debtor().equalsIgnoreCase(name))
+			&&(debt.elementAt(d).owedTo().equalsIgnoreCase(owedTo)))
 			{
 				xml.append("<OWE>");
-				xml.append(CMLib.xml().convertXMLtoTag("TO",debt.elementAt(d).owedTo));
-				xml.append(CMLib.xml().convertXMLtoTag("AMT",""+debt.elementAt(d).amt));
-				xml.append(CMLib.xml().convertXMLtoTag("FOR",debt.elementAt(d).reason));
-				xml.append(CMLib.xml().convertXMLtoTag("DUE",""+debt.elementAt(d).due));
-				xml.append(CMLib.xml().convertXMLtoTag("INT",""+debt.elementAt(d).interest));
+				xml.append(CMLib.xml().convertXMLtoTag("TO",debt.elementAt(d).owedTo()));
+				xml.append(CMLib.xml().convertXMLtoTag("AMT",""+debt.elementAt(d).amt()));
+				xml.append(CMLib.xml().convertXMLtoTag("FOR",debt.elementAt(d).reason()));
+				xml.append(CMLib.xml().convertXMLtoTag("DUE",""+debt.elementAt(d).due()));
+				xml.append(CMLib.xml().convertXMLtoTag("INT",""+debt.elementAt(d).interest()));
 				xml.append("</OWE>");
 			}
 		}
@@ -464,311 +605,390 @@ public class BeanCounter extends StdLibrary implements MoneyLibrary
 		return xml.toString();
 	}
 
+	@Override
 	public double getDebtOwed(String name, String owedTo)
 	{
-		String key=name.toUpperCase()+"-DEBT-"+owedTo.toUpperCase().trim();
+		final String key=name.toUpperCase()+"-DEBT-"+owedTo.toUpperCase().trim();
 		synchronized(key.intern())
 		{
-			Vector<DebtItem> debt=getDebt(name,owedTo);
+			final Vector<DebtItem> debt=getDebt(name,owedTo);
 			double total=0.0;
 			for(int d=0;d<debt.size();d++)
-				total+=debt.elementAt(d).amt;
+				total+=debt.elementAt(d).amt();
 			return total;
 		}
 	}
 
+	@Override
 	public void delAllDebt(String name, String owedTo)
 	{
-		String key=name.toUpperCase()+"-DEBT-"+owedTo.toUpperCase().trim();
+		final String key=name.toUpperCase()+"-DEBT-"+owedTo.toUpperCase().trim();
 		synchronized(key.intern())
 		{
-			CMLib.database().DBDeleteData(name.toUpperCase(),"DEBT",key);
+			CMLib.database().DBDeletePlayerData(name.toUpperCase(),"DEBT",key);
 		}
 	}
 
+	@Override
 	public Vector<DebtItem> getDebtOwed(String owedTo)
 	{
-		Vector rows=CMLib.database().DBReadDataKey("DEBT",".*-DEBT-"+owedTo.toUpperCase().trim());
-		Vector<DebtItem> debt=new Vector<DebtItem>(rows.size());
+		final List<PlayerData> rows=CMLib.database().DBReadPlayerDataByKeyMask("DEBT",".*-DEBT-"+owedTo.toUpperCase().trim());
+		final Vector<DebtItem> debt=new Vector<DebtItem>(rows.size());
 		for(int r=0;r<rows.size();r++)
 		{
-			PlayerData row=(PlayerData)rows.elementAt(r);
-			String debtor=row.who;
-			String xml=row.xml;
+			final PlayerData row=rows.get(r);
+			final String debtor=row.who();
+			final String xml=row.xml();
 			parseDebt(debt,debtor,xml);
 		}
 		return debt;
 	}
 
-	public void adjustDebt(String name, String owedTo, double adjustAmt, String reason, double interest, long due)
+	@Override
+	public void adjustDebt(final String name, final String owedTo, double adjustAmt, final String reason, final double interest, final long due)
 	{
-		String key=name.toUpperCase()+"-DEBT-"+owedTo.toUpperCase().trim();
+		final String key=name.toUpperCase()+"-DEBT-"+owedTo.toUpperCase().trim();
 		synchronized(key.intern())
 		{
-			Vector<DebtItem> debts=getDebt(name,owedTo);
-			boolean update=debts.size()>0;
+			final Vector<DebtItem> debts=getDebt(name,owedTo);
+			final boolean update=debts.size()>0;
 			boolean done=false;
 			for(int d=0;d<debts.size();d++)
 			{
-				DebtItem debt=debts.elementAt(d);
-				if((debt.debtor.equalsIgnoreCase(name))
-				&&(debt.owedTo.equalsIgnoreCase(owedTo))
-				&&(debt.interest==interest)
-				&&(debt.due==due)
-				&&(debt.reason.equalsIgnoreCase(reason)))
+				final DebtItem debt=debts.elementAt(d);
+				if((debt.debtor().equalsIgnoreCase(name))
+				&&(debt.owedTo().equalsIgnoreCase(owedTo))
+				&&(debt.interest()==interest)
+				&&(debt.due()==due)
+				&&(debt.reason().equalsIgnoreCase(reason)))
 				{
-					debt.amt+=adjustAmt;
-					if(debt.amt<=0.0) debts.removeElementAt(d);
+					debt.setAmt(debt.amt()+adjustAmt);
+					if(debt.amt()<=0.0)
+						debts.removeElementAt(d);
 					done=true;
 					break;
 				}
 			}
 			if((!done)&&(adjustAmt>=0.0))
-				debts.addElement(new DebtItem(name,owedTo,adjustAmt,reason,due,interest));
-			
-			String xml=unparseDebt(debts,name,owedTo);
+			{
+				final double initialAdjustedAmount = adjustAmt;
+				debts.addElement(new DebtItem()
+				{
+					double amount = initialAdjustedAmount;
+
+					@Override
+					public String debtor()
+					{
+						return name;
+					}
+
+					@Override
+					public String owedTo()
+					{
+						return owedTo;
+					}
+
+					@Override
+					public double amt()
+					{
+						return amount;
+					}
+
+					@Override
+					public void setAmt(double amt)
+					{
+						amount = amt;
+					}
+
+					@Override
+					public long due()
+					{
+						return due;
+					}
+
+					@Override
+					public double interest()
+					{
+						return interest;
+					}
+
+					@Override
+					public String reason()
+					{
+						return reason;
+					}
+				});
+			}
+
+			final String xml=unparseDebt(debts,name,owedTo);
 			if(update)
 			{
 				if(debts.size()==0)
-					CMLib.database().DBDeleteData(name.toUpperCase(),"DEBT",key);
+					CMLib.database().DBDeletePlayerData(name.toUpperCase(),"DEBT",key);
 				else
-					CMLib.database().DBUpdateData(key,xml);
+					CMLib.database().DBUpdatePlayerData(key,xml);
 			}
 			else
-				CMLib.database().DBCreateData(name.toUpperCase(),"DEBT",key,xml);
+				CMLib.database().DBCreatePlayerData(name.toUpperCase(),"DEBT",key,xml);
 		}
 	}
 
+	@Override
 	public Vector<DebtItem> getDebt(String name, String owedTo)
 	{
-		Vector rows=CMLib.database().DBReadData(name.toUpperCase(),"DEBT",name.toUpperCase()+"-DEBT-"+owedTo.toUpperCase().trim());
-		Vector<DebtItem> debt=new Vector<DebtItem>(rows.size());
+		final List<PlayerData> rows=CMLib.database().DBReadPlayerData(name.toUpperCase(),"DEBT",name.toUpperCase()+"-DEBT-"+owedTo.toUpperCase().trim());
+		final Vector<DebtItem> debt=new Vector<DebtItem>(rows.size());
 		for(int r=0;r<rows.size();r++)
 		{
-			PlayerData row=(PlayerData)rows.elementAt(r);
-			String debtor=row.who;
-			String xml=row.xml;
+			final PlayerData row=rows.get(r);
+			final String debtor=row.who();
+			final String xml=row.xml();
 			parseDebt(debt,debtor,xml);
 		}
 		return debt;
 	}
 
+	@Override
 	public Vector<DebtItem> getDebt(String name)
 	{
-		Vector rows=CMLib.database().DBReadData(name.toUpperCase(),"DEBT");
-		Vector<DebtItem> debt=new Vector<DebtItem>(rows.size());
+		final List<PlayerData> rows=CMLib.database().DBReadPlayerData(name.toUpperCase(),"DEBT");
+		final Vector<DebtItem> debt=new Vector<DebtItem>(rows.size());
 		for(int r=0;r<rows.size();r++)
 		{
-			PlayerData row=(PlayerData)rows.elementAt(r);
-			String debtor=row.who;
-			String xml=row.xml;
+			final PlayerData row=rows.get(r);
+			final String debtor=row.who();
+			final String xml=row.xml();
 			parseDebt(debt,debtor,xml);
 		}
 		return debt;
 	}
 
+	@Override
 	public Coins makeBestCurrency(MOB mob, double absoluteValue)
-	{ 
+	{
 		return makeBestCurrency(getCurrency(mob),absoluteValue);
 	}
-	
+
+	@Override
 	public Coins makeCurrency(String currency, double denomination, long numberOfCoins)
 	{
-	    if(numberOfCoins>0)
-	    {
-		    Coins C=(Coins)CMClass.getItem("StdCoins");
-		    C.setCurrency(currency);
-		    C.setDenomination(denomination);
-		    C.setNumberOfCoins(numberOfCoins);
-		    C.recoverEnvStats();
-		    return C;
-	    }
-	    return null;
-	}
-	
-	public Coins makeBestCurrency(String currency, double absoluteValue)
-	{
-	    double denom=getBestDenomination(currency,absoluteValue);
-	    if(denom==0.0) return null;
-	    long number=Math.round(Math.floor(absoluteValue/denom));
-	    if(number>0)
-		    return makeCurrency(currency,denom,number);
-	    return null;
+		if(numberOfCoins>0)
+		{
+			final Coins C=(Coins)CMClass.getItem("StdCoins");
+			C.setCurrency(currency);
+			C.setDenomination(denomination);
+			C.setNumberOfCoins(numberOfCoins);
+			C.recoverPhyStats();
+			return C;
+		}
+		return null;
 	}
 
-	public Vector makeAllCurrency(String currency, double absoluteValue)
+	@Override
+	public Coins makeBestCurrency(String currency, double absoluteValue)
 	{
-	    Vector V=new Vector();
-	    double[] ds=getBestDenominations(currency,absoluteValue);
-		for(int d=0;d<ds.length;d++)
+		final double denom=getBestDenomination(currency,absoluteValue);
+		if(denom==0.0)
+			return null;
+		final long number=Math.round(Math.floor(absoluteValue/denom));
+		if(number>0)
+			return makeCurrency(currency,denom,number);
+		return null;
+	}
+
+	@Override
+	public List<Coins> makeAllCurrency(String currency, double absoluteValue)
+	{
+		final Vector<Coins> V=new Vector<Coins>();
+		final double[] ds=getBestDenominations(currency,absoluteValue);
+		for (final double denom : ds)
 		{
-		    double denom=ds[d];
-		    long number=Math.round(Math.floor(absoluteValue/denom));
-		    if(number>0)
-		    {
-			    Coins C=makeCurrency(currency,denom,number);
-			    if(C!=null)
-			    {
-				    absoluteValue-=C.getTotalValue();
-		            V.addElement(C);
-			    }
-		    }
+			final long number=Math.round(Math.floor(absoluteValue/denom));
+			if(number>0)
+			{
+				final Coins C=makeCurrency(currency,denom,number);
+				if(C!=null)
+				{
+					absoluteValue-=C.getTotalValue();
+					V.addElement(C);
+				}
+			}
 		}
 		return V;
 	}
 
+	@Override
 	public void addMoney(MOB customer, int absoluteValue)
-	{  
+	{
 		addMoney(customer,getCurrency(customer),(double)absoluteValue);
 	}
-	
+
+	@Override
 	public void addMoney(MOB customer, double absoluteValue)
-	{  
+	{
 		addMoney(customer,getCurrency(customer),absoluteValue);
 	}
-	
+
+	@Override
 	public void addMoney(MOB customer, String currency,int absoluteValue)
-	{  
+	{
 		addMoney(customer,currency,(double)absoluteValue);
 	}
-	
-	public void addMoney(MOB customer, Item container, String currency,int absoluteValue)
-	{  
+
+	@Override
+	public void addMoney(MOB customer, Container container, String currency,int absoluteValue)
+	{
 		addMoney(customer,container,currency,(double)absoluteValue);
 	}
-	
+
+	@Override
 	public void addMoney(MOB mob, String currency, double absoluteValue)
 	{
-		addMoney(mob,null,currency,(double)absoluteValue);
-	}
-	
-	public void addMoney(MOB mob, Item container, String currency, double absoluteValue)
-	{
-	    if(mob==null) return;
-		Vector V=makeAllCurrency(currency,absoluteValue);
-	    for(int i=0;i<V.size();i++)
-	    {
-	        Coins C=(Coins)V.elementAt(i);
-	        C.setContainer(container);
-	        mob.addInventory(C);
-	        C.putCoinsBack();
-		}
-		mob.recoverEnvStats();
+		addMoney(mob,null,currency,absoluteValue);
 	}
 
-    public void giveSomeoneMoney(MOB recipient, double absoluteValue)
-    {  
-    	giveSomeoneMoney(recipient,recipient,getCurrency(recipient),absoluteValue); 
-    }
-    
-    public void giveSomeoneMoney(MOB recipient, String currency, double absoluteValue)
-    {  
-    	giveSomeoneMoney(recipient,recipient,currency,absoluteValue); 
-    }
-    
-	public void giveSomeoneMoney(MOB banker, MOB customer, double absoluteValue)
-	{  
-		giveSomeoneMoney(banker,customer,getCurrency(banker),absoluteValue); 
+	@Override
+	public void addMoney(MOB mob, Container container, String currency, double absoluteValue)
+	{
+		if(mob==null)
+			return;
+		final List<Coins> V=makeAllCurrency(currency,absoluteValue);
+		for(int i=0;i<V.size();i++)
+		{
+			final Coins C=V.get(i);
+			C.setContainer(container);
+			mob.addItem(C);
+			C.putCoinsBack();
+		}
+		mob.recoverPhyStats();
 	}
-	
+
+	@Override
+	public void giveSomeoneMoney(MOB recipient, double absoluteValue)
+	{
+		giveSomeoneMoney(recipient,recipient,getCurrency(recipient),absoluteValue);
+	}
+
+	@Override
+	public void giveSomeoneMoney(MOB recipient, String currency, double absoluteValue)
+	{
+		giveSomeoneMoney(recipient,recipient,currency,absoluteValue);
+	}
+
+	@Override
+	public void giveSomeoneMoney(MOB banker, MOB customer, double absoluteValue)
+	{
+		giveSomeoneMoney(banker,customer,getCurrency(banker),absoluteValue);
+	}
+
+	@Override
 	public void giveSomeoneMoney(MOB banker, MOB customer, String currency, double absoluteValue)
 	{
-		if(banker==null) banker=customer;
+		if(banker==null)
+			banker=customer;
 		if(banker==customer)
 		{
-		    addMoney(customer,currency,absoluteValue);
-		    return;
+			addMoney(customer,currency,absoluteValue);
+			return;
 		}
 
-		Vector V=makeAllCurrency(currency,absoluteValue);
-	    for(int i=0;i<V.size();i++)
-	    {
-	        Coins C=(Coins)V.elementAt(i);
-	        banker.addInventory(C);
-			CMMsg newMsg=CMClass.getMsg(banker,customer,C,CMMsg.MSG_GIVE,"<S-NAME> give(s) "+C.Name()+" to <T-NAMESELF>.");
+		final List<Coins> V=makeAllCurrency(currency,absoluteValue);
+		for(int i=0;i<V.size();i++)
+		{
+			final Coins C=V.get(i);
+			banker.addItem(C);
+			final CMMsg newMsg=CMClass.getMsg(banker,customer,C,CMMsg.MSG_GIVE,L("<S-NAME> give(s) @x1 to <T-NAMESELF>.",C.Name()));
 			if(banker.location().okMessage(banker,newMsg))
 			{
 				banker.location().send(banker,newMsg);
 				C.putCoinsBack();
-		    }
+			}
 			else
-				CMLib.commands().postDrop(banker,C,true,false);
-	    }
-		banker.recoverEnvStats();
-		customer.recoverEnvStats();
+				CMLib.commands().postDrop(banker,C,true,false,false);
+		}
+		banker.recoverPhyStats();
+		customer.recoverPhyStats();
 	}
 
-	public void dropMoney(Room R, Item container, String currency, double absoluteValue)
+	@Override
+	public void dropMoney(Room R, Container container, String currency, double absoluteValue)
 	{
-		Vector V=makeAllCurrency(currency,absoluteValue);
-    	for(Enumeration e=V.elements();e.hasMoreElements();)
-    	{
-    		Coins I = (Coins)e.nextElement();
-    		I.setContainer(container);
-    		R.addItemRefuse(I,CMProps.getIntVar(CMProps.SYSTEMI_EXPIRE_MONSTER_EQ));
-		    ((Coins)I).putCoinsBack();
-    	}
+		final List<Coins> V=makeAllCurrency(currency,absoluteValue);
+		for(final Coins I : V)
+		{
+			I.setContainer(container);
+			R.addItem(I,ItemPossessor.Expire.Monster_EQ);
+			I.putCoinsBack();
+		}
 	}
 
-	public void removeMoney(Room R, Item container, String currency, double absoluteValue)
+	@Override
+	public void removeMoney(Room R, Container container, String currency, double absoluteValue)
 	{
 		double myMoney=getTotalAbsoluteValue(R,container,currency);
-		Vector V=getStandardCurrency(R,container,currency);
+		final List<Coins> V=getStandardCurrency(R,container,currency);
 		for(int v=0;v<V.size();v++)
-		    ((Item)V.elementAt(v)).destroy();
+			((Item)V.get(v)).destroy();
 		if(myMoney>=absoluteValue)
-		    myMoney-=absoluteValue;
+			myMoney-=absoluteValue;
 		else
-		    myMoney=0.0;
+			myMoney=0.0;
 		if(myMoney>0.0)
 			dropMoney(R,container,currency,myMoney);
 	}
 
+	@Override
 	public void bankLedger(String bankName, String owner, String explanation)
 	{
 		synchronized((this+"LEDGER"+bankName).intern())
 		{
-			Vector V=CMLib.database().DBReadData(owner,"LEDGER-"+bankName,"LEDGER-"+bankName+"/"+owner);
+			final List<PlayerData> V=CMLib.database().DBReadPlayerData(owner,"LEDGER-"+bankName,"LEDGER-"+bankName+"/"+owner);
 			if((V!=null)&&(V.size()>0))
 			{
-				DatabaseEngine.PlayerData D=(DatabaseEngine.PlayerData)V.firstElement();
-				String last=D.xml;
+				final DatabaseEngine.PlayerData D=V.get(0);
+				String last=D.xml();
 				if(last.length()>4096)
 				{
-				    int x=last.indexOf(";|;",1024);
-				    if(x>=0) last=last.substring(x+3);
+					final int x=last.indexOf(";|;",1024);
+					if(x>=0)
+						last=last.substring(x+3);
 				}
-				CMLib.database().DBReCreateData(owner,D.section,D.key,last+explanation+";|;");
+				CMLib.database().DBReCreatePlayerData(owner,D.section(),D.key(),last+explanation+";|;");
 			}
 			else
-				CMLib.database().DBCreateData(owner,"LEDGER-"+bankName,"LEDGER-"+bankName+"/"+owner,explanation+";|;");
+				CMLib.database().DBCreatePlayerData(owner,"LEDGER-"+bankName,"LEDGER-"+bankName+"/"+owner,explanation+";|;");
 		}
 	}
 
+	@Override
 	public boolean modifyBankGold(String bankName, String owner, String explanation, String currency, double absoluteAmount)
 	{
-		Vector V=CMLib.database().DBReadAllPlayerData(owner);
+		final List<PlayerData> V;
+		if((bankName==null)||(bankName.length()==0))
+			V=CMLib.database().DBReadAllPlayerData(owner);
+		else
+			V=CMLib.database().DBReadPlayerData(owner, bankName);
 		for(int v=0;v<V.size();v++)
 		{
-			DatabaseEngine.PlayerData D=(DatabaseEngine.PlayerData)V.elementAt(v);
-			String last=D.xml;
+			final DatabaseEngine.PlayerData D=V.get(v);
+			final String last=D.xml();
 			if(last.startsWith("COINS;"))
 			{
-				if((bankName==null)||(bankName.length()==0)||(bankName.equals(D.section)))
+				if((bankName==null)||(bankName.length()==0)||(bankName.equals(D.section())))
 				{
 					Coins C=(Coins)CMClass.getItem("StdCoins");
 					CMLib.coffeeMaker().setPropertiesStr(C,last.substring(6),true);
 					if((C.getDenomination()==0.0)&&(C.getNumberOfCoins()>0))
-					    C.setDenomination(1.0);
-					C.recoverEnvStats();
-					double value=C.getTotalValue();
+						C.setDenomination(1.0);
+					C.recoverPhyStats();
+					final double value=C.getTotalValue();
 					if((absoluteAmount>0.0)||(value>=(-absoluteAmount)))
 					{
-					    C=makeBestCurrency(currency,value+absoluteAmount);
+						C=makeBestCurrency(currency,value+absoluteAmount);
 						if(C!=null)
-							CMLib.database().DBReCreateData(owner,D.section,D.key,"COINS;"+CMLib.coffeeMaker().getPropertiesStr(C,true));
+							CMLib.database().DBReCreatePlayerData(owner,D.section(),D.key(),"COINS;"+CMLib.coffeeMaker().getPropertiesStr(C,true));
 						else
-							CMLib.database().DBDeleteData(owner,D.section,D.key);
+							CMLib.database().DBDeletePlayerData(owner,D.section(),D.key());
 						bankLedger(bankName,owner,explanation);
 						return true;
 					}
@@ -778,18 +998,19 @@ public class BeanCounter extends StdLibrary implements MoneyLibrary
 		return false;
 	}
 
+	@Override
 	public boolean modifyThisAreaBankGold(Area A,
-    									  HashSet triedBanks,
-    									  String owner,
-    									  String explanation,
-    									  String currency,
-    									  double absoluteAmount)
+										  Set<String> triedBanks,
+										  String owner,
+										  String explanation,
+										  String currency,
+										  double absoluteAmount)
 	{
 		Banker B=null;
 		Room R=null;
-		for(Enumeration e=CMLib.map().banks();e.hasMoreElements();)
+		for(final Enumeration<Banker> e=CMLib.map().banks();e.hasMoreElements();)
 		{
-			B=(Banker)e.nextElement();
+			B=e.nextElement();
 			R=CMLib.map().roomLocation(B);
 			if((R!=null)
 			&&(R.getArea()==A)
@@ -803,291 +1024,333 @@ public class BeanCounter extends StdLibrary implements MoneyLibrary
 		return false;
 	}
 
+	@Override
 	public boolean modifyLocalBankGold(Area A,
-    								   String owner,
-    								   String explanation,
-    								   String currency,
-    								   double absoluteAmount)
+									   String owner,
+									   String explanation,
+									   String currency,
+									   double absoluteAmount)
 	{
-		HashSet triedBanks=new HashSet();
+		final HashSet<String> triedBanks=new HashSet<String>();
 		if(modifyThisAreaBankGold(A,triedBanks,owner,explanation,currency,absoluteAmount))
 			return true;
-		for(Enumeration e=A.getParents();e.hasMoreElements();)
+		for(final Enumeration<Area> e=A.getParents();e.hasMoreElements();)
 		{
-			Area A2=(Area)e.nextElement();
+			final Area A2=e.nextElement();
 			if(modifyThisAreaBankGold(A2,triedBanks,owner,explanation,currency,absoluteAmount))
 				return true;
 		}
 		return modifyBankGold(null,owner,explanation,currency,absoluteAmount);
 	}
 
+	@Override
 	public void subtractMoneyGiveChange(MOB banker, MOB mob, int absoluteAmount)
-	{ 
+	{
 		subtractMoneyGiveChange(banker,mob,(double)absoluteAmount);
 	}
-	
+
+	@Override
 	public void subtractMoneyGiveChange(MOB banker, MOB mob, double absoluteAmount)
-	{ 
+	{
 		subtractMoneyGiveChange(banker, mob,(banker!=null)?getCurrency(banker):getCurrency(mob),absoluteAmount);
 	}
-	
+
+	@Override
 	public void subtractMoneyGiveChange(MOB banker, MOB mob, String currency, double absoluteAmount)
 	{
-		if(mob==null) return;
+		if(mob==null)
+			return;
 		double myMoney=getTotalAbsoluteValue(mob,currency);
-		Vector V=getStandardCurrency(mob,currency);
+		final List<Coins> V=getStandardCurrency(mob,currency);
 		for(int v=0;v<V.size();v++)
-		    ((Item)V.elementAt(v)).destroy();
+			((Item)V.get(v)).destroy();
 		if(myMoney>=absoluteAmount)
-		    myMoney-=absoluteAmount;
+			myMoney-=absoluteAmount;
 		else
-		    myMoney=0.0;
+			myMoney=0.0;
 		if(myMoney>0.0)
 			giveSomeoneMoney(banker,mob,currency,myMoney);
 	}
 
+	@Override
 	public void setMoney(MOB mob, double absoluteAmount)
 	{
-	    clearZeroMoney(mob,null);
-	    addMoney(mob,getCurrency(mob),absoluteAmount);
-	}
-	
-	public void setMoney(MOB mob, String currency, double absoluteAmount)
-	{
-	    clearZeroMoney(mob,currency);
-	    addMoney(mob,currency,absoluteAmount);
+		clearZeroMoney(mob,null);
+		addMoney(mob,getCurrency(mob),absoluteAmount);
 	}
 
+	@Override
+	public void setMoney(MOB mob, String currency, double absoluteAmount)
+	{
+		clearZeroMoney(mob,currency);
+		addMoney(mob,currency,absoluteAmount);
+	}
+
+	@Override
 	public void subtractMoney(MOB mob, double absoluteAmount)
-	{ 
+	{
 		subtractMoney(mob,getCurrency(mob),absoluteAmount);
 	}
-	
+
+	@Override
 	public void subtractMoney(MOB mob, String currency, double absoluteAmount)
 	{
-		subtractMoney(mob,null,getCurrency(mob),absoluteAmount);
+		subtractMoney(mob,null,currency,absoluteAmount);
 	}
-	public void subtractMoney(MOB mob, Item container, String currency, double absoluteAmount)
+	@Override
+	public void subtractMoney(MOB mob, Container container, String currency, double absoluteAmount)
 	{
-		if(mob==null) return;
+		if(mob==null)
+			return;
 		double myMoney=getTotalAbsoluteValue(mob,container,currency);
-		Vector V=getStandardCurrency(mob,container,currency);
+		final List<Coins> V=getStandardCurrency(mob,container,currency);
 		for(int v=0;v<V.size();v++)
-		    ((Item)V.elementAt(v)).destroy();
+			((Item)V.get(v)).destroy();
 		if(myMoney>=absoluteAmount)
-		    myMoney-=absoluteAmount;
+			myMoney-=absoluteAmount;
 		else
-		    myMoney=0.0;
+			myMoney=0.0;
 		if(myMoney>0.0)
 			addMoney(mob,container,currency,myMoney);
 	}
 
+	@Override
 	public int getMoney(MOB mob)
 	{
-	    if(mob==null) return 0;
-	    long money=mob.getMoney();
-	    if(money>0) return mob.getMoney();
-	    Vector V=getStandardCurrency(mob,null);
-	    for(int i=0;i<V.size();i++)
-	        money+=Math.round(((Coins)V.elementAt(i)).getTotalValue());
-	    if(money>Integer.MAX_VALUE) return Integer.MAX_VALUE;
-	    return (int)money;
+		if(mob==null)
+			return 0;
+		long money=mob.getMoney();
+		if(money>0)
+			return mob.getMoney();
+		final List<Coins> V=getStandardCurrency(mob,null);
+		for(int i=0;i<V.size();i++)
+			money+=Math.round(V.get(i).getTotalValue());
+		if(money>Integer.MAX_VALUE/2)
+			return Integer.MAX_VALUE/2;
+		return (int)money;
 	}
 
+	@Override
 	public void setMoney(MOB mob, int amount)
 	{
-	    if(mob==null) return;
-	    clearZeroMoney(mob,null);
-	    mob.setMoney(amount);
+		if(mob==null)
+			return;
+		clearZeroMoney(mob,null);
+		mob.setMoney(amount);
 	}
 
+	@Override
 	public void clearZeroMoney(MOB mob, String currency)
 	{
-	    if(mob==null) return;
-	    mob.setMoney(0);
-	    clearInventoryMoney(mob,currency);
+		if(mob==null)
+			return;
+		mob.setMoney(0);
+		clearInventoryMoney(mob,currency);
 	}
 
+	@Override
 	public void clearInventoryMoney(MOB mob, String currency)
 	{
-	    if(mob==null) return;
-	    Vector clear=null;
-	    Item I=null;
-	    for(int i=0;i<mob.inventorySize();i++)
-	    {
-	        I=mob.fetchInventory(i);
-	        if(I instanceof Coins)
-	        {
-	            if(clear==null) clear=new Vector();
-	            if(currency==null)
-		            clear.addElement(I);
-	            else
-	            if(((Coins)I).getCurrency().equalsIgnoreCase(currency))
-	                clear.addElement(I);
-	        }
-	    }
-	    if(clear!=null)
-	        for(int i=0;i<clear.size();i++)
-	            ((Item)clear.elementAt(i)).destroy();
+		if(mob==null) 
+			return;
+		List<Item> clear=null;
+		Item I=null;
+		for(int i=0;i<mob.numItems();i++)
+		{
+			I=mob.getItem(i);
+			if((I instanceof Coins)
+			&&(((Coins)I).container()==null))
+			{
+				if(clear==null) 
+					clear=new ArrayList<Item>();
+				if(currency==null)
+					clear.add(I);
+				else
+				if(((Coins)I).getCurrency().equalsIgnoreCase(currency))
+					clear.add(I);
+			}
+		}
+		if(clear!=null)
+			for(int i=0;i<clear.size();i++)
+				clear.get(i).destroy();
 	}
 
+	@Override
 	public void subtractMoney(MOB mob, double denomination, double absoluteAmount)
-	{ 
+	{
 		subtractMoney(mob,getCurrency(mob),denomination,absoluteAmount);
 	}
-	
+
+	@Override
 	public void subtractMoney(MOB mob, String currency, double denomination, double absoluteAmount)
 	{
-		if(mob==null) return;
-		Vector V=getStandardCurrency(mob,currency);
+		if(mob==null)
+			return;
+		final List<Coins> V=getStandardCurrency(mob,currency);
 		Coins C=null;
 		for(int v=0;v<V.size();v++)
 		{
-		    C=(Coins)V.elementAt(v);
-		    if(C.getDenomination()==denomination)
-		    {
-		        if(C.getTotalValue()>absoluteAmount)
-		        {
-		            C.setNumberOfCoins(Math.round(Math.floor((C.getTotalValue()-absoluteAmount)/denomination)));
-		            C.text();
-		            break;
-		        }
-	            absoluteAmount-=C.getTotalValue();
-	            C.destroy();
-		    }
+			C=V.get(v);
+			if(C.getDenomination()==denomination)
+			{
+				if(C.getTotalValue()>absoluteAmount)
+				{
+					C.setNumberOfCoins(Math.round(Math.floor((C.getTotalValue()-absoluteAmount)/denomination)));
+					C.text();
+					break;
+				}
+				absoluteAmount-=C.getTotalValue();
+				C.destroy();
+			}
 		}
 	}
 
-	public Vector getStandardCurrency(Room R, Item container, String currency)
+	@Override
+	public List<Coins> getStandardCurrency(Room R, Item container, String currency)
 	{
-	    Vector V=new Vector();
-		if(R==null) return V;
+		final Vector<Coins> V=new Vector<Coins>();
+		if(R==null)
+			return V;
 		for(int i=0;i<R.numItems();i++)
 		{
-			Item I=R.fetchItem(i);
+			final Item I=R.getItem(i);
 			if((I!=null)
 			&&(I instanceof Coins)
 			&&((currency==null)||((Coins)I).getCurrency().equalsIgnoreCase(currency))
 			&&(I.container()==container))
-				V.addElement(I);
+				V.addElement((Coins)I);
 		}
 		return V;
 	}
 
-	public Vector getStandardCurrency(MOB mob, String currency)
+	@Override
+	public List<Coins> getStandardCurrency(MOB mob, String currency)
 	{
 		return getStandardCurrency(mob, null, currency);
 	}
-	
-	public Vector getStandardCurrency(MOB mob, Item container, String currency)
+
+	@Override
+	public List<Coins> getStandardCurrency(MOB mob, Item container, String currency)
 	{
-	    Vector V=new Vector();
-		if(mob==null) return V;
+		final Vector<Coins> V=new Vector<Coins>();
+		if(mob==null)
+			return V;
 		if(((currency==null)||(currency.equals(getCurrency(mob))))&&(mob.getMoney()>0)&&(container==null))
 		{
-		    addMoney(mob,getCurrency(mob),(double)mob.getMoney());
-		    mob.setMoney(0);
+			addMoney(mob,getCurrency(mob),(double)mob.getMoney());
+			mob.setMoney(0);
 		}
-		for(int i=0;i<mob.inventorySize();i++)
+		for(int i=0;i<mob.numItems();i++)
 		{
-			Item I=mob.fetchInventory(i);
+			final Item I=mob.getItem(i);
 			if((I!=null)
 			&&(I instanceof Coins)
 			&&((currency==null)||((Coins)I).getCurrency().equalsIgnoreCase(currency))
 			&&(I.container()==container))
-				V.addElement(I);
+				V.addElement((Coins)I);
 		}
 		return V;
 	}
 
+	@Override
 	public long getNumberOfCoins(MOB mob, String currency, double denomination)
 	{
-	    Vector V=getStandardCurrency(mob,currency);
-	    long gold=0;
-	    for(int v=0;v<V.size();v++)
-	        if(((Coins)V.elementAt(v)).getDenomination()==denomination)
-	            gold+=((Coins)V.elementAt(v)).getNumberOfCoins();
-	    return gold;
+		final List<Coins> V=getStandardCurrency(mob,currency);
+		long gold=0;
+		for(int v=0;v<V.size();v++)
+			if(V.get(v).getDenomination()==denomination)
+				gold+=V.get(v).getNumberOfCoins();
+		return gold;
 	}
 
+	@Override
 	public String getCurrency(Environmental E)
 	{
-	    if(E instanceof MOB)
-	    {
-		    if(((MOB)E).getStartRoom()!=null)
-		        return getCurrency(((MOB)E).getStartRoom());
-		    else
-		    if(((MOB)E).location()!=null)
-			    return getCurrency(((MOB)E).location());
-	    }
-	    else
-	    if(E instanceof Room)
-	        return getCurrency(((Room)E).getArea());
-        else
-        if(E instanceof Coins)
-            return ((Coins)E).getCurrency();
-	    else
-	    if(E instanceof Area)
-	    {
-	        String s=((Area)E).getCurrency();
-	        if(s.length()==0)
-		        for(int p=0;p<((Area)E).getNumParents();p++)
-		        {
-		            s=getCurrency(((Area)E).getParent(p));
-			        if(s.length()>0)
-			            break;
-		        }
-	        int x=s.indexOf("=");
-	        if(x<0) return s.toUpperCase().trim();
-	        return s.substring(0,x).toUpperCase().trim();
-	    }
-	    return "";
+		if(E instanceof MOB)
+		{
+			if(((MOB)E).getStartRoom()!=null)
+				return getCurrency(((MOB)E).getStartRoom());
+			else
+			if(((MOB)E).location()!=null)
+				return getCurrency(((MOB)E).location());
+		}
+		else
+		if(E instanceof Room)
+			return getCurrency(((Room)E).getArea());
+		else
+		if(E instanceof Coins)
+			return ((Coins)E).getCurrency();
+		else
+		if(E instanceof Area)
+		{
+			String s=((Area)E).getCurrency();
+			if(s.length()==0)
+			{
+				for(final Enumeration<Area> p=((Area)E).getParents();p.hasMoreElements();)
+				{
+					s=getCurrency(p.nextElement());
+					if(s.length()>0)
+						break;
+				}
+			}
+			final int x=s.indexOf('=');
+			if(x<0)
+				return s.toUpperCase().trim();
+			return s.substring(0,x).toUpperCase().trim();
+		}
+		return "";
 	}
 
+	@Override
 	public double getTotalAbsoluteValue(Room R, Item container, String currency)
 	{
 		double money=0.0;
-	    Vector V=getStandardCurrency(R,container,currency);
-	    for(int v=0;v<V.size();v++)
-			money+=((Coins)V.elementAt(v)).getTotalValue();
+		final List<Coins> V=getStandardCurrency(R,container,currency);
+		for(int v=0;v<V.size();v++)
+			money+=V.get(v).getTotalValue();
 		return money;
 	}
 
+	@Override
 	public double getTotalAbsoluteValue(MOB mob, String currency)
 	{
 		return getTotalAbsoluteValue(mob, null, currency);
 	}
-	
+
+	@Override
 	public double getTotalAbsoluteValue(MOB mob, Item container, String currency)
 	{
 		double money=0.0;
-	    Vector V=getStandardCurrency(mob,container,currency);
-	    for(int v=0;v<V.size();v++)
-			money+=((Coins)V.elementAt(v)).getTotalValue();
+		final List<Coins> V=getStandardCurrency(mob,container,currency);
+		for(int v=0;v<V.size();v++)
+			money+=V.get(v).getTotalValue();
 		return money;
 	}
 
+	@Override
 	public double getTotalAbsoluteNativeValue(MOB mob)
 	{
 		double money=0.0;
-	    Vector V=getStandardCurrency(mob,getCurrency(mob));
-	    for(int v=0;v<V.size();v++)
-			money+=((Coins)V.elementAt(v)).getTotalValue();
-		return money;
-	}
-	
-	public double getTotalAbsoluteShopKeepersValue(MOB mob, MOB shopkeeper)
-	{
-		double money=0.0;
-	    Vector V=getStandardCurrency(mob,getCurrency(shopkeeper));
-	    for(int v=0;v<V.size();v++)
-			money+=((Coins)V.elementAt(v)).getTotalValue();
+		final List<Coins> V=getStandardCurrency(mob,getCurrency(mob));
+		for(int v=0;v<V.size();v++)
+			money+=V.get(v).getTotalValue();
 		return money;
 	}
 
-    public double getTotalAbsoluteValueAllCurrencies(MOB mob)
-    { 
-    	return getTotalAbsoluteValue(mob,null);
-    }
-    
+	@Override
+	public double getTotalAbsoluteShopKeepersValue(MOB mob, MOB shopkeeper)
+	{
+		double money=0.0;
+		final List<Coins> V=getStandardCurrency(mob,getCurrency(shopkeeper));
+		for(int v=0;v<V.size();v++)
+			money+=V.get(v).getTotalValue();
+		return money;
+	}
+
+	@Override
+	public double getTotalAbsoluteValueAllCurrencies(MOB mob)
+	{
+		return getTotalAbsoluteValue(mob,null);
+	}
+
 }

@@ -5,7 +5,7 @@
 <html>
 <head>
  	<link rel="grinder icon" href="/images/grinder.ico" >
-	<title>Thread Group #@RequestParameter?TICKGROUPCOUNTER@</title>
+	<title>Tick Group #@RequestParameter?TICKGROUPCOUNTER@</title>
 	<script language=JavaScript>
 	<!--
 		function ReOpen(which)
@@ -17,7 +17,7 @@
 	</script>
 </head>
 <body BGCOLOR=BLACK>
-<FORM NAME=THREAD TARGET=_top METHOD=POST ACTION="thread.cmvp">
+<FORM  ACCEPT-CHARSET="UTF-8" NAME=THREAD TARGET=_top METHOD=POST ACTION="thread.cmvp">
 <INPUT TYPE=HIDDEN NAME=AUTH VALUE="@Authenticate?AUTH@">
 <INPUT TYPE=HIDDEN NAME=TICKGROUPCOUNTER VALUE="@RequestParameter?TICKGROUPCOUNTER@">
 <TABLE WIDTH=100% BORDER=0>
@@ -66,7 +66,7 @@
 		<TD ALIGN=CENTER><FONT COLOR=WHITE>@SystemInfo?tickerID@@RequestParameter?TICKGROUPCOUNTER@@-@@RequestParameter?TICKSIZECOUNTER@@ @</FONT></TD>
 		<TD ALIGN=CENTER><FONT COLOR=WHITE>@SystemInfo?tickerTickDown@@RequestParameter?TICKGROUPCOUNTER@@-@@RequestParameter?TICKSIZECOUNTER@@ @</FONT></TD>
 		<TD ALIGN=CENTER><FONT COLOR=WHITE>@SystemInfo?tickerReTickDown@@RequestParameter?TICKGROUPCOUNTER@@-@@RequestParameter?TICKSIZECOUNTER@@ @</FONT></TD>
-		<TD><FONT SIZE=-2 COLOR=WHITE>@SystemInfo?tickercodeword@@RequestParameter?TICKGROUPCOUNTER@@-@@RequestParameter?TICKSIZECOUNTER@@ @ (@SystemInfo?tickerstatus@@RequestParameter?TICKGROUPCOUNTER@@-@@RequestParameter?TICKSIZECOUNTER@@ @)</FONT></TD>
+		<TD><FONT SIZE=-2 COLOR=WHITE>@SystemInfo?tickercodeword@@RequestParameter?TICKGROUPCOUNTER@@-@@RequestParameter?TICKSIZECOUNTER@@ @ (@SystemInfo?tickerstatusstr@@RequestParameter?TICKGROUPCOUNTER@@-@@RequestParameter?TICKSIZECOUNTER@@ @)</FONT></TD>
 		<TD><FONT COLOR=WHITE>@SystemInfo?tickerlaststartdate@@RequestParameter?TICKGROUPCOUNTER@@-@@RequestParameter?TICKSIZECOUNTER@@ @</FONT></TD>
 		<TD><FONT COLOR=WHITE>@SystemInfo?tickermilliavg@@RequestParameter?TICKGROUPCOUNTER@@-@@RequestParameter?TICKSIZECOUNTER@@ @</FONT></TD>
 		</TR>

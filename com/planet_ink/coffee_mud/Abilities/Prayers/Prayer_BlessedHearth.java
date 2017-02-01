@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Prayers;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,22 +10,21 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
-
-
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2004-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -33,81 +33,86 @@ import java.util.*;
    limitations under the License.
 */
 
-@SuppressWarnings("unchecked")
+
 public class Prayer_BlessedHearth extends Prayer
 {
-	public String ID() { return "Prayer_BlessedHearth"; }
-	public String name(){return "Blessed Hearth";}
-	public String displayText(){return "(Blessed Hearth)";}
-	public int classificationCode(){return Ability.ACODE_PRAYER|Ability.DOMAIN_WARDING;}
-	public int abstractQuality(){ return Ability.QUALITY_INDIFFERENT;}
-	protected int canAffectCode(){return CAN_ROOMS;}
-	protected int canTargetCode(){return CAN_ROOMS;}
-	protected int overrideMana(){return Integer.MAX_VALUE;}
-	public long flags(){return Ability.FLAG_HOLY;}
+	@Override public String ID() { return "Prayer_BlessedHearth"; }
+	private final static String localizedName = CMLib.lang().L("Blessed Hearth");
+	@Override public String name() { return localizedName; }
+	private final static String localizedStaticDisplay = CMLib.lang().L("(Blessed Hearth)");
+	@Override public String displayText() { return localizedStaticDisplay; }
+	@Override public int classificationCode(){return Ability.ACODE_PRAYER|Ability.DOMAIN_WARDING;}
+	@Override public int abstractQuality(){ return Ability.QUALITY_INDIFFERENT;}
+	@Override protected int canAffectCode(){return CAN_ROOMS;}
+	@Override protected int canTargetCode(){return CAN_ROOMS;}
+	@Override protected int overrideMana(){return Ability.COST_ALL;}
+	@Override public long flags(){return Ability.FLAG_HOLY;}
 
-	public boolean okMessage(Environmental myHost, CMMsg msg)
+	@Override
+	public boolean okMessage(final Environmental myHost, final CMMsg msg)
 	{
 		if((affected==null)||(!(affected instanceof Room)))
 			return super.okMessage(myHost,msg);
 
-		Room R=(Room)affected;
+		final Room R=(Room)affected;
 		if(((msg.sourceMinor()==CMMsg.TYP_UNDEAD)||(msg.targetMinor()==CMMsg.TYP_UNDEAD))
 		&&(msg.target() instanceof MOB))
 		{
-			HashSet H=((MOB)msg.target()).getGroupMembers(new HashSet());
-			for(Iterator e=H.iterator();e.hasNext();)
-            {
-                MOB M=(MOB)e.next();
-                if((CMLib.law().doesHavePriviledgesHere(M,R))
-                ||((text().length()>0)
-                    &&((M.Name().equals(text()))
-                        ||(M.getClanID().equals(text())))))
-                {
-					R.show(msg.source(),null,this,CMMsg.MSG_OK_VISUAL,"The blessed powers block the unholy magic from <S-NAMESELF>.");
+			final Set<MOB> H=((MOB)msg.target()).getGroupMembers(new HashSet<MOB>());
+			for (final Object element : H)
+			{
+				final MOB M=(MOB)element;
+				if((CMLib.law().doesHavePriviledgesHere(M,R))
+				||((text().length()>0)
+					&&((M.Name().equals(text()))
+						||(M.getClanRole(text())!=null))))
+				{
+					R.show(msg.source(),null,this,CMMsg.MSG_OK_VISUAL,L("The blessed powers block the unholy magic from <S-NAMESELF>."));
 					return false;
 				}
-            }
+			}
 		}
 		else
 		if((msg.targetMinor()==CMMsg.TYP_DAMAGE)
 		&&(msg.target() instanceof MOB))
 		{
-			HashSet H=((MOB)msg.target()).getGroupMembers(new HashSet());
-			for(Iterator e=H.iterator();e.hasNext();)
-            {
-                MOB M=(MOB)e.next();
-                if((CMLib.law().doesHavePriviledgesHere(M,R))
-                ||((text().length()>0)
-                    &&((M.Name().equals(text()))
-                        ||(M.getClanID().equals(text())))))
-                {
+			final Set<MOB> H=((MOB)msg.target()).getGroupMembers(new HashSet<MOB>());
+			for (final Object element : H)
+			{
+				final MOB M=(MOB)element;
+				if((CMLib.law().doesHavePriviledgesHere(M,R))
+				||((text().length()>0)
+					&&((M.Name().equals(text()))
+						||(M.getClanRole(text())!=null))))
+				{
 					msg.setValue(msg.value()/10);
 					break;
 				}
-            }
+			}
 		}
 		return super.okMessage(myHost,msg);
 	}
 
 
-	public boolean invoke(MOB mob, Vector commands, Environmental givenTarget, boolean auto, int asLevel)
+	@Override
+	public boolean invoke(MOB mob, List<String> commands, Physical givenTarget, boolean auto, int asLevel)
 	{
-		Environmental target=mob.location();
-		if(target==null) return false;
+		final Physical target=mob.location();
+		if(target==null)
+			return false;
 		if(target.fetchEffect(ID())!=null)
 		{
-			mob.tell("This place is already a blessed hearth.");
+			mob.tell(L("This place is already a blessed hearth."));
 			return false;
 		}
 
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
 			return false;
 
-		boolean success=proficiencyCheck(mob,0,auto);
+		final boolean success=proficiencyCheck(mob,0,auto);
 		if(success)
 		{
-			CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),auto?"":"^S<S-NAME> "+prayForWord(mob)+" to fill this place with blessedness.^?");
+			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),auto?"":L("^S<S-NAME> @x1 to fill this place with blessedness.^?",prayForWord(mob)));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);
@@ -115,12 +120,9 @@ public class Prayer_BlessedHearth extends Prayer
 				if((target instanceof Room)
 				&&(CMLib.law().doesOwnThisProperty(mob,((Room)target))))
 				{
-					String clanID=mob.getClanID();
-					if((mob.amFollowing()!=null)&&(clanID.length()==0))
-						clanID=mob.amFollowing().getClanID();
-                	if((clanID.length()>0)
-                    &&(CMLib.law().doesOwnThisProperty(clanID,((Room)target))))
-                        setMiscText(clanID);
+					final String landOwnerName=CMLib.law().getPropertyOwnerName((Room)target);
+					if(CMLib.clans().getClan(landOwnerName)!=null)
+						setMiscText(landOwnerName);
 					target.addNonUninvokableEffect((Ability)this.copyOf());
 					CMLib.database().DBUpdateRoom((Room)target);
 				}
@@ -129,7 +131,7 @@ public class Prayer_BlessedHearth extends Prayer
 			}
 		}
 		else
-			beneficialWordsFizzle(mob,target,"<S-NAME> "+prayForWord(mob)+" to fill this place with blessedness, but <S-IS-ARE> not answered.");
+			beneficialWordsFizzle(mob,target,L("<S-NAME> @x1 to fill this place with blessedness, but <S-IS-ARE> not answered.",prayForWord(mob)));
 
 		return success;
 	}

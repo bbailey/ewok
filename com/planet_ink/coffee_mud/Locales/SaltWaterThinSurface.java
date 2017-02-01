@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Locales;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,6 +10,7 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -16,14 +18,14 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2004-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -33,21 +35,52 @@ import java.util.*;
 */
 public class SaltWaterThinSurface extends SaltWaterSurface
 {
-	public String ID(){return "SaltWaterThinSurface";}
+	@Override
+	public String ID()
+	{
+		return "SaltWaterThinSurface";
+	}
+
 	public SaltWaterThinSurface()
 	{
 		super();
-		name="the water";
-		baseEnvStats.setWeight(2);
-		recoverEnvStats();
+		name = "the water";
+		basePhyStats.setWeight(2);
+		recoverPhyStats();
+		climask = Places.CLIMASK_WET;
 	}
-	public int domainType(){return Room.DOMAIN_OUTDOORS_WATERSURFACE;}
-	public int domainConditions(){return Room.CONDITION_WET;}
-	protected String UnderWaterLocaleID(){return "UnderSaltWaterThinGrid";}
+
+	@Override
+	public int domainType()
+	{
+		return Room.DOMAIN_OUTDOORS_WATERSURFACE;
+	}
+
+	@Override
+	protected String UnderWaterLocaleID()
+	{
+		return "UnderSaltWaterThinGrid";
+	}
+
+	@Override
+	protected int UnderWaterDomainType()
+	{
+		return Room.DOMAIN_OUTDOORS_UNDERWATER;
+	}
+
+	@Override
+	protected boolean IsUnderWaterFatClass(Room thatSea)
+	{
+		return (thatSea instanceof UnderSaltWaterGrid) 
+			|| (thatSea instanceof UnderSaltWaterThinGrid)
+			|| (thatSea instanceof UnderSaltWaterColumnGrid);
+	}
+
+	@Override
 	public CMObject newInstance()
 	{
-	    if(!CMSecurity.isDisabled("THINGRIDS"))
-	        return super.newInstance();
-        return new SaltWaterSurface().newInstance();
+		if (!CMSecurity.isDisabled(CMSecurity.DisFlag.THINGRIDS))
+			return super.newInstance();
+		return new SaltWaterSurface().newInstance();
 	}
 }

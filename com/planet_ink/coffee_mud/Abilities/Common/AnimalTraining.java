@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Common;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,20 +10,21 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2003-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -31,33 +33,35 @@ import java.util.*;
    limitations under the License.
 */
 
-@SuppressWarnings("unchecked")
+
 public class AnimalTraining extends CommonSkill
 {
-	public String ID() { return "AnimalTraining"; }
-	public String name(){ return "Animal Training";}
-	private static final String[] triggerStrings = {"ANIMALTRAINING"};
-	public String[] triggerStrings(){return triggerStrings;}
-    public int classificationCode() {   return Ability.ACODE_COMMON_SKILL|Ability.DOMAIN_ANIMALAFFINITY; }
+	@Override public String ID() { return "AnimalTraining"; }
+	private final static String localizedName = CMLib.lang().L("Animal Training");
+	@Override public String name() { return localizedName; }
+	private static final String[] triggerStrings =I(new String[] {"ANIMALTRAINING"});
+	@Override public String[] triggerStrings(){return triggerStrings;}
+	@Override public int classificationCode() {   return Ability.ACODE_COMMON_SKILL|Ability.DOMAIN_ANIMALAFFINITY; }
 
-	protected Environmental taming=null;
+	protected Physical taming=null;
 	protected String skillto="";
-    protected Object skill=null;
+	protected Object skill=null;
 	protected boolean messedUp=false;
 	public AnimalTraining()
 	{
 		super();
-		displayText="You are taming...";
-		verb="taming";
+		displayText=L("You are taming...");
+		verb=L("taming");
 	}
 
+	@Override
 	public boolean tick(Tickable ticking, int tickID)
 	{
 		if((affected!=null)
 		&&(affected instanceof MOB)
 		&&(tickID==Tickable.TICKID_MOB))
 		{
-			MOB mob=(MOB)affected;
+			final MOB mob=(MOB)affected;
 			if((taming==null)||(mob.location()==null))
 			{
 				messedUp=true;
@@ -77,13 +81,14 @@ public class AnimalTraining extends CommonSkill
 		return super.tick(ticking,tickID);
 	}
 
+	@Override
 	public void unInvoke()
 	{
 		if(canBeUninvoked())
 		{
-			if((affected!=null)&&(affected instanceof MOB))
+			if(affected instanceof MOB)
 			{
-				MOB mob=(MOB)affected;
+				final MOB mob=(MOB)affected;
 				if((taming!=null)&&(!aborted))
 				{
 					MOB animal=null;
@@ -93,15 +98,15 @@ public class AnimalTraining extends CommonSkill
 					if((taming!=null)&&(taming instanceof CagedAnimal))
 						animal=((CagedAnimal)taming).unCageMe();
 					if((messedUp)||(animal==null)||(skill==null))
-						commonTell(mob,"You've failed to train "+taming.name()+"!");
+						commonTell(mob,L("You've failed to train @x1!",taming.name()));
 					else
 					{
 						if(animal.numBehaviors()==0)
-							commonTell(mob,taming.name()+" is already tame.");
+							commonTell(mob,L("@x1 is already tame.",taming.name()));
 						else
 						{
-							String s=" to "+skillto;
-							mob.location().show(mob,null,CMMsg.MSG_NOISYMOVEMENT,"<S-NAME> manage(s) to train "+animal.name()+" "+s+".");
+							final String s=" to "+skillto;
+							mob.location().show(mob,null,getActivityMessageType(),L("<S-NAME> manage(s) to train @x1 @x2.",animal.name(),s));
 							if(skill instanceof Behavior)
 								animal.addBehavior((Behavior)skill);
 							else
@@ -111,7 +116,7 @@ public class AnimalTraining extends CommonSkill
 								animal.addAbility((Ability)skill);
 							}
 							animal.recoverCharStats();
-							animal.recoverEnvStats();
+							animal.recoverPhyStats();
 							animal.recoverMaxState();
 							if(taming instanceof CagedAnimal)
 							{
@@ -127,28 +132,32 @@ public class AnimalTraining extends CommonSkill
 	}
 
 
-	public boolean invoke(MOB mob, Vector commands, Environmental givenTarget, boolean auto, int asLevel)
+	@Override
+	public boolean invoke(MOB mob, List<String> commands, Physical givenTarget, boolean auto, int asLevel)
 	{
-		verb="training";
+		if(super.checkStop(mob, commands))
+			return true;
+
+		verb=L("training");
 		taming=null;
 		Item cage=null;
-		String[] skills={"WANDER", //0
+		final String[] skills={"WANDER", //0
 						 "HUNT", //1
 						 "KILL", //2
 						 "DOORGUARD" //3
 		};
 		String valid="Skills include:";
-		for(int i=0;i<skills.length;i++)
-			valid+=" "+skills[i];
+		for (final String skill2 : skills)
+			valid+=" "+skill2;
 		valid+=".";
 		if(commands.size()<2)
 		{
-			commonTell(mob,"Train whom to do what? "+valid);
+			commonTell(mob,L("Train whom to do what? @x1",valid));
 			return false;
 		}
 		skill=null;
-		String what=(String)commands.lastElement();
-		commands.removeElementAt(commands.size()-1);
+		final String what=commands.get(commands.size()-1);
+		commands.remove(commands.size()-1);
 		for(int i=0;i<skills.length;i++)
 		{
 			if(skills[i].startsWith(what.toUpperCase()))
@@ -174,28 +183,28 @@ public class AnimalTraining extends CommonSkill
 		}
 		if(skill==null)
 		{
-			commonTell(mob,"Train whom to do what? "+valid);
+			commonTell(mob,L("Train whom to do what? @x1",valid));
 			return false;
 		}
 
-		String str=CMParms.combine(commands,0);
+		final String str=CMParms.combine(commands,0);
 		MOB M=mob.location().fetchInhabitant(str);
 		taming=null;
 		if(M!=null)
 		{
 			if(!CMLib.flags().canBeSeenBy(M,mob))
 			{
-				commonTell(mob,"You don't see anyone called '"+str+"' here.");
+				commonTell(mob,L("You don't see anyone called '@x1' here.",str));
 				return false;
 			}
 			if((!M.isMonster())||(!CMLib.flags().isAnimalIntelligence(M)))
 			{
-				commonTell(mob,"You can't train "+M.name()+".");
+				commonTell(mob,L("You can't train @x1.",M.name(mob)));
 				return false;
 			}
 			if((CMLib.flags().canMove(M))&&(!CMLib.flags().isBoundOrHeld(M)))
 			{
-				commonTell(mob,M.name()+" doesn't seem willing to cooperate.");
+				commonTell(mob,L("@x1 doesn't seem willing to cooperate.",M.name(mob)));
 				return false;
 			}
 			taming=M;
@@ -205,7 +214,7 @@ public class AnimalTraining extends CommonSkill
 		{
 			for(int i=0;i<mob.location().numItems();i++)
 			{
-				Item I=mob.location().fetchItem(i);
+				final Item I=mob.location().getItem(i);
 				if((I!=null)
 				&&(I instanceof Container)
 				&&((((Container)I).containTypes()&Container.CONTAIN_CAGED)==Container.CONTAIN_CAGED))
@@ -213,25 +222,25 @@ public class AnimalTraining extends CommonSkill
 			}
 			if(commands.size()>0)
 			{
-				String last=(String)commands.lastElement();
-				Item I=mob.location().fetchItem(null,last);
+				final String last=commands.get(commands.size()-1);
+				final Item I=mob.location().findItem(null,last);
 				if((I!=null)
 				&&(I instanceof Container)
 				&&((((Container)I).containTypes()&Container.CONTAIN_CAGED)==Container.CONTAIN_CAGED))
 				{
 					cage=I;
-					commands.removeElement(last);
+					commands.remove(last);
 				}
 			}
 			if(cage==null)
 			{
-				commonTell(mob,"You don't see anyone called '"+str+"' here.");
+				commonTell(mob,L("You don't see anyone called '@x1' here.",str));
 				return false;
 			}
-			taming=mob.location().fetchItem(cage,CMParms.combine(commands,0));
+			taming=mob.location().findItem(cage,CMParms.combine(commands,0));
 			if((taming==null)||(!CMLib.flags().canBeSeenBy(taming,mob))||(!(taming instanceof CagedAnimal)))
 			{
-				commonTell(mob,"You don't see any creatures in "+cage.name()+" called '"+CMParms.combine(commands,0)+"'.");
+				commonTell(mob,L("You don't see any creatures in @x1 called '@x2'.",cage.name(),CMParms.combine(commands,0)));
 				return false;
 			}
 			M=((CagedAnimal)taming).unCageMe();
@@ -242,16 +251,16 @@ public class AnimalTraining extends CommonSkill
 		if(((skill instanceof Behavior)&&(M.fetchBehavior(((Behavior)skill).ID())!=null))
 		||(skill instanceof Ability)&&(M.fetchAbility(((Ability)skill).ID())!=null))
 		{
-			commonTell(mob,M.name()+" already knows how to do that.");
+			commonTell(mob,L("@x1 already knows how to do that.",M.name(mob)));
 			return false;
 		}
 
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
 			return false;
-		messedUp=!proficiencyCheck(mob,-taming.envStats().level()+(2*getXLEVELLevel(mob)),auto);
-		int duration=getDuration(35,mob,taming.envStats().level(),10);
-		verb="training "+M.name();
-		CMMsg msg=CMClass.getMsg(mob,null,this,CMMsg.MSG_NOISYMOVEMENT,"<S-NAME> start(s) training "+M.name()+".");
+		messedUp=!proficiencyCheck(mob,-taming.phyStats().level()+(2*getXLEVELLevel(mob)),auto);
+		final int duration=getDuration(35,mob,taming.phyStats().level(),10);
+		verb=L("training @x1",M.name());
+		final CMMsg msg=CMClass.getMsg(mob,null,this,getActivityMessageType(),L("<S-NAME> start(s) training @x1.",M.name()));
 		if(mob.location().okMessage(mob,msg))
 		{
 			mob.location().send(mob,msg);

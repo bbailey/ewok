@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Fighter;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,20 +10,21 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2003-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -33,31 +35,32 @@ import java.util.*;
 
 public class Fighter_CatchProjectile extends FighterSkill
 {
-	public String ID() { return "Fighter_CatchProjectile"; }
-	public String name(){ return "Catch Projectile";}
-	public String displayText(){ return "";}
-	public int abstractQuality(){return Ability.QUALITY_OK_SELF;}
-	protected int canAffectCode(){return Ability.CAN_MOBS;}
-	protected int canTargetCode(){return 0;}
-	public boolean isAutoInvoked(){return true;}
-	public boolean canBeUninvoked(){return false;}
-    public int classificationCode(){ return Ability.ACODE_SKILL|Ability.DOMAIN_EVASIVE;}
+	@Override public String ID() { return "Fighter_CatchProjectile"; }
+	private final static String localizedName = CMLib.lang().L("Catch Projectile");
+	@Override public String name() { return localizedName; }
+	@Override public String displayText(){ return "";}
+	@Override public int abstractQuality(){return Ability.QUALITY_OK_SELF;}
+	@Override protected int canAffectCode(){return Ability.CAN_MOBS;}
+	@Override protected int canTargetCode(){return 0;}
+	@Override public boolean isAutoInvoked(){return true;}
+	@Override public boolean canBeUninvoked(){return false;}
+	@Override public int classificationCode(){ return Ability.ACODE_SKILL|Ability.DOMAIN_EVASIVE;}
 	public boolean doneThisRound=false;
 
-	public boolean okMessage(Environmental myHost, CMMsg msg)
+	@Override
+	public boolean okMessage(final Environmental myHost, final CMMsg msg)
 	{
 		if(!super.okMessage(myHost,msg))
 			return false;
 
-		if((affected==null)||(!(affected instanceof MOB)))
+		if(!(affected instanceof MOB))
 			return true;
 
-		MOB mob=(MOB)affected;
+		final MOB mob=(MOB)affected;
 		if(msg.amITarget(mob)
 		&&(!doneThisRound)
-		&&(CMLib.flags().aliveAwakeMobileUnbound(mob,true))
+		&&(CMLib.flags().isAliveAwakeMobileUnbound(mob,true))
 		&&(msg.targetMinor()==CMMsg.TYP_WEAPONATTACK)
-		&&(msg.tool()!=null)
 		&&(msg.tool() instanceof Weapon)
 		&&((((Weapon)msg.tool()).weaponClassification()==Weapon.CLASS_RANGED)
 		   ||(((Weapon)msg.tool()).weaponClassification()==Weapon.CLASS_THROWN))
@@ -74,38 +77,30 @@ public class Fighter_CatchProjectile extends FighterSkill
 			{
 				if(!w.amWearingAt(Wearable.IN_INVENTORY))
 					CMLib.commands().postRemove(msg.source(),w,true);
-				CMLib.commands().postDrop(msg.source(),w,true,false);
+				CMLib.commands().postDrop(msg.source(),w,true,false,false);
 			}
 			else
-			if(((Weapon)w).requiresAmmunition())
+			if((w instanceof AmmunitionWeapon) && ((AmmunitionWeapon)w).requiresAmmunition())
 			{
-				Item neww=CMClass.getItem("GenAmmunition");
-				String ammo=((Weapon)w).ammunitionType();
-				if(ammo.length()==0) return true;
+
+				String ammo=((AmmunitionWeapon)w).ammunitionType();
+				if(ammo.length()==0)
+					return true;
 				if(ammo.endsWith("s"))
 					ammo=ammo.substring(0,ammo.length()-1);
-				if(("aeiouAEIOU").indexOf(ammo.charAt(0))>=0)
-					ammo="an "+ammo;
-				else
-					ammo="a "+ammo;
-				neww.setName(ammo);
-				neww.setDisplayText(ammo+" sits here.");
-				((Ammunition)neww).setAmmunitionType(ammo);
-				neww.setUsesRemaining(1);
-				neww.baseEnvStats().setWeight(1);
-				neww.setBaseValue(0);
-				neww.recoverEnvStats();
+				final Item neww=CMLib.coffeeMaker().makeAmmunition(ammo,1);
+				neww.setMaterial(w.material());
 				w=neww;
-				mob.location().addItemRefuse(neww,CMProps.getIntVar(CMProps.SYSTEMI_EXPIRE_PLAYER_DROP));
+				mob.location().addItem(neww,ItemPossessor.Expire.Player_Drop);
 			}
 			if(mob.location().isContent(w))
 			{
-				CMMsg msg2=CMClass.getMsg(mob,w,msg.source(),CMMsg.MSG_GET,"<S-NAME> catch(es) the <T-NAME> shot by <O-NAME>!");
+				final CMMsg msg2=CMClass.getMsg(mob,w,msg.source(),CMMsg.MSG_GET,L("<S-NAME> catch(es) the <T-NAME> shot by <O-NAME>!"));
 				if(mob.location().okMessage(mob,msg2))
 				{
 					mob.location().send(mob,msg2);
 					doneThisRound=true;
-					helpProficiency(mob);
+					helpProficiency(mob, 0);
 					return false;
 				}
 			}
@@ -113,6 +108,7 @@ public class Fighter_CatchProjectile extends FighterSkill
 		return true;
 	}
 
+	@Override
 	public boolean tick(Tickable ticking, int tickID)
 	{
 		if(tickID==Tickable.TICKID_MOB)

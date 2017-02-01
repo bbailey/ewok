@@ -86,6 +86,26 @@
 				document.RESOURCES.submit();
 			}
 		}
+		function ExpireNever()
+		{
+			if(confirm('Never expire this player?'))
+			{
+				document.RESOURCES.action='playerdo.cmvp';
+				document.RESOURCES.FUNCTION.value='EXPIRENEVER';
+				document.RESOURCES.PLAYER.value='@PlayerID@';
+				document.RESOURCES.submit();
+			}
+		}
+		function ExpireNow()
+		{
+			if(confirm('Expire this player now?'))
+			{
+				document.RESOURCES.action='playerdo.cmvp';
+				document.RESOURCES.FUNCTION.value='EXPIRENOW';
+				document.RESOURCES.PLAYER.value='@PlayerID@';
+				document.RESOURCES.submit();
+			}
+		}
 		function BanEmail()
 		{
 			if(confirm('Ban this Email Address?'))
@@ -173,7 +193,7 @@
 	</script>
 </head>
 <body BGCOLOR=BLACK>
-<FORM NAME=RESOURCES TARGET=_top METHOD=POST ACTION="player.cmvp">
+<FORM  ACCEPT-CHARSET="UTF-8" NAME=RESOURCES TARGET=_top METHOD=POST ACTION="player.cmvp">
 <INPUT TYPE=HIDDEN NAME=AUTH VALUE="@Authenticate?AUTH@">
 <INPUT TYPE=HIDDEN NAME=PLAYER VALUE="">
 <INPUT TYPE=HIDDEN NAME=FUNCTION VALUE="">
@@ -214,13 +234,18 @@
 	</TABLE>
 @endif@
 @if?PlayerData?ACCTEXPUSED@
-	<CENTER><FONT COLOR=RED>Account expires: </FONT>
-	@if?!CheckReqParm?FUNCTION=EDIT@
+	<FONT COLOR=RED>Account expires: </FONT>
+	@if?CheckReqParm?FUNCTION=EDIT@
 		<INPUT TYPE=TEXT NAME=ACCTEXP SIZE=20 VALUE="@PlayerData?ACCTEXP@">
 	@else@
-		<FONT COLOR=BLACK>@PlayerData?ACCTEXP@</FONT>
+		<FONT COLOR=WHITE>@PlayerData?ACCTEXP@</FONT>
 	@endif@
-</CENTER>
+	@if?CheckAuthCode?AUTH_CMDPLAYERS=true@
+		&nbsp;&nbsp;&nbsp;
+		<A href="javascript:ExpireNever();"><FONT SIZE=-1 COLOR=RED>Expire Never</FONT></a>&nbsp;&nbsp;&nbsp;
+		<A href="javascript:ExpireNow();"><FONT SIZE=-1 COLOR=RED>Expire Now</FONT></a>
+		</FONT>
+	@endif@
 @endif@
 <TABLE WIDTH=100% BORDER=1 CELLSPACING=0 CELLPADDING=0>
 <TR>
@@ -326,6 +351,7 @@
 				<FONT COLOR=WHITE>@PlayerData?HITPOINTS@</FONT><FONT COLOR=YELLOW>/</FONT><FONT COLOR=WHITE>@PlayerData?BASEHITPOINTS@</FONT>
 			@endif@
 		</TD>
+		@if?IsDisabled?ATTRIBS@ <TD WIDTH=62 COLSPAN=7>&nbsp;</TD>@else@
 		<TD WIDTH=20% ALIGN=RIGHT><FONT COLOR=YELLOW>Stats:&nbsp;&nbsp;&nbsp;</FONT></TD>
 		<TD WIDTH=7% ALIGN=LEFT><FONT COLOR=YELLOW>Str</FONT></TD>
 		<TD WIDTH=7%>
@@ -351,6 +377,7 @@
 				<FONT COLOR=WHITE>@PlayerData?DEXTERITY@</FONT>
 			@endif@
 		</TD>
+		@endif@
 	</TR>
 	<TR>
 		<TD WIDTH=20%><FONT COLOR=YELLOW>Mana: </FONT></TD>
@@ -361,6 +388,7 @@
 				<FONT COLOR=WHITE>@PlayerData?MANA@</FONT><FONT COLOR=YELLOW>/</FONT><FONT COLOR=WHITE>@PlayerData?BASEMANA@</FONT>
 			@endif@
 		</TD>
+		@if?IsDisabled?ATTRIBS@ <TD WIDTH=42 COLSPAN=6>&nbsp;</TD>@else@
 		<TD WIDTH=7% ALIGN=LEFT><FONT COLOR=YELLOW>Wis</FONT></TD>
 		<TD WIDTH=7%>
 			@if?CheckReqParm?FUNCTION=EDIT@
@@ -385,6 +413,7 @@
 				<FONT COLOR=WHITE>@PlayerData?CHARISMA@</FONT>
 			@endif@
 		</TD>
+		@endif@
 	</TR>
 	<TR>
 		<TD WIDTH=20%><FONT COLOR=YELLOW>Movement: </FONT></TD>
@@ -633,16 +662,14 @@
 	<TR>
 		<TD WIDTH=20%><FONT COLOR=YELLOW>Start Room: </FONT></TD>
 		<TD WIDTH=40%><FONT COLOR=WHITE>@PlayerData?STARTROOM@</FONT></TD>
-		<TD WIDTH=20%><FONT COLOR=YELLOW>Clan: </FONT></TD>
-		<TD WIDTH=20%>
-			@if?CheckReqParm?FUNCTION=EDIT@
-			    <SELECT NAME=CLAN>
-			    @PlayerData?CLAN@
-			    </SELECT>
-			@else@
-				<FONT COLOR=WHITE>@PlayerData?CLANNAME@</FONT>
-			@endif@
-		</TD>
+		@if?CheckReqParm?FUNCTION=EDIT@
+			<TD WIDTH=40% COLSPAN=2><FONT COLOR=YELLOW>Clan(s): </FONT>
+				@PlayerData?CLANS@
+			</TD>
+		@else@
+			<TD WIDTH=20%><FONT COLOR=YELLOW>Clan(s): </FONT></TD>
+			<TD WIDTH=20%><FONT COLOR=WHITE>@PlayerData?CLANNAMES@</FONT></TD>
+		@endif@
 	</TR>
 	<TR>
 		<TD WIDTH=20%><FONT COLOR=YELLOW>Email: </FONT></TD>
@@ -755,7 +782,12 @@
 <TR>
 	<TD WIDTH=100% COLSPAN=3><FONT COLOR=YELLOW>Leveling History: </FONT><FONT COLOR=WHITE>
 	<TABLE WIDTH=100% CELLPADDING=0 CELLSPACING=0>
-	<TR><TD WIDTH=20% ROWSPAN=1000></TD><TD WIDTH=20%><FONT COLOR=YELLOW>Level</FONT></TD><TD><FONT COLOR=YELLOW>Date/Time</FONT></TD></TR>
+	<TR>
+		<TD WIDTH=20% ROWSPAN=1000></TD>
+		<TD WIDTH=20%><FONT COLOR=YELLOW>Level</FONT></TD>
+		<TD><FONT COLOR=YELLOW>Date/Time</FONT></TD>
+		<TD><FONT COLOR=YELLOW>Minutes</FONT></TD>
+	</TR>
 	@PlayerData?LEVELS@
 	</TABLE>
 	</FONT>

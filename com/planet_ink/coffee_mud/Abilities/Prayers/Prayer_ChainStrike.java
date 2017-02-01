@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Prayers;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,20 +10,21 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2003-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -31,98 +33,86 @@ import java.util.*;
    limitations under the License.
 */
 
-@SuppressWarnings("unchecked")
 public class Prayer_ChainStrike extends Prayer
 {
-	public String ID() { return "Prayer_ChainStrike"; }
-	public String name(){return "Chain Strike";}
-	public int classificationCode(){return Ability.ACODE_PRAYER|Ability.DOMAIN_CREATION;}
-	public long flags(){return Ability.FLAG_HOLY|Ability.FLAG_UNHOLY|Ability.FLAG_AIRBASED;}
-	public int maxRange(){return adjustedMaxInvokerRange(2);}
-	public int abstractQuality(){return Ability.QUALITY_MALICIOUS;}
+	@Override public String ID() { return "Prayer_ChainStrike"; }
+	private final static String localizedName = CMLib.lang().L("Chain Strike");
+	@Override public String name() { return localizedName; }
+	@Override public int classificationCode(){return Ability.ACODE_PRAYER|Ability.DOMAIN_CREATION;}
+	@Override public long flags(){return Ability.FLAG_NEUTRAL|Ability.FLAG_AIRBASED;}
+	@Override public int maxRange(){return adjustedMaxInvokerRange(2);}
+	@Override public int abstractQuality(){return Ability.QUALITY_MALICIOUS;}
 
-	public boolean invoke(MOB mob, Vector commands, Environmental givenTarget, boolean auto, int asLevel)
+	@Override
+	public boolean invoke(MOB mob, List<String> commands, Physical givenTarget, boolean auto, int asLevel)
 	{
-		HashSet h=properTargets(mob,givenTarget,auto);
-		if(h==null) h=new HashSet();
+		Set<MOB> h=properTargets(mob,givenTarget,auto);
+		if(h==null)
+			h=new HashSet<MOB>();
 
-		HashSet myGroup=mob.getGroupMembers(new HashSet());
-		Vector targets=new Vector();
-		for(Iterator e=h.iterator();e.hasNext();)
-			targets.addElement(e.next());
-		for(Iterator e=myGroup.iterator();e.hasNext();)
-		{
-			MOB M=(MOB)e.next();
-			if((M!=mob)&&(!targets.contains(M))) targets.addElement(M);
-		}
-		targets.addElement(mob);
+		final Vector<MOB> targets=new Vector<MOB>(h);
 
-		// the invoke method for spells receives as
-		// parameters the invoker, and the REMAINING
-		// command line parameters, divided into words,
-		// and added as String objects to a vector.
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
 			return false;
 
 		int damage = CMLib.dice().roll(1,adjustedLevel(mob,asLevel)/2,1+(2*super.getX1Level(mob)));
 
-		boolean success=proficiencyCheck(mob,0,auto);
+		final boolean success=proficiencyCheck(mob,0,auto);
 		if(success)
 		{
-			if(mob.location().show(mob,null,this,verbalCastCode(mob,null,auto),(auto?"A thunderous crack of electricity erupts!":"^S<S-NAME> "+prayForWord(mob)+" to send down a thunderous crack of electricity.^?")+CMProps.msp("lightning.wav",40)))
+			if(mob.location().show(mob,null,this,verbalCastCode(mob,null,auto),L(auto?"A thunderous crack of electricity erupts!":"^S<S-NAME> "+prayForWord(mob)+" to send down a thunderous crack of electricity.^?")+CMLib.protocol().msp("lightning.wav",40)))
 			{
 				while(damage>0)
-				for(int i=0;i<targets.size();i++)
 				{
-					MOB target=(MOB)targets.elementAt(i);
-					if(target.amDead()||(target.location()!=mob.location()))
+					final int oldDamage=damage;
+					for(int i=0;i<targets.size();i++)
 					{
-						int count=0;
-						for(int i2=0;i2<targets.size();i2++)
+						final MOB target=targets.elementAt(i);
+						if(target.amDead()||(target.location()!=mob.location()))
 						{
-							MOB M2=(MOB)targets.elementAt(i2);
-							if((!M2.amDead())
-							   &&(mob.location()!=null)
-							   &&(mob.location().isInhabitant(M2))
-							   &&(M2.location()==mob.location()))
-								 count++;
+							int count=0;
+							for(int i2=0;i2<targets.size();i2++)
+							{
+								final MOB M2=targets.elementAt(i2);
+								if((!M2.amDead())
+								   &&(mob.location()!=null)
+								   &&(mob.location().isInhabitant(M2))
+								   &&(M2.location()==mob.location()))
+									 count++;
+							}
+							if(count<2)
+								return true;
+							continue;
 						}
-						if(count<2)
-							return true;
-						continue;
-					}
 
-					// it worked, so build a copy of this ability,
-					// and add it to the affects list of the
-					// affected MOB.  Then tell everyone else
-					// what happened.
-					boolean oldAuto=auto;
-					if((target==mob)||(myGroup.contains(target)))
-					   auto=true;
-					CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),null);
-					CMMsg msg2=CMClass.getMsg(mob,target,this,CMMsg.MSK_CAST_MALICIOUS_VERBAL|CMMsg.TYP_ELECTRIC|(auto?CMMsg.MASK_ALWAYS:0),null);
-					auto=oldAuto;
-					if((mob.location().okMessage(mob,msg))&&((mob.location().okMessage(mob,msg2))))
-					{
-						mob.location().send(mob,msg);
-						mob.location().send(mob,msg2);
-						invoker=mob;
-
-						int dmg=damage;
-						if((msg.value()>0)||(msg2.value()>0))
-							dmg = (int)Math.round(CMath.div(dmg,2.0));
-						if(target.location()==mob.location())
+						final boolean oldAuto=auto;
+						final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),null);
+						final CMMsg msg2=CMClass.getMsg(mob,target,this,CMMsg.MSK_CAST_MALICIOUS_VERBAL|CMMsg.TYP_ELECTRIC|(auto?CMMsg.MASK_ALWAYS:0),null);
+						auto=oldAuto;
+						if((mob.location().okMessage(mob,msg))&&((mob.location().okMessage(mob,msg2))))
 						{
-							CMLib.combat().postDamage(mob,target,this,dmg,CMMsg.MASK_ALWAYS|CMMsg.TYP_ELECTRIC,Weapon.TYPE_STRIKING,"The strike <DAMAGE> <T-NAME>!");
-							damage = (int)Math.round(CMath.div(damage,2.0));
-							if(damage<2){ damage=0; break;}
+							mob.location().send(mob,msg);
+							mob.location().send(mob,msg2);
+							invoker=mob;
+
+							int dmg=damage;
+							if((msg.value()>0)||(msg2.value()>0))
+								dmg = (int)Math.round(CMath.div(dmg,2.0));
+							if(target.location()==mob.location())
+							{
+								CMLib.combat().postDamage(mob,target,this,dmg,CMMsg.MASK_ALWAYS|CMMsg.TYP_ELECTRIC,Weapon.TYPE_STRIKING,L("The strike <DAMAGE> <T-NAME>!"));
+								damage = (int)Math.round(CMath.div(damage,2.0));
+								if(damage<2){ damage=0; break;}
+							}
 						}
 					}
+					if(oldDamage==damage)
+						break;
 				}
 			}
 		}
 		else
-			return maliciousFizzle(mob,null,"<S-NAME> "+prayWord(mob)+" for a ferocious spell, but nothing happens.");
+			return maliciousFizzle(mob,null,L("<S-NAME> @x1 for a ferocious spell, but nothing happens.",prayWord(mob)));
 
 
 		// return whether it worked

@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.CharClasses;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,6 +10,7 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -18,13 +20,13 @@ import java.util.*;
 
 
 /*
-   Copyright 2000-2010 Bo Zimmerman
+   Copyright 2002-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,38 +34,108 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
+@SuppressWarnings({"unchecked","rawtypes"})
 public class Druid extends StdCharClass
 {
-	public String ID(){return "Druid";}
-	public String name(){return "Druid";}
-	public String baseClass(){return ID();}
-	public int getBonusPracLevel(){return 2;}
-	public int getBonusAttackLevel(){return 0;}
-	public int getAttackAttribute(){return CharStats.STAT_CONSTITUTION;}
-	public int getLevelsPerBonusDamage(){ return 30;}
-	public int getHPDivisor(){return 2;}
-	public int getHPDice(){return 2;}
-	public int getHPDie(){return 7;}
-	public int getManaDivisor(){return 4;}
-	public int getManaDice(){return 1;}
-	public int getManaDie(){return 4;}
-	protected String armorFailMessage(){return "<S-NAME> watch(es) <S-HIS-HER> armor absorb <S-HIS-HER> magical energy!";}
-	public int allowedArmorLevel(){return CharClass.ARMOR_NONMETAL;}
-	public int allowedWeaponLevel(){return CharClass.WEAPONS_NATURAL;}
-	private HashSet requiredWeaponMaterials=buildRequiredWeaponMaterials();
-	protected HashSet requiredWeaponMaterials(){return requiredWeaponMaterials;}
-	public int requiredArmorSourceMinor(){return CMMsg.TYP_CAST_SPELL;}
-    public static Hashtable animalChecking=new Hashtable();
+	@Override
+	public String ID()
+	{
+		return "Druid";
+	}
+
+	private final static String localizedStaticName = CMLib.lang().L("Druid");
+
+	@Override
+	public String name()
+	{
+		return localizedStaticName;
+	}
+
+	@Override
+	public String baseClass()
+	{
+		return ID();
+	}
+
+	@Override
+	public int getBonusPracLevel()
+	{
+		return 2;
+	}
+
+	@Override
+	public int getBonusAttackLevel()
+	{
+		return 0;
+	}
+
+	@Override
+	public int getAttackAttribute()
+	{
+		return CharStats.STAT_CONSTITUTION;
+	}
+
+	@Override
+	public int getLevelsPerBonusDamage()
+	{
+		return 30;
+	}
+
+	@Override
+	public String getHitPointsFormula()
+	{
+		return "((@x6<@x7)/2)+(2*(1?7))";
+	}
+
+	@Override
+	public String getManaFormula()
+	{
+		return "((@x4<@x5)/4)+(1*(1?4))";
+	}
+
+	@Override
+	protected String armorFailMessage()
+	{
+		return L("<S-NAME> watch(es) <S-HIS-HER> armor absorb <S-HIS-HER> magical energy!");
+	}
+
+	@Override
+	public int allowedArmorLevel()
+	{
+		return CharClass.ARMOR_NONMETAL;
+	}
+
+	@Override
+	public int allowedWeaponLevel()
+	{
+		return CharClass.WEAPONS_NATURAL;
+	}
+
+	private final Set<Integer> requiredWeaponMaterials = buildRequiredWeaponMaterials();
+
+	@Override
+	protected Set<Integer> requiredWeaponMaterials()
+	{
+		return requiredWeaponMaterials;
+	}
+
+	@Override
+	public int requiredArmorSourceMinor()
+	{
+		return CMMsg.TYP_CAST_SPELL;
+	}
+
+	public static Hashtable<Environmental, Object[]> animalChecking = new Hashtable<Environmental, Object[]>();
 
 	public Druid()
 	{
 		super();
 		maxStatAdj[CharStats.STAT_CONSTITUTION]=7;
-    }
-    public void initializeClass()
-    {
-        super.initializeClass();
+	}
+	@Override
+	public void initializeClass()
+	{
+		super.initializeClass();
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Skill_Write",0,true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Skill_Recall",50,true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Skill_Revoke",false);
@@ -73,6 +145,7 @@ public class Druid extends StdCharClass
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Specialization_Natural",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Specialization_Staff",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Herbology",0,false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Druidic",75,true);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Druid_DruidicPass",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Druid_ShapeShift",true);
@@ -107,7 +180,7 @@ public class Druid extends StdCharClass
 		CMLib.ableMapper().addCharAbilityMapping(ID(),7,"Chant_Goodberry",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),7,"Chant_Hunger",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),7,"Chant_FeelCold",false);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),7,"Chant_NaturalCommunion",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),7,"Chant_NaturalBalance",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),8,"Chant_WarpWood",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),8,"Chant_ControlFire",false);
@@ -198,49 +271,58 @@ public class Druid extends StdCharClass
 		CMLib.ableMapper().addCharAbilityMapping(ID(),25,"Chant_Feralness",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),30,"Chant_Reincarnation",true);
+		
+		CMLib.ableMapper().addCharAbilityMapping(ID(),35,"Chant_PlaneWalking",false);
 	}
 
-	public int availabilityCode(){return Area.THEME_FANTASY;}
+	@Override
+	public int availabilityCode()
+	{
+		return Area.THEME_FANTASY;
+	}
 
-	
+	@Override
 	public void grantAbilities(MOB mob, boolean isBorrowedClass)
 	{
 		super.grantAbilities(mob,isBorrowedClass);
 
-        if(mob.playerStats()==null)
-        {
-            DVector V=CMLib.ableMapper().getUpToLevelListings(ID(),
-                                                mob.charStats().getClassLevel(ID()),
-                                                false,
-                                                false);
-            for(Enumeration a=V.getDimensionVector(1).elements();a.hasMoreElements();)
-            {
-                Ability A=CMClass.getAbility((String)a.nextElement());
-                if((A!=null)
-                &&((A.classificationCode()&Ability.ALL_ACODES)==Ability.ACODE_CHANT)
-                &&(!CMLib.ableMapper().getDefaultGain(ID(),true,A.ID())))
-                    giveMobAbility(mob,A,CMLib.ableMapper().getDefaultProficiency(ID(),true,A.ID()),CMLib.ableMapper().getDefaultParm(ID(),true,A.ID()),isBorrowedClass);
-            }
-            return;
-        }
-
-		Vector grantable=new Vector();
-
-		int level=mob.charStats().getClassLevel(this);
-		int numChants=2;
-		for(Enumeration a=CMClass.abilities();a.hasMoreElements();)
+		if(mob.playerStats()==null)
 		{
-			Ability A=(Ability)a.nextElement();
+			final List<AbilityMapper.AbilityMapping> V=CMLib.ableMapper().getUpToLevelListings(ID(),
+												mob.charStats().getClassLevel(ID()),
+												false,
+												false);
+			for(final AbilityMapper.AbilityMapping able : V)
+			{
+				final Ability A=CMClass.getAbility(able.abilityID());
+				if((A!=null)
+				&&((A.classificationCode()&Ability.ALL_ACODES)==Ability.ACODE_CHANT)
+				&&(!CMLib.ableMapper().getDefaultGain(ID(),true,A.ID())))
+					giveMobAbility(mob,A,CMLib.ableMapper().getDefaultProficiency(ID(),true,A.ID()),CMLib.ableMapper().getDefaultParm(ID(),true,A.ID()),isBorrowedClass);
+			}
+			return;
+		}
+
+		final Vector<String> grantable=new Vector<String>();
+
+		final int level=mob.charStats().getClassLevel(this);
+		int numChants=2;
+		for(final Enumeration<Ability> a=CMClass.abilities();a.hasMoreElements();)
+		{
+			final Ability A=a.nextElement();
 			if((CMLib.ableMapper().getQualifyingLevel(ID(),true,A.ID())==level)
 			&&((CMLib.ableMapper().getQualifyingLevel(ID(),true,A.ID())<=25)
 			&&(!CMLib.ableMapper().getSecretSkill(ID(),true,A.ID()))
 			&&(!CMLib.ableMapper().getDefaultGain(ID(),true,A.ID()))
 			&&((A.classificationCode()&Ability.ALL_ACODES)==Ability.ACODE_CHANT)))
-			{if (!grantable.contains(A.ID())) grantable.addElement(A.ID());}
+			{
+				if (!grantable.contains(A.ID()))
+					grantable.addElement(A.ID());
+			}
 		}
-		for(int a=0;a<mob.numLearnedAbilities();a++)
+		for(int a=0;a<mob.numAbilities();a++)
 		{
-			Ability A=mob.fetchAbility(a);
+			final Ability A=mob.fetchAbility(a);
 			if(grantable.contains(A.ID()))
 			{
 				grantable.remove(A.ID());
@@ -249,8 +331,9 @@ public class Druid extends StdCharClass
 		}
 		for(int i=0;i<numChants;i++)
 		{
-			if(grantable.size()==0) break;
-			String AID=(String)grantable.elementAt(CMLib.dice().roll(1,grantable.size(),-1));
+			if(grantable.size()==0)
+				break;
+			final String AID=grantable.elementAt(CMLib.dice().roll(1,grantable.size(),-1));
 			if(AID!=null)
 			{
 				grantable.removeElement(AID);
@@ -264,52 +347,62 @@ public class Druid extends StdCharClass
 	}
 
 
+	@Override
 	public void affectCharState(MOB affected, CharState affectableState)
 	{
 		super.affectCharState(affected,affectableState);
 		if(affected.location()!=null)
+		{
 			for(int i=0;i<affected.location().numItems();i++)
 			{
-				Item I=affected.location().fetchItem(i);
+				final Item I=affected.location().getItem(i);
 				if((I!=null)&&(I.ID().equals("DruidicMonument")))
 					affectableState.setMana(affectableState.getMana()+(affectableState.getMana()/2));
 			}
-	}
-	public String getStatQualDesc(){return "Constitution 9+";}
-	public boolean qualifiesForThisClass(MOB mob, boolean quiet)
-	{
-		if(mob != null)
-		{
-			if(mob.baseCharStats().getStat(CharStats.STAT_CONSTITUTION)<=8)
-			{
-				if(!quiet)
-					mob.tell("You need at least a 9 Constitution to become a Druid.");
-				return false;
-			}
-			if(!(mob.charStats().getMyRace().racialCategory().equals("Human"))
-			&& !(mob.charStats().getMyRace().racialCategory().equals("Humanoid"))
-			&& !(mob.charStats().getMyRace().racialCategory().equals("Elf"))
-			&& !(mob.charStats().getMyRace().racialCategory().equals("Vegetation"))
-			&& !(mob.charStats().getMyRace().racialCategory().equals("Dwarf"))
-			&& !(mob.charStats().getMyRace().racialCategory().equals("Giant-kin"))
-			&& !(mob.charStats().getMyRace().racialCategory().equals("Golbinoids"))
-			&& !(mob.charStats().getMyRace().racialCategory().equals("HalfElf")))
-			{
-				if(!quiet)
-					mob.tell("You must be Human, Elf, Dwarf, Golbinoid, Giant-kin, or Half Elf to be a Druid");
-				return false;
-			}
 		}
-		return super.qualifiesForThisClass(mob,quiet);
 	}
 
-	public String getOtherLimitsDesc(){return "Must remain Neutral to avoid skill and chant failure chances.";}
-	public String getOtherBonusDesc(){return "When leading animals into battle, will not divide experience among animal followers.  Can create a druidic connection with an area.  Benefits from animal/plant/stone followers leveling.  Benefits from freeing animals from cities.  Benefits from balancing the weather.";}
 
-	public boolean okMessage(Environmental myHost, CMMsg msg)
+	private final String[] raceRequiredList=new String[]{
+		"Human","Humanoid","Elf","Vegetation","Dwarf","Giant-kin",
+		"Goblinoid","HalfElf","Centaur"
+	};
+
+	@Override
+	public String[] getRequiredRaceList()
 	{
-		if(!(myHost instanceof MOB)) return super.okMessage(myHost,msg);
-		MOB myChar=(MOB)myHost;
+		return raceRequiredList;
+	}
+
+	private final Pair<String,Integer>[] minimumStatRequirements=new Pair[]{
+		new Pair<String,Integer>("Constitution",Integer.valueOf(9))
+	};
+
+	@Override
+	public Pair<String, Integer>[] getMinimumStatRequirements()
+	{
+		return minimumStatRequirements;
+	}
+
+	@Override
+	public String getOtherLimitsDesc()
+	{
+		return L("Must remain Neutral to avoid skill and chant failure chances.");
+	}
+
+	@Override
+	public String getOtherBonusDesc()
+	{
+		return L("When leading animals into battle, will not divide experience among animal followers.  Can create a druidic connection with an area.  "
+				+ "Benefits from animal/plant/stone followers leveling.  Benefits from freeing animals from cities.  Benefits from balancing the weather.");
+	}
+
+	@Override
+	public boolean okMessage(final Environmental myHost, final CMMsg msg)
+	{
+		if(!(myHost instanceof MOB))
+			return super.okMessage(myHost,msg);
+		final MOB myChar=(MOB)myHost;
 		if(!super.okMessage(myChar, msg))
 			return false;
 
@@ -324,80 +417,89 @@ public class Druid extends StdCharClass
 		{
 			if(((Ability)msg.tool()).appropriateToMyFactions(myChar))
 				return true;
-			myChar.tell("Extreme emotions disrupt your chant.");
+			myChar.tell(L("Extreme emotions disrupt your chant."));
 			return false;
 		}
 		return true;
 	}
-    
-    public static void doAnimalFollowerLevelingCheck(CharClass C, Environmental host, CMMsg msg)
-    {
-        if((msg.source()!=host)
-        &&(msg.sourceMessage()==null)
-        &&(msg.sourceMinor()==CMMsg.TYP_LEVEL)
-        &&(msg.source().isMonster())
-        &&((msg.source().amFollowing()==host)||(msg.source().amUltimatelyFollowing()==host))
-        &&(host instanceof MOB)
-        &&(((MOB)host).charStats().getCurrentClass().ID().equals(C.ID()))
-        &&(CMLib.flags().isAnimalIntelligence(msg.source())
-          ||msg.source().charStats().getMyRace().racialCategory().equalsIgnoreCase("Vegetation")
-          ||msg.source().charStats().getMyRace().racialCategory().equalsIgnoreCase("Stone Golem")))
-        {
-            int xp=msg.source().envStats().level()*5;
-            if(xp>0)
-            {
-                ((MOB)host).tell("Your stewardship has benefitted "+msg.source().name()+".");
-                CMLib.leveler().postExperience((MOB)host,null,null,xp,false);
-            }
-        }
-    }
-    
-    public static void doAnimalFreeingCheck(CharClass C, Environmental host, CMMsg msg)
-    {
-        if((msg.source()!=host)
-        &&(msg.sourceMinor()==CMMsg.TYP_NOFOLLOW)
-        &&(msg.source().isMonster())
-        &&(host instanceof MOB)
-        &&(!((MOB)host).isMonster())
-        &&(msg.target()==host)
-        &&(msg.source().getStartRoom()!=null)
-        &&(CMLib.law().isACity(msg.source().getStartRoom().getArea()))
-        &&(((MOB)host).charStats().getCurrentClass().ID().equals(C.ID()))
-        &&(CMLib.flags().isAnimalIntelligence(msg.source())
-          ||msg.source().charStats().getMyRace().racialCategory().equalsIgnoreCase("Vegetation")
-          ||msg.source().charStats().getMyRace().racialCategory().equalsIgnoreCase("Stone Golem"))
-        &&(CMLib.flags().flaggedAffects(msg.source(),Ability.FLAG_SUMMONING).size()==0)
-        &&(msg.source().location()!=null)
-        &&(!msg.source().amDestroyed())
-        &&(CMLib.flags().isInTheGame((MOB)host,true))
-        &&(!CMLib.law().isACity(msg.source().location().getArea())))
-        {
-            Object[] stuff=(Object[])animalChecking.get(host);
-            Room room=msg.source().location();
-            if((stuff==null)||(System.currentTimeMillis()-((Long)stuff[0]).longValue()>(room.getArea().getTimeObj().getDaysInMonth()*room.getArea().getTimeObj().getHoursInDay()*TimeClock.TIME_MILIS_PER_MUDHOUR)))
-            {
-                stuff=new Object[3];
-                stuff[0]=Long.valueOf(System.currentTimeMillis());
-                animalChecking.remove(host);
-                animalChecking.put(host,stuff);
-                stuff[1]=Integer.valueOf(0);
-                stuff[2]=new Vector();
-            }
-            if((((Integer)stuff[1]).intValue()<19)&&(!((Vector)stuff[2]).contains(""+msg.source())))
-            {
-                stuff[1]=Integer.valueOf(((Integer)stuff[1]).intValue()+1);
-                ((MOB)host).tell("You have freed "+msg.source().name()+" from "+(msg.source().getStartRoom().getArea().name())+".");
-                CMLib.leveler().postExperience((MOB)host,null,null,((Integer)stuff[1]).intValue(),false);
-            }
-        }
-    }
 
-    public void executeMsg(Environmental host, CMMsg msg){ super.executeMsg(host,msg); Druid.doAnimalFollowerLevelingCheck(this,host,msg); Druid.doAnimalFreeingCheck(this,host,msg);}
-    
-    public boolean isValidClassDivider(MOB killer, MOB killed, MOB mob, HashSet followers)
-    {
+	public static void doAnimalFollowerLevelingCheck(CharClass C, Environmental host, CMMsg msg)
+	{
+		if((msg.sourceMessage()==null)
+		&&(msg.sourceMinor()==CMMsg.TYP_LEVEL)
+		&&(msg.source().isMonster()))
+		{
+			final MOB druidM=msg.source().amUltimatelyFollowing();
+			if((druidM!=null)
+			&&(!druidM.isMonster())
+			&&(druidM.charStats().getCurrentClass().ID().equals(C.ID()))
+			&&(CMLib.flags().isAnimalIntelligence(msg.source())
+			  ||msg.source().charStats().getMyRace().racialCategory().equalsIgnoreCase("Vegetation")
+			  ||msg.source().charStats().getMyRace().racialCategory().equalsIgnoreCase("Stone Golem")))
+			{
+				final int xp=msg.source().phyStats().level()*5;
+				if(xp>0)
+				{
+					druidM.tell(CMLib.lang().L("Your stewardship has benefitted @x1.",msg.source().name(druidM)));
+					CMLib.leveler().postExperience(druidM,null,null,xp,false);
+				}
+			}
+		}
+	}
+
+	public static void doAnimalFreeingCheck(CharClass C, Environmental host, CMMsg msg)
+	{
+		if((msg.source()!=host)
+		&&(msg.sourceMinor()==CMMsg.TYP_NOFOLLOW)
+		&&(msg.source().isMonster())
+		&&(host instanceof MOB)
+		&&(!((MOB)host).isMonster())
+		&&(msg.target()==host)
+		&&(msg.source().getStartRoom()!=null)
+		&&(CMLib.law().isACity(msg.source().getStartRoom().getArea()))
+		&&(((MOB)host).charStats().getCurrentClass().ID().equals(C.ID()))
+		&&(CMLib.flags().isAnimalIntelligence(msg.source())
+		  ||msg.source().charStats().getMyRace().racialCategory().equalsIgnoreCase("Vegetation")
+		  ||msg.source().charStats().getMyRace().racialCategory().equalsIgnoreCase("Stone Golem"))
+		&&(CMLib.flags().flaggedAffects(msg.source(),Ability.FLAG_SUMMONING).size()==0)
+		&&(msg.source().location()!=null)
+		&&(!msg.source().amDestroyed())
+		&&(CMLib.flags().isInTheGame((MOB)host,true))
+		&&(!CMLib.law().isACity(msg.source().location().getArea())))
+		{
+			Object[] stuff=animalChecking.get(host);
+			final Room room=msg.source().location();
+			if((stuff==null)||(System.currentTimeMillis()-((Long)stuff[0]).longValue()>(room.getArea().getTimeObj().getDaysInMonth()*room.getArea().getTimeObj().getHoursInDay()*CMProps.getMillisPerMudHour())))
+			{
+				stuff=new Object[3];
+				stuff[0]=Long.valueOf(System.currentTimeMillis());
+				animalChecking.remove(host);
+				animalChecking.put(host,stuff);
+				stuff[1]=Integer.valueOf(0);
+				stuff[2]=new Vector<String>();
+			}
+			if((((Integer)stuff[1]).intValue()<19)&&(!((List)stuff[2]).contains(""+msg.source())))
+			{
+				stuff[1]=Integer.valueOf(((Integer)stuff[1]).intValue()+1);
+				((MOB)host).tell(CMLib.lang().L("You have freed @x1 from @x2.",msg.source().name((MOB)host),(msg.source().getStartRoom().getArea().name())));
+				CMLib.leveler().postExperience((MOB)host,null,null,((Integer)stuff[1]).intValue(),false);
+			}
+		}
+	}
+
+	@Override
+	public void executeMsg(Environmental host, CMMsg msg)
+	{
+		super.executeMsg(host,msg);
+		Druid.doAnimalFollowerLevelingCheck(this,host,msg);
+		Druid.doAnimalFreeingCheck(this,host,msg);
+	}
+
+	@Override
+	public boolean isValidClassDivider(MOB killer, MOB killed, MOB mob, Set<MOB> followers)
+	{
 		if((mob!=null)
-        &&(mob!=killed)
+		&&(mob!=killed)
 		&&(!mob.amDead())
 		&&((!mob.isMonster())||(!CMLib.flags().isAnimalIntelligence(mob)))
 		&&((mob.getVictim()==killed)
@@ -407,23 +509,29 @@ public class Druid extends StdCharClass
 		return false;
 	}
 
-	public Vector outfit(MOB myChar)
+	@Override
+	public List<Item> outfit(MOB myChar)
 	{
 		if(outfitChoices==null)
 		{
-			outfitChoices=new Vector();
-			Weapon w=CMClass.getWeapon("Quarterstaff");
-			outfitChoices.addElement(w);
+			final Weapon w=CMClass.getWeapon("Quarterstaff");
+			if(w == null)
+				return new Vector<Item>();
+			outfitChoices=new Vector<Item>();
+			outfitChoices.add(w);
 		}
 		return outfitChoices;
 	}
 
+	@Override
 	public int classDurationModifier(MOB myChar,
 									 Ability skill,
 									 int duration)
 	{
-		if(myChar==null) return duration;
-		if(((skill.classificationCode()&Ability.ALL_DOMAINS)==Ability.DOMAIN_CRAFTINGSKILL)
+		if(myChar==null)
+			return duration;
+		if((((skill.classificationCode()&Ability.ALL_DOMAINS)==Ability.DOMAIN_CRAFTINGSKILL)
+			||((skill.classificationCode()&Ability.ALL_DOMAINS)==Ability.DOMAIN_BUILDINGSKILL))
 		&&(myChar.charStats().getCurrentClass().ID().equals(ID()))
 		&&(!skill.ID().equals("FoodPrep"))
 		&&(!skill.ID().equals("Cooking"))

@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Languages;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,20 +10,21 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2004-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -31,47 +33,62 @@ import java.util.*;
    limitations under the License.
 */
 
-@SuppressWarnings("unchecked")
 public class Fey extends StdLanguage
 {
-	public String ID() { return "Fey"; }//Based on Gevey from http://www.kalieda.org/gevey/lexicon.html
-	public String name(){ return "Fey";}
-	public static Vector wordLists=null;	
-	private static boolean mapped=false;
+	//Based on Gevey from http://www.kalieda.org/gevey/lexicon.html
+	@Override
+	public String ID()
+	{
+		return "Fey";
+	}
+
+	private final static String	localizedName	= CMLib.lang().L("Fey");
+
+	@Override
+	public String name()
+	{
+		return localizedName;
+	}
+
+	public static List<String[]> wordLists=null;
 	public Fey()
 	{
 		super();
-		if(!mapped){mapped=true;
-					CMLib.ableMapper().addCharAbilityMapping("All",1,ID(),false);}
 	}
+
+	@Override
 	public CMObject newInstance()
-    {	
-        return new Fey();
-    }
-	public Vector translationVector(String language)
-	{ 
+	{
+		return new Fey();
+	}
+
+	@Override
+	public List<String[]> translationVector(String language)
+	{
 		if(wordLists==null)
 		{
-			String[] one={"se","rh","al","o","na","e","ce","uu","si","lag"};
-			String[] two={"ta","Sha","rha","den","oc","han","mij","ma","ke","isc","ga","en","di","de","an","brois","ajet","ev","ba","eh","bas"};
-			String[] three={"vav","set","sav","sen","rhig","viy","ok","nash","mik","kiy","hask","tal","gha","dos","diy","ceg","dak","aeln","huu","beksi","bat","bal","aghblajliyookuu","agluef"};
-			String[] four={"tath","pehm","nith","nana","jaath","isc","glou","gafr","dost","daes","ciel","cahve","begm","braup","blom","belag","abrol","adeci","agehr","ajet","basacont"};
-			String[] five={"shasy","rewist","pae","nuwan","noest","nafozdomuu","kreet","jaas","guhnt","glaa","caebiste","abdist","afosk","belguu","andenav","asatehrh"};
-			String[] six={"sats","retas","pokat","os","mieplust-eh","iha","hosh","griste","fot","begmevrhe","abdisem","soufuuwh","aelnebaduuu"};
-			wordLists=new Vector();
-			wordLists.addElement(one);
-			wordLists.addElement(two);
-			wordLists.addElement(three);
-			wordLists.addElement(four);
-			wordLists.addElement(five);
-			wordLists.addElement(six);
+			final String[] one={"se","rh","al","o","na","e","ce","uu","si","lag"};
+			final String[] two={"ta","Sha","rha","den","oc","han","mij","ma","ke","isc","ga","en","di","de","an","brois","ajet","ev","ba","eh","bas"};
+			final String[] three={"vav","set","sav","sen","rhig","viy","ok","nash","mik","kiy","hask","tal","gha","dos","diy","ceg","dak","aeln","huu","beksi","bat","bal","aghblajliyookuu","agluef"};
+			final String[] four={"tath","pehm","nith","nana","jaath","isc","glou","gafr","dost","daes","ciel","cahve","begm","braup","blom","belag","abrol","adeci","agehr","ajet","basacont"};
+			final String[] five={"shasy","rewist","pae","nuwan","noest","nafozdomuu","kreet","jaas","guhnt","glaa","caebiste","abdist","afosk","belguu","andenav","asatehrh"};
+			final String[] six={"sats","retas","pokat","os","mieplust-eh","iha","hosh","griste","fot","begmevrhe","abdisem","soufuuwh","aelnebaduuu"};
+			wordLists=new Vector<String[]>();
+			wordLists.add(one);
+			wordLists.add(two);
+			wordLists.add(three);
+			wordLists.add(four);
+			wordLists.add(five);
+			wordLists.add(six);
 		}
-		return wordLists; 
+		return wordLists;
 	}
-	private static final Hashtable hashwords=new Hashtable();
-	public Hashtable translationHash(String language)
+
+	private static final Hashtable<String,String> hashwords=new Hashtable<String,String>();
+	@Override
+	public Map<String, String> translationHash(String language)
 	{
-		if((hashwords!=null)&&(hashwords.size()>0)) 
+		if((hashwords!=null)&&(hashwords.size()>0))
 			return hashwords;
 
 		hashwords.put("ABANDON","fnuuthan");
@@ -925,7 +942,7 @@ public class Fey extends StdLanguage
 		hashwords.put("TREE","rhabuu");
 		hashwords.put("TRENCHCOAT","lufluu");
 		hashwords.put("TRIBE","galn'hiete");
-        hashwords.put("GANG","galn'hiete");
+		hashwords.put("GANG","galn'hiete");
 		hashwords.put("TRUE","vosalb");
 		hashwords.put("TRULY","vosalb-eh");
 		hashwords.put("TRUELY","vosalb-eh");

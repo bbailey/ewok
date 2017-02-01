@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Spells;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,21 +10,21 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
-
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2003-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -31,57 +32,62 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
+
 public class Spell_AlterSubstance extends Spell
 {
-	public String ID() { return "Spell_AlterSubstance"; }
-	public String name(){return "Alter Substance";}
-    public int abstractQuality(){ return Ability.QUALITY_INDIFFERENT;}
-	protected int canTargetCode(){return CAN_ITEMS;}
-	protected int canAffectCode(){return CAN_ITEMS;}
-	public int classificationCode(){	return Ability.ACODE_SPELL|Ability.DOMAIN_ALTERATION;}
+	@Override public String ID() { return "Spell_AlterSubstance"; }
+	private final static String localizedName = CMLib.lang().L("Alter Substance");
+	@Override public String name() { return localizedName; }
+	@Override public int abstractQuality(){ return Ability.QUALITY_INDIFFERENT;}
+	@Override protected int canTargetCode(){return CAN_ITEMS;}
+	@Override protected int canAffectCode(){return CAN_ITEMS;}
+	@Override public int classificationCode(){	return Ability.ACODE_SPELL|Ability.DOMAIN_ALTERATION;}
 	public String newName="";
 	public int oldMaterial=0;
 
-	public void affectEnvStats(Environmental affected, EnvStats affectableStats)
+	@Override
+	public void affectPhyStats(Physical affected, PhyStats affectableStats)
 	{
-		super.affectEnvStats(affected,affectableStats);
+		super.affectPhyStats(affected,affectableStats);
 		if(newName.length()>0)
 			affectableStats.setName(newName);
 	}
 
+	@Override
 	public void unInvoke()
 	{
 		if((affected!=null)&&(affected instanceof Item))
 		{
-			Item I=(Item)affected;
+			final Item I=(Item)affected;
 			I.setMaterial(oldMaterial);
 			if(I.owner() instanceof Room)
-				((Room)I.owner()).showHappens(CMMsg.MSG_OK_VISUAL,I.name()+" reverts to its natural form.");
+				((Room)I.owner()).showHappens(CMMsg.MSG_OK_VISUAL,L("@x1 reverts to its natural form.",I.name()));
 			else
 			if(I.owner() instanceof MOB)
-				((MOB)I.owner()).tell(I.name()+" reverts to its natural form.");
+				((MOB)I.owner()).tell(L("@x1 reverts to its natural form.",I.name(((MOB)I.owner()))));
 		}
 		super.unInvoke();
 	}
 
-	public boolean invoke(MOB mob, Vector commands, Environmental givenTarget, boolean auto, int asLevel)
+	@Override
+	public boolean invoke(MOB mob, List<String> commands, Physical givenTarget, boolean auto, int asLevel)
 	{
 		String material="";
 		if(commands.size()>0)
 		{
-			material=(String)commands.lastElement();
-			commands.removeElement(material);
+			material=commands.get(commands.size()-1);
+			commands.remove(material);
 		}
-		Item target=getTarget(mob,mob.location(),givenTarget,commands,Wearable.FILTER_UNWORNONLY);
-		if(target==null) return false;
-		int newMaterial=-1;
-		newMaterial=CMParms.indexOfIgnoreCase(RawMaterial.MATERIAL_DESCS, material.toUpperCase().trim());
-		if(newMaterial<0)
-			newMaterial=CMParms.startsWith(RawMaterial.MATERIAL_DESCS, material.toUpperCase().trim());
-		if(newMaterial>=0)
+		final Item target=getTarget(mob,mob.location(),givenTarget,commands,Wearable.FILTER_UNWORNONLY);
+		if(target==null)
+			return false;
+		RawMaterial.Material m=RawMaterial.Material.findIgnoreCase(material);
+		if(m==null)
+			m=RawMaterial.Material.startsWithIgnoreCase(material);
+		int newMaterial=(m==null)?-1:m.mask();
+		if((newMaterial>=0)&&(m!=null))
 		{
-			List<Integer> rscs = RawMaterial.CODES.COMPOSE_RESOURCES(newMaterial);
+			final List<Integer> rscs = RawMaterial.CODES.COMPOSE_RESOURCES(newMaterial);
 			if(rscs.size()>0)
 			{
 				newMaterial=rscs.get(0).intValue();
@@ -89,8 +95,8 @@ public class Spell_AlterSubstance extends Spell
 			}
 			else
 			{
-				material=RawMaterial.MATERIAL_DESCS[newMaterial];
-				newMaterial=(newMaterial<<8);
+				material=m.desc();
+				newMaterial=m.mask();
 			}
 		}
 		else
@@ -103,33 +109,33 @@ public class Spell_AlterSubstance extends Spell
 		}
 		if(newMaterial<0)
 		{
-			mob.tell("'"+material+"' is not a known substance!");
+			mob.tell(L("'@x1' is not a known substance!",material));
 			return false;
 		}
 
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
 			return false;
 
-		boolean success=proficiencyCheck(mob,0,auto);
+		final boolean success=proficiencyCheck(mob,0,auto);
 
 		if(success)
 		{
-			CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),auto?"":"^S<S-NAME> wave(s) <S-HIS-HER> hands around <T-NAMESELF>, incanting.^?");
+			final CMMsg msg=CMClass.getMsg(mob,target,this,somanticCastCode(mob,target,auto),auto?"":L("^S<S-NAME> wave(s) <S-HIS-HER> hands around <T-NAMESELF>, incanting.^?"));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);
 				material=CMStrings.capitalizeAndLower(material);
-				mob.location().show(mob,target,CMMsg.MSG_OK_ACTION,"<T-NAME> change(s) into "+material+"!");
+				mob.location().show(mob,target,CMMsg.MSG_OK_ACTION,L("<T-NAME> change(s) into @x1!",material));
 				oldMaterial=target.material();
 				target.setMaterial(newMaterial);
-				String oldResourceName=RawMaterial.CODES.NAME(oldMaterial);
-				String oldMaterialName=RawMaterial.MATERIAL_DESCS[(oldMaterial&RawMaterial.MATERIAL_MASK)>>8];
+				final String oldResourceName=RawMaterial.CODES.NAME(oldMaterial);
+				final String oldMaterialName=RawMaterial.Material.findByMask(oldMaterial&RawMaterial.MATERIAL_MASK).desc();
 				String oldName=target.name().toUpperCase();
 				oldName=CMStrings.replaceAll(oldName,oldResourceName,material);
 				oldName=CMStrings.replaceAll(oldName,oldMaterialName,material);
 				if(oldName.indexOf(material)<0)
 				{
-					int x=oldName.lastIndexOf(" ");
+					final int x=oldName.lastIndexOf(' ');
 					if(x<0)
 						oldName=material+" "+oldName;
 					else
@@ -141,7 +147,7 @@ public class Spell_AlterSubstance extends Spell
 
 		}
 		else
-			beneficialWordsFizzle(mob,target,"<S-NAME> wave(s) <S-HIS-HER> hands around <T-NAMESELF>, incanting but nothing happens.");
+			beneficialVisualFizzle(mob,target,L("<S-NAME> wave(s) <S-HIS-HER> hands around <T-NAMESELF>, incanting but nothing happens."));
 
 
 		// return whether it worked

@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Druid;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,23 +10,22 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
-
-
 import java.util.*;
 
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2003-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -34,37 +34,45 @@ import java.util.*;
    limitations under the License.
 */
 
-@SuppressWarnings("unchecked")
+
 public class Chant_AstralProjection extends Chant
 {
-	public String ID() { return "Chant_AstralProjection"; }
-	public String name(){return "Astral Projection";}
-	public String displayText(){return "(Astral Projection)";}
-	protected int canAffectCode(){return CAN_MOBS;}
-    public int classificationCode(){return Ability.ACODE_CHANT|Ability.DOMAIN_SHAPE_SHIFTING;}
-    public int abstractQuality(){return Ability.QUALITY_OK_SELF;}
+	@Override public String ID() { return "Chant_AstralProjection"; }
+	private final static String localizedName = CMLib.lang().L("Astral Projection");
+	@Override public String name() { return localizedName; }
+	private final static String localizedStaticDisplay = CMLib.lang().L("(Astral Projection)");
+	@Override public String displayText() { return localizedStaticDisplay; }
+	@Override protected int canAffectCode(){return CAN_MOBS;}
+	@Override public int classificationCode(){return Ability.ACODE_CHANT|Ability.DOMAIN_SHAPE_SHIFTING;}
+	@Override public int abstractQuality(){return Ability.QUALITY_OK_SELF;}
 
+	@Override
 	public void unInvoke()
 	{
-		if((affected==null)||(!(affected instanceof MOB)))
+		if(!(affected instanceof MOB))
 			return;
-		MOB mob=(MOB)affected;
+		final MOB mob=(MOB)affected;
 		if((invoker!=null)&&(invoker.soulMate()==mob))
 		{
-			Session s=invoker.session();
+			final Session s=invoker.session();
 			s.setMob(invoker.soulMate());
 			mob.setSession(s);
 			invoker.setSession(null);
-			mob.tell("^HYour spirit has returned to your body...\n\r\n\r^N");
+			mob.tell(L("^HYour astral spirit has returned to your body...\n\r\n\r^N"));
 			invoker.setSoulMate(null);
 			invoker.destroy();
-
 		}
 		super.unInvoke();
 		if(mob!=null)
+		{
+			mob.recoverCharStats();
+			mob.recoverMaxState();
+			mob.recoverPhyStats();
 			CMLib.commands().postStand(mob,true);
+		}
 	}
 
+	@Override
 	public boolean tick(Tickable ticking, int tickID)
 	{
 		if((unInvoked)&&(canBeUninvoked()))
@@ -78,48 +86,52 @@ public class Chant_AstralProjection extends Chant
 		return super.tick(ticking,tickID);
 	}
 
-	public boolean okMessage(Environmental myHost, CMMsg msg)
+	@Override
+	public boolean okMessage(final Environmental myHost, final CMMsg msg)
 	{
 		if((affected!=null)
 		&&(affected instanceof MOB)
 		&&(msg.amISource((MOB)affected))
-		&&(msg.sourceMinor()==CMMsg.TYP_DEATH))
+		&&((msg.sourceMinor()==CMMsg.TYP_DEATH)||(msg.sourceMinor()==CMMsg.TYP_QUIT)))
 			unInvoke();
 		return super.okMessage(myHost,msg);
 	}
 
 	public void peaceAt(MOB mob)
 	{
-		Room room=mob.location();
-		if(room==null) return;
+		final Room room=mob.location();
+		if(room==null)
+			return;
 		for(int m=0;m<room.numInhabitants();m++)
 		{
-			MOB inhab=room.fetchInhabitant(m);
+			final MOB inhab=room.fetchInhabitant(m);
 			if((inhab!=null)&&(inhab.getVictim()==mob))
 				inhab.setVictim(null);
 		}
 	}
 
-	public void affectEnvStats(Environmental affected, EnvStats affectableStats)
+	@Override
+	public void affectPhyStats(Physical affected, PhyStats affectableStats)
 	{
-		super.affectEnvStats(affected,affectableStats);
-		affectableStats.setDisposition(affectableStats.disposition()|EnvStats.IS_SLEEPING);
-		affectableStats.setSensesMask(affectableStats.sensesMask()|EnvStats.CAN_NOT_HEAR);
-		affectableStats.setSensesMask(affectableStats.sensesMask()|EnvStats.CAN_NOT_MOVE);
-		affectableStats.setSensesMask(affectableStats.sensesMask()|EnvStats.CAN_NOT_SEE);
-		affectableStats.setSensesMask(affectableStats.sensesMask()|EnvStats.CAN_NOT_SMELL);
-		affectableStats.setSensesMask(affectableStats.sensesMask()|EnvStats.CAN_NOT_SPEAK);
-		affectableStats.setSensesMask(affectableStats.sensesMask()|EnvStats.CAN_NOT_TASTE);
+		super.affectPhyStats(affected,affectableStats);
+		affectableStats.setDisposition(affectableStats.disposition()|PhyStats.IS_SLEEPING);
+		affectableStats.setSensesMask(affectableStats.sensesMask()|PhyStats.CAN_NOT_HEAR);
+		affectableStats.setSensesMask(affectableStats.sensesMask()|PhyStats.CAN_NOT_MOVE);
+		affectableStats.setSensesMask(affectableStats.sensesMask()|PhyStats.CAN_NOT_SEE);
+		affectableStats.setSensesMask(affectableStats.sensesMask()|PhyStats.CAN_NOT_SMELL);
+		affectableStats.setSensesMask(affectableStats.sensesMask()|PhyStats.CAN_NOT_SPEAK);
+		affectableStats.setSensesMask(affectableStats.sensesMask()|PhyStats.CAN_NOT_TASTE);
 	}
 
-	public boolean invoke(MOB mob, Vector commands, Environmental givenTarget, boolean auto, int asLevel)
+	@Override
+	public boolean invoke(MOB mob, List<String> commands, Physical givenTarget, boolean auto, int asLevel)
 	{
 		MOB target=mob;
 		if((auto)&&(givenTarget!=null)&&(givenTarget instanceof MOB))
 			target=(MOB)givenTarget;
 		if(target.soulMate()!=null)
 		{
-			Ability AS=target.soulMate().fetchEffect(ID());
+			final Ability AS=target.soulMate().fetchEffect(ID());
 			if(AS!=null)
 			{
 				AS.unInvoke();
@@ -127,46 +139,45 @@ public class Chant_AstralProjection extends Chant
 			}
 		}
 		if(CMLib.flags().isGolem(target)
-		&&((target.envStats().height()<=0)||(target.envStats().weight()<=0)))
+		&&((target.phyStats().height()<=0)||(target.phyStats().weight()<=0)))
 		{
-			mob.tell("You are already as astral spirit.");
+			mob.tell(L("You are already as astral spirit."));
 			return false;
 		}
 
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
 			return false;
 
-		boolean success=proficiencyCheck(mob,0,auto);
+		final boolean success=proficiencyCheck(mob,0,auto);
+		if(!success)
+		{
+			return beneficialWordsFizzle(mob,null,L("<S-NAME> chant(s) softly, but nothing happens"));
+		}
 
-		CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),auto?"":"^S<S-NAME> chant(s) softly.^?");
+		final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),auto?"":L("^S<S-NAME> chant(s) softly.^?"));
 		if(mob.location().okMessage(mob,msg))
 		{
 			mob.location().send(mob,msg);
-			target.makePeace();
+			target.makePeace(true);
 			peaceAt(target);
-			MOB spirit=(MOB)target.copyOf();
-			for(int a=0;a<spirit.numEffects();a++)
-			{
-				Ability A=spirit.fetchEffect(a);
-				if(A.canBeUninvoked()) spirit.delEffect(A);
-			}
-			while(spirit.inventorySize()>0)
-			{
-				Item I=spirit.fetchInventory(0);
-				if(I!=null) I.destroy();
-			}
-			CMLib.beanCounter().clearZeroMoney(spirit,null);
-			mob.location().show(target,null,CMMsg.MSG_OK_ACTION,"^Z<S-NAME> go(es) limp!^.^?\n\r");
+			final MOB spirit=CMClass.getFactoryMOB();
+			spirit.setName(L("The Spirit of @x1",target.Name()));
+			spirit.baseCharStats().setMyRace(CMClass.getRace("Spirit"));
+			spirit.setPlayerStats(target.playerStats());
+			spirit.setLocation(target.location());
+			spirit.setAttributesBitmap(target.getAttributesBitmap());
+			mob.location().show(target,null,CMMsg.MSG_OK_ACTION,L("^Z<S-NAME> go(es) limp!^.^?\n\r"));
+			CMLib.threads().startTickDown(spirit,Tickable.TICKID_MOB,1);
 			beneficialAffect(spirit,target,asLevel,0);
-			Ability A=CMClass.getAbility("Prop_AstralSpirit");
+			final Ability A=CMClass.getAbility("Prop_AstralSpirit");
 			spirit.addNonUninvokableEffect(A);
-			Session s=target.session();
+			final Session s=target.session();
 			s.setMob(spirit);
 			spirit.setSession(s);
 			spirit.setSoulMate(target);
 			target.setSession(null);
 			spirit.recoverCharStats();
-			spirit.recoverEnvStats();
+			spirit.recoverPhyStats();
 			spirit.recoverMaxState();
 			mob.location().recoverRoomStats();
 		}

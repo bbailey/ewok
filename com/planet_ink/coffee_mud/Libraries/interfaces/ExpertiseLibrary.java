@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Libraries.interfaces;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.StdAbility;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
@@ -15,14 +16,14 @@ import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2006-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -30,117 +31,136 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
 public interface ExpertiseLibrary extends CMLibrary
 {
-    public static final int XFLAG_X1=0;
-    public static final int XFLAG_X2=1;
-    public static final int XFLAG_X3=2;
-    public static final int XFLAG_X4=3;
-    public static final int XFLAG_X5=4;
-    public static final int XFLAG_LEVEL=5;
-    public static final int XFLAG_TIME=6;
-    public static final int XFLAG_MAXRANGE=7;
-    public static final int XFLAG_LOWCOST=8;
-    public static final int XFLAG_XPCOST=9;
-    public static final int NUM_XFLAGS=10;
-    public static final String[] XFLAG_CODES={
-        "X1","X2","X3","X4","X5",
-        "LEVEL","TIME","MAXRANGE","LOWCOST",
-        "XPCOST"
-    };
-    public static class ExpertiseDefinition
-    {
-        public String ID="";
-        public String name="";
-        private String uncompiledListMask="";
-        private Vector compiledListMask=null;
-        private String uncompiledFinalMask="";
-        public ExpertiseDefinition parent=null;
-        private Vector compiledFinalMask=null;
-        private int minLevel=Integer.MIN_VALUE+1;
-        public int getMinimumLevel()
-        {
-            if(minLevel==Integer.MIN_VALUE+1)
-                minLevel=CMLib.masking().minMaskLevel(allRequirements(),0);
-            return minLevel;
-        }
-        
-        public Vector compiledListMask()
-        {
-            if((this.compiledListMask==null)&&(uncompiledListMask.length()>0))
-            {
-                compiledListMask=CMLib.masking().maskCompile(uncompiledListMask);
-                CMLib.ableMapper().addPreRequisites(ID,new Vector(),uncompiledListMask.trim());
-            }
-            return this.compiledListMask;
-        }
-        public Vector compiledFinalMask()
-        {
-            if((this.compiledFinalMask==null)&&(uncompiledFinalMask.length()>0))
-            {
-                this.compiledFinalMask=CMLib.masking().maskCompile(uncompiledFinalMask);
-                CMLib.ableMapper().addPreRequisites(ID,new Vector(),uncompiledFinalMask.trim());
-            }
-            return this.compiledFinalMask;
-        }
-        public String allRequirements(){
-			String req=uncompiledListMask;
-			if(req==null) req=""; else req=req.trim();
-			if((uncompiledFinalMask!=null)&&(uncompiledFinalMask.length()>0))
-				req=req+" "+uncompiledFinalMask;
-			return req.trim();
-        }
-        public String listRequirements(){return uncompiledListMask;}
-        public String finalRequirements(){return uncompiledFinalMask;}
-        public void addListMask(String mask){
-        	if((mask==null)||(mask.length()==0)) return;
-        	if(uncompiledListMask==null)
-	        	uncompiledListMask=mask;
-        	else
-	        	uncompiledListMask+=mask;
-            compiledListMask=null;
-        }
-        public void addFinalMask(String mask){ 
-        	if((mask==null)||(mask.length()==0)) return;
-        	if(uncompiledFinalMask==null)
-	        	uncompiledFinalMask=mask;
-        	else
-	        	uncompiledFinalMask+=mask;
-        	compiledFinalMask=CMLib.masking().maskCompile(uncompiledFinalMask);
-        	CMLib.ableMapper().addPreRequisites(ID,new Vector(),uncompiledFinalMask.trim());
-        }
-        
-        public int practiceCost=0;
-        public int trainCost=0;
-        public int expCost=0;
-        public int qpCost=0;
-        public int timeCost=0;
-        public String costDescription(){
-        	StringBuffer cost=new StringBuffer("");
-        	if(practiceCost>0) cost.append(practiceCost+" practice"+((practiceCost>1)?"s":"")+", ");
-        	if(trainCost>0) cost.append(trainCost+" train"+((trainCost>1)?"s":"")+", ");
-        	if(expCost>0) cost.append(expCost+" experience point"+((expCost>1)?"s":"")+", ");
-        	if(qpCost>0) cost.append(qpCost+" quest point"+((qpCost>1)?"s":"")+", ");
-        	if(cost.length()==0) return "";
-        	return cost.substring(0,cost.length()-2);
-        }
-    }
-    
-    public ExpertiseDefinition addDefinition(String ID, String name, String listMask, String finalMask, int practices, int trains, int qpCost, int expCost, int timeCost);
-    public void delDefinition(String ID);
-    public ExpertiseDefinition getDefinition(String ID);
-    public ExpertiseDefinition findDefinition(String ID, boolean exactOnly);
-    public Enumeration definitions();
-    public Vector myQualifiedExpertises(MOB mob);
-    public Vector myListableExpertises(MOB mob);
-    public int numExpertises();
-    public void recompileExpertises();
-    public String getExpertiseHelp(String ID, boolean exact);
-    public String getApplicableExpertise(String ID, int code);
-    public int getApplicableExpertiseLevel(String ID, int code, MOB mob);
-    public int getExpertiseLevel(MOB mob, String expertise);
-    public int getStages(String expertiseCode);
-    public Vector getStageCodes(String expertiseCode);
-    public String confirmExpertiseLine(String row, String ID, boolean addIfPossible);
+	public enum Flag
+	{
+		X1,
+		X2,
+		X3,
+		X4,
+		X5,
+		LEVEL,
+		TIME,
+		MAXRANGE,
+		LOWCOST,
+		XPCOST,
+		LOWFREECOST
+	}
+	
+	public interface ExpertiseDefinition extends CMObject
+	{
+		public String getBaseName();
+		
+		public void setBaseName(String baseName);
+		
+		public void setName(String name);
+		
+		public void setID(String ID);
+		
+		public void setData(String[] data);
+		
+		public ExpertiseDefinition getParent();
+		
+		public int getMinimumLevel();
+		
+		public String[] getData();
+		
+		public MaskingLibrary.CompiledZMask compiledListMask();
+		
+		public MaskingLibrary.CompiledZMask compiledFinalMask();
+		
+		public String allRequirements();
+		
+		public String listRequirements();
+
+		public String finalRequirements();
+
+		public void addListMask(String mask);
+
+		public void addFinalMask(String mask);
+
+		public void addCost(CostType type, Double value);
+		
+		public String costDescription();
+
+		public boolean meetsCostRequirements(MOB mob);
+
+		public void spendCostRequirements(MOB mob);
+	}
+
+	/** Enumeration of the types of costs of gaining this ability */
+	public enum CostType
+	{
+		TRAIN,
+		PRACTICE,
+		XP,
+		GOLD,
+		QP;
+	}
+
+	/**
+	 * Class for the definition of the cost of a skill
+	 * @author Bo Zimmerman
+	 */
+	public interface SkillCostDefinition
+	{
+		public CostType type();
+		
+		public String costDefinition();
+	}
+
+	/**
+	 * Class for the cost of a skill, or similar things perhaps
+	 * @author Bo Zimmerman
+	 */
+	public interface SkillCost
+	{
+		/**
+		 * Returns a simple description of the Type of
+		 * this cost.  A MOB and sample value is required for
+		 * money currencies.
+		 * @param mob MOB, for GOLD type currency eval
+		 * @return the type of currency
+		 */
+		public String costType(final MOB mob);
+
+		public String requirements(final MOB mob);
+
+		/**
+		 * Returns whether the given mob meets the given cost requirements.
+		 * @param student the student to check
+		 * @return true if it meets, false otherwise
+		 */
+		public boolean doesMeetCostRequirements(final MOB student);
+
+		/**
+		 * Expends the given cost upon the given student
+		 * @param student the student to check
+		 */
+		public void spendSkillCost(final MOB student);
+	}
+
+	public ExpertiseDefinition addDefinition(String ID, String name, String baseName, String listMask, String finalMask, String[] costs, String[] data);
+	public void delDefinition(String ID);
+	public ExpertiseDefinition getDefinition(String ID);
+	public ExpertiseDefinition findDefinition(String ID, boolean exactOnly);
+	public Enumeration<ExpertiseDefinition> definitions();
+	public List<ExpertiseDefinition> myQualifiedExpertises(MOB mob);
+	public List<ExpertiseDefinition> myListableExpertises(MOB mob);
+	public int numExpertises();
+	public SkillCost createNewSkillCost(CostType costType, Double value);
+	public void recompileExpertises();
+	public String getExpertiseHelp(String ID, boolean exact);
+	public String getApplicableExpertise(String ID, Flag code);
+	public int getApplicableExpertiseLevel(String ID, Flag code, MOB mob);
+	public int getStages(String baseExpertiseCode);
+	public List<String> getStageCodes(String baseExpertiseCode);
+	public String confirmExpertiseLine(String row, String ID, boolean addIfPossible);
+	public List<String> getPeerStageCodes(final String expertiseCode);
+	public String getGuessedBaseExpertiseName(final String expertiseCode);
+	public void handleBeingTaught(MOB teacher, MOB student, Environmental item, String msg);
+	public boolean canBeTaught(MOB teacher, MOB student, Environmental item, String msg);
+	public boolean postTeach(MOB teacher, MOB student, CMObject teachObj);
+	public Iterator<String> filterUniqueExpertiseIDList(Iterator<String> i);
 }

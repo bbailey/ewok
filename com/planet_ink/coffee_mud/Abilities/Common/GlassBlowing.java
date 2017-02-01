@@ -1,6 +1,9 @@
 package com.planet_ink.coffee_mud.Abilities.Common;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
+import com.planet_ink.coffee_mud.Abilities.Common.CraftingSkill.CraftParms;
+import com.planet_ink.coffee_mud.Abilities.Common.CraftingSkill.CraftingActivity;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,23 +12,22 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
-
-
 
 import java.util.*;
 
 
 /*
-   Copyright 2000-2010 Bo Zimmerman
+   Copyright 2002-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -34,34 +36,62 @@ import java.util.*;
    limitations under the License.
 */
 
-@SuppressWarnings("unchecked")
+
 public class GlassBlowing extends CraftingSkill implements ItemCraftor
 {
-	public String ID() { return "GlassBlowing"; }
-	public String name(){ return "Glass Blowing";}
-	private static final String[] triggerStrings = {"GLASSBLOW","GLASSBLOWING"};
-	public String[] triggerStrings(){return triggerStrings;}
-    public String supportedResourceString(){return "GLASS|SAND";}
-    public String parametersFormat(){ return 
-        "ITEM_NAME\tITEM_LEVEL\tBUILD_TIME_TICKS\tAMOUNT_MATERIAL_REQUIRED\tITEM_BASE_VALUE\t"
-       +"ITEM_CLASS_ID\tLID_LOCK\tCONTAINER_CAPACITY||LIQUID_CAPACITY\tCODED_SPELL_LIST";}
+	@Override
+	public String ID()
+	{
+		return "GlassBlowing";
+	}
 
-	protected static final int RCP_FINALNAME=0;
-	protected static final int RCP_LEVEL=1;
-	protected static final int RCP_TICKS=2;
-	protected static final int RCP_WOOD=3;
-	protected static final int RCP_VALUE=4;
-	protected static final int RCP_CLASSTYPE=5;
-	protected static final int RCP_MISCTYPE=6;
-	protected static final int RCP_CAPACITY=7;
-	protected static final int RCP_SPELL=8;
+	private final static String	localizedName	= CMLib.lang().L("Glass Blowing");
 
+	@Override
+	public String name()
+	{
+		return localizedName;
+	}
+
+	private static final String[]	triggerStrings	= I(new String[] { "GLASSBLOW", "GLASSBLOWING" });
+
+	@Override
+	public String[] triggerStrings()
+	{
+		return triggerStrings;
+	}
+
+	@Override
+	public String supportedResourceString()
+	{
+		return "_GLASS|SAND";
+	}
+
+	@Override
+	public String parametersFormat()
+	{
+		return
+		"ITEM_NAME\tITEM_LEVEL\tBUILD_TIME_TICKS\tMATERIALS_REQUIRED\tITEM_BASE_VALUE\t"
+		+"ITEM_CLASS_ID\tLID_LOCK\tCONTAINER_CAPACITY||LIQUID_CAPACITY\tCODED_SPELL_LIST";
+	}
+
+	//protected static final int RCP_FINALNAME=0;
+	//protected static final int RCP_LEVEL=1;
+	//protected static final int RCP_TICKS=2;
+	protected static final int	RCP_WOOD		= 3;
+	protected static final int	RCP_VALUE		= 4;
+	protected static final int	RCP_CLASSTYPE	= 5;
+	protected static final int	RCP_MISCTYPE	= 6;
+	protected static final int	RCP_CAPACITY	= 7;
+	protected static final int	RCP_SPELL		= 8;
+
+	@Override
 	public boolean tick(Tickable ticking, int tickID)
 	{
 		if((affected!=null)&&(affected instanceof MOB)&&(tickID==Tickable.TICKID_MOB))
 		{
-			MOB mob=(MOB)affected;
-			if((building==null)
+			final MOB mob=(MOB)affected;
+			if((buildingI==null)
 			||(getRequiredFire(mob,0)==null))
 			{
 				messedUp=true;
@@ -71,99 +101,243 @@ public class GlassBlowing extends CraftingSkill implements ItemCraftor
 		return super.tick(ticking,tickID);
 	}
 
-    public String parametersFile(){ return "glassblowing.txt";}
-    protected Vector loadRecipes(){return super.loadRecipes(parametersFile());}
+	@Override
+	public String parametersFile()
+	{
+		return "glassblowing.txt";
+	}
 
+	@Override
+	protected List<List<String>> loadRecipes()
+	{
+		return super.loadRecipes(parametersFile());
+	}
+
+	@Override
+	protected boolean doLearnRecipe(MOB mob, List<String> commands, Physical givenTarget, boolean auto, int asLevel)
+	{
+		fireRequired=false;
+		return super.doLearnRecipe( mob, commands, givenTarget, auto, asLevel );
+	}
+
+	@Override
 	public void unInvoke()
 	{
 		if(canBeUninvoked())
 		{
-			if((affected!=null)&&(affected instanceof MOB))
+			if(affected instanceof MOB)
 			{
-				MOB mob=(MOB)affected;
-				if((building!=null)&&(!aborted))
+				final MOB mob=(MOB)affected;
+				if((buildingI!=null)&&(!aborted))
 				{
 					if(messedUp)
-						commonTell(mob,CMStrings.capitalizeAndLower(building.name())+" explodes!");
+					{
+						if(activity == CraftingActivity.LEARNING)
+							commonEmote(mob,L("<S-NAME> fail(s) to learn how to make @x1.",buildingI.name()));
+						else
+							commonTell(mob,L("@x1 explodes!",CMStrings.capitalizeAndLower(buildingI.name(mob))));
+						buildingI.destroy();
+					}
 					else
-						dropAWinner(mob,building);
+					if(activity==CraftingActivity.LEARNING)
+					{
+						deconstructRecipeInto( buildingI, recipeHolder );
+						buildingI.destroy();
+					}
+					else
+					{
+						dropAWinner(mob,buildingI);
+						CMLib.achievements().possiblyBumpAchievement(mob, AchievementLibrary.Event.CRAFTING, 1, this);
+					}
 				}
-				building=null;
+				buildingI=null;
 			}
 		}
 		super.unInvoke();
 	}
 
-	public boolean invoke(MOB mob, Vector commands, Environmental givenTarget, boolean auto, int asLevel)
+	@Override
+	public boolean supportsDeconstruction()
 	{
-		int autoGenerate=0;
-		if((auto)&&(givenTarget==this)&&(commands.size()>0)&&(commands.firstElement() instanceof Integer))
+		return true;
+	}
+
+	@Override
+	public boolean mayICraft(final Item I)
+	{
+		if(I==null)
+			return false;
+		if(!super.mayBeCrafted(I))
+			return false;
+		if(I.material()!=RawMaterial.RESOURCE_GLASS)
+			return false;
+		if(CMLib.flags().isDeadlyOrMaliciousEffect(I))
+			return false;
+		if(I instanceof Rideable)
 		{
-			autoGenerate=((Integer)commands.firstElement()).intValue();
-			commands.removeElementAt(0);
-			givenTarget=null;
+			final Rideable R=(Rideable)I;
+			final int rideType=R.rideBasis();
+			switch(rideType)
+			{
+			case Rideable.RIDEABLE_LADDER:
+			case Rideable.RIDEABLE_SLEEP:
+			case Rideable.RIDEABLE_SIT:
+			case Rideable.RIDEABLE_TABLE:
+				return true;
+			default:
+				return false;
+			}
 		}
+		if(I instanceof Shield)
+			return true;
+		if(I instanceof Weapon)
+		{
+			final Weapon W=(Weapon)I;
+			if((W.weaponClassification()!=Weapon.CLASS_BLUNT)
+			||((W instanceof AmmunitionWeapon) && ((AmmunitionWeapon)W).requiresAmmunition()))
+				return false;
+			return true;
+		}
+		if(I instanceof Light)
+			return true;
+		if(I instanceof Armor)
+			return false;
+		if((I instanceof Drink)&&(!(I instanceof Potion)))
+			return true;
+		if(I instanceof Potion)
+			return false;
+		if(I instanceof Container)
+			return true;
+		if(I instanceof FalseLimb)
+			return true;
+		if(I instanceof Wand)
+			return true;
+		if(I.rawProperLocationBitmap()==Wearable.WORN_HELD)
+			return true;
+		return (isANativeItem(I.Name()));
+	}
+
+	public boolean supportsMending(Physical I)
+	{
+		return canMend(null, I, true);
+	}
+
+	@Override
+	protected boolean canMend(MOB mob, Environmental E, boolean quiet)
+	{
+		if(!super.canMend(mob,E,quiet))
+			return false;
+		if((!(E instanceof Item))
+		||(!mayICraft((Item)E)))
+		{
+			if(!quiet)
+				commonTell(mob,L("That's not a glassblown item."));
+			return false;
+		}
+		return true;
+	}
+
+	@Override
+	public String getDecodedComponentsDescription(final MOB mob, final List<String> recipe)
+	{
+		return super.getComponentDescription( mob, recipe, RCP_WOOD );
+	}
+
+	@Override
+	public boolean invoke(MOB mob, List<String> commands, Physical givenTarget, boolean auto, int asLevel)
+	{
+		return autoGenInvoke(mob,commands,givenTarget,auto,asLevel,0,false,new Vector<Item>(0));
+	}
+	
+	@Override
+	protected boolean autoGenInvoke(final MOB mob, List<String> commands, Physical givenTarget, final boolean auto, 
+								 final int asLevel, int autoGenerate, boolean forceLevels, List<Item> crafted)
+	{
+		if(super.checkStop(mob, commands))
+			return true;
+		fireRequired=true;
+
+		if(super.checkInfo(mob, commands))
+			return true;
+		
 		randomRecipeFix(mob,addRecipes(mob,loadRecipes()),commands,autoGenerate);
 		if(commands.size()==0)
 		{
-			commonTell(mob,"Make what? Enter \"glassblow list\" for a list.");
+			commonTell(mob,L("Make what? Enter \"glassblow list\" for a list, \"glassblow info <item>\", \"glassblow learn <item>\" to gain recipes,"
+							+ " or \"glassblow stop\" to cancel."));
 			return false;
 		}
-        if((!auto)
-        &&(commands.size()>0)
-        &&(((String)commands.firstElement()).equalsIgnoreCase("bundle")))
-        {
-            bundling=true;
-            if(super.invoke(mob,commands,givenTarget,auto,asLevel))
-                return super.bundle(mob,commands);
-            return false;
-        }
-		Vector recipes=addRecipes(mob,loadRecipes());
-		String str=(String)commands.elementAt(0);
+		if((!auto)
+		&&(commands.size()>0)
+		&&((commands.get(0)).equalsIgnoreCase("bundle")))
+		{
+			bundling=true;
+			if(super.invoke(mob,commands,givenTarget,auto,asLevel))
+				return super.bundle(mob,commands);
+			return false;
+		}
+		final List<List<String>> recipes=addRecipes(mob,loadRecipes());
+		final String str=commands.get(0);
 		String startStr=null;
-        bundling=false;
+		bundling=false;
 		int duration=4;
 		if(str.equalsIgnoreCase("list"))
 		{
 			String mask=CMParms.combine(commands,1);
-			StringBuffer buf=new StringBuffer(CMStrings.padRight("Item",16)+" Lvl Sand required\n\r");
+			boolean allFlag=false;
+			if(mask.equalsIgnoreCase("all"))
+			{
+				allFlag=true;
+				mask="";
+			}
+			final int[] cols={
+				CMLib.lister().fixColWidth(29,mob.session()),
+				CMLib.lister().fixColWidth(3,mob.session())
+			};
+			final StringBuffer buf=new StringBuffer(L("@x1 @x2 Sand required\n\r",CMStrings.padRight(L("Item"),cols[0]),CMStrings.padRight(L("Lvl"),cols[1])));
 			for(int r=0;r<recipes.size();r++)
 			{
-				Vector V=(Vector)recipes.elementAt(r);
+				final List<String> V=recipes.get(r);
 				if(V.size()>0)
 				{
-					String item=replacePercent((String)V.elementAt(RCP_FINALNAME),"");
-					int level=CMath.s_int((String)V.elementAt(RCP_LEVEL));
-					int wood=CMath.s_int((String)V.elementAt(RCP_WOOD));
-                    wood=adjustWoodRequired(wood,mob);
-					if((level<=xlevel(mob))
-					&&((mask==null)||(mask.length()==0)||mask.equalsIgnoreCase("all")||CMLib.english().containsString(item,mask)))
-						buf.append(CMStrings.padRight(item,16)+" "+CMStrings.padRight(""+level,3)+" "+wood+"\n\r");
+					final String item=replacePercent(V.get(RCP_FINALNAME),"");
+					final int level=CMath.s_int(V.get(RCP_LEVEL));
+					final String wood=getComponentDescription(mob,V,RCP_WOOD);
+					if(((level<=xlevel(mob))||allFlag)
+					&&((mask.length()==0)||mask.equalsIgnoreCase("all")||CMLib.english().containsString(item,mask)))
+						buf.append(CMStrings.padRight(item,cols[0])+" "+CMStrings.padRight(""+level,cols[1])+" "+wood+"\n\r");
 				}
 			}
 			commonTell(mob,buf.toString());
 			return true;
 		}
-		Item fire=getRequiredFire(mob,autoGenerate);
-		if(fire==null) return false;
-		building=null;
+		else
+		if(((commands.get(0))).equalsIgnoreCase("learn"))
+		{
+			return doLearnRecipe(mob, commands, givenTarget, auto, asLevel);
+		}
+		final Item fire=getRequiredFire(mob,autoGenerate);
+		if(fire==null)
+			return false;
+		activity = CraftingActivity.CRAFTING;
+		buildingI=null;
 		messedUp=false;
 		int amount=-1;
-		if((commands.size()>1)&&(CMath.isNumber((String)commands.lastElement())))
+		if((commands.size()>1)&&(CMath.isNumber(commands.get(commands.size()-1))))
 		{
-			amount=CMath.s_int((String)commands.lastElement());
-			commands.removeElementAt(commands.size()-1);
+			amount=CMath.s_int(commands.get(commands.size()-1));
+			commands.remove(commands.size()-1);
 		}
-		String recipeName=CMParms.combine(commands,0);
-		Vector foundRecipe=null;
-		Vector matches=matchingRecipeNames(recipes,recipeName,true);
+		final String recipeName=CMParms.combine(commands,0);
+		List<String> foundRecipe=null;
+		final List<List<String>> matches=matchingRecipeNames(recipes,recipeName,true);
 		for(int r=0;r<matches.size();r++)
 		{
-			Vector V=(Vector)matches.elementAt(r);
+			final List<String> V=matches.get(r);
 			if(V.size()>0)
 			{
-				int level=CMath.s_int((String)V.elementAt(RCP_LEVEL));
-                if((autoGenerate>0)||(level<=xlevel(mob)))
+				final int level=CMath.s_int(V.get(RCP_LEVEL));
+				if((autoGenerate>0)||(level<=xlevel(mob)))
 				{
 					foundRecipe=V;
 					break;
@@ -172,89 +346,97 @@ public class GlassBlowing extends CraftingSkill implements ItemCraftor
 		}
 		if(foundRecipe==null)
 		{
-			commonTell(mob,"You don't know how to make a '"+recipeName+"'.  Try \"glassblow list\" for a list.");
+			commonTell(mob,L("You don't know how to make a '@x1'.  Try \"glassblow list\" for a list.",recipeName));
 			return false;
 		}
-		int woodRequired=CMath.s_int((String)foundRecipe.elementAt(RCP_WOOD));
-        woodRequired=adjustWoodRequired(woodRequired,mob);
-		if(amount>woodRequired) woodRequired=amount;
-		String misctype=(String)foundRecipe.elementAt(RCP_MISCTYPE);
-        bundling=misctype.equalsIgnoreCase("BUNDLE");
-		int[] pm={RawMaterial.RESOURCE_SAND,RawMaterial.RESOURCE_CRYSTAL,RawMaterial.RESOURCE_GLASS};
-		int[][] data=fetchFoundResourceData(mob,
-											woodRequired,"sand",pm,
-											0,null,null,
-                                            bundling,
-											autoGenerate,
-											null);
-		if(data==null) return false;
+
+		final String woodRequiredStr = foundRecipe.get(RCP_WOOD);
+		final int[] compData = new int[CF_TOTAL];
+		final List<Object> componentsFoundList=getAbilityComponents(mob, woodRequiredStr, "make "+CMLib.english().startWithAorAn(recipeName),autoGenerate,compData);
+		if(componentsFoundList==null)
+			return false;
+		int woodRequired=CMath.s_int(woodRequiredStr);
+		woodRequired=adjustWoodRequired(woodRequired,mob);
+
+		if(amount>woodRequired)
+			woodRequired=amount;
+		final String misctype=foundRecipe.get(RCP_MISCTYPE);
+		bundling=misctype.equalsIgnoreCase("BUNDLE");
+		final int[] pm={RawMaterial.RESOURCE_SAND,RawMaterial.RESOURCE_CRYSTAL,RawMaterial.RESOURCE_GLASS};
+		final int[][] data=fetchFoundResourceData(mob,
+												woodRequired,"sand",pm,
+												0,null,null,
+												bundling,
+												autoGenerate,
+												null);
+		if(data==null)
+			return false;
 		woodRequired=data[0][FOUND_AMT];
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
 			return false;
-		int lostValue=autoGenerate>0?0:
-            CMLib.materials().destroyResources(mob.location(),woodRequired,data[0][FOUND_CODE],0,null);
-		building=CMClass.getItem((String)foundRecipe.elementAt(RCP_CLASSTYPE));
-		if(building==null)
+		final int lostValue=autoGenerate>0?0:
+			CMLib.materials().destroyResourcesValue(mob.location(),woodRequired,data[0][FOUND_CODE],0,null)
+			+CMLib.ableComponents().destroyAbilityComponents(componentsFoundList);
+		buildingI=CMClass.getItem(foundRecipe.get(RCP_CLASSTYPE));
+		if(buildingI==null)
 		{
-			commonTell(mob,"There's no such thing as a "+foundRecipe.elementAt(RCP_CLASSTYPE)+"!!!");
+			commonTell(mob,L("There's no such thing as a @x1!!!",foundRecipe.get(RCP_CLASSTYPE)));
 			return false;
 		}
-		duration=getDuration(CMath.s_int((String)foundRecipe.elementAt(RCP_TICKS)),mob,CMath.s_int((String)foundRecipe.elementAt(RCP_LEVEL)),4);
-		String itemName=replacePercent((String)foundRecipe.elementAt(RCP_FINALNAME),RawMaterial.CODES.NAME(data[0][FOUND_CODE])).toLowerCase();
+		duration=getDuration(CMath.s_int(foundRecipe.get(RCP_TICKS)),mob,CMath.s_int(foundRecipe.get(RCP_LEVEL)),4);
+		if(data[0][FOUND_CODE]==RawMaterial.RESOURCE_SAND)
+			buildingI.setMaterial(RawMaterial.RESOURCE_GLASS);
+		else
+			buildingI.setMaterial(super.getBuildingMaterial(woodRequired, data, compData));
+		String itemName=replacePercent(foundRecipe.get(RCP_FINALNAME),RawMaterial.CODES.NAME(buildingI.material())).toLowerCase();
 		if(bundling)
 			itemName="a "+woodRequired+"# "+itemName;
 		else
 			itemName=CMLib.english().startWithAorAn(itemName);
-		building.setName(itemName);
-		startStr="<S-NAME> start(s) blowing "+building.name()+".";
-		displayText="You are blowing "+building.name();
-		verb="blowing "+building.name();
-        playSound="fire.wav";
-		building.setDisplayText(itemName+" lies here");
-		building.setDescription(itemName+". ");
-		building.baseEnvStats().setWeight(woodRequired);
-		building.setBaseValue(CMath.s_int((String)foundRecipe.elementAt(RCP_VALUE)));
-
-		if(data[0][FOUND_CODE]==RawMaterial.RESOURCE_SAND)
-			building.setMaterial(RawMaterial.RESOURCE_GLASS);
-		else
-			building.setMaterial(data[0][FOUND_CODE]);
-
-		building.baseEnvStats().setLevel(CMath.s_int((String)foundRecipe.elementAt(RCP_LEVEL)));
-		building.setSecretIdentity("This is the work of "+mob.Name()+".");
-		int capacity=CMath.s_int((String)foundRecipe.elementAt(RCP_CAPACITY));
-		String spell=(foundRecipe.size()>RCP_SPELL)?((String)foundRecipe.elementAt(RCP_SPELL)).trim():"";
-		addSpells(building,spell);
-		if(building instanceof Container)
+		buildingI.setName(itemName);
+		startStr=L("<S-NAME> start(s) blowing @x1.",buildingI.name());
+		displayText=L("You are blowing @x1",buildingI.name());
+		verb=L("blowing @x1",buildingI.name());
+		playSound="fire.wav";
+		buildingI.setDisplayText(L("@x1 lies here",itemName));
+		buildingI.setDescription(itemName+". ");
+		buildingI.basePhyStats().setWeight(getStandardWeight(woodRequired+compData[CF_AMOUNT],bundling));
+		buildingI.setBaseValue(CMath.s_int(foundRecipe.get(RCP_VALUE)));
+		buildingI.basePhyStats().setLevel(CMath.s_int(foundRecipe.get(RCP_LEVEL)));
+		buildingI.setSecretIdentity(getBrand(mob));
+		final int capacity=CMath.s_int(foundRecipe.get(RCP_CAPACITY));
+		final String spell=(foundRecipe.size()>RCP_SPELL)?foundRecipe.get(RCP_SPELL).trim():"";
+		addSpells(buildingI,spell);
+		if(buildingI instanceof Container)
 		{
 			if(capacity>0)
-				((Container)building).setCapacity(capacity+woodRequired);
+				((Container)buildingI).setCapacity(capacity+woodRequired);
 			if(misctype.equalsIgnoreCase("LID"))
-				((Container)building).setLidsNLocks(true,false,false,false);
+				((Container)buildingI).setDoorsNLocks(true,false,true,false,false,false);
 			else
 			if(misctype.equalsIgnoreCase("LOCK"))
 			{
-				((Container)building).setLidsNLocks(true,false,true,false);
-				((Container)building).setKeyName(Double.toString(Math.random()));
+				((Container)buildingI).setDoorsNLocks(true,false,true,true,false,true);
+				((Container)buildingI).setKeyName(Double.toString(Math.random()));
 			}
-            ((Container)building).setContainTypes(Container.CONTAIN_ANYTHING);
+			((Container)buildingI).setContainTypes(Container.CONTAIN_ANYTHING);
 		}
-		if(building instanceof Drink)
+		if(buildingI instanceof Drink)
 		{
-			if(CMLib.flags().isGettable(building))
+			if(CMLib.flags().isGettable(buildingI))
 			{
-				((Drink)building).setLiquidRemaining(0);
-				((Drink)building).setLiquidHeld(capacity*50);
-				((Drink)building).setThirstQuenched(250);
+				((Drink)buildingI).setLiquidRemaining(0);
+				((Drink)buildingI).setLiquidHeld(capacity*50);
+				((Drink)buildingI).setThirstQuenched(250);
 				if((capacity*50)<250)
-					((Drink)building).setThirstQuenched(capacity*50);
+					((Drink)buildingI).setThirstQuenched(capacity*50);
 			}
 		}
-		if(bundling) building.setBaseValue(lostValue);
-		building.recoverEnvStats();
-		building.text();
-		building.recoverEnvStats();
-
+		if(bundling)
+			buildingI.setBaseValue(lostValue);
+		buildingI.recoverPhyStats();
+		buildingI.text();
+		buildingI.recoverPhyStats();
 
 		messedUp=!proficiencyCheck(mob,0,auto);
 
@@ -262,22 +444,22 @@ public class GlassBlowing extends CraftingSkill implements ItemCraftor
 		{
 			messedUp=false;
 			duration=1;
-			verb="bundling "+RawMaterial.CODES.NAME(building.material()).toLowerCase();
-			startStr="<S-NAME> start(s) "+verb+".";
-			displayText="You are "+verb;
+			verb=L("bundling @x1",RawMaterial.CODES.NAME(buildingI.material()).toLowerCase());
+			startStr=L("<S-NAME> start(s) @x1.",verb);
+			displayText=L("You are @x1",verb);
 		}
 
 		if(autoGenerate>0)
 		{
-			commands.addElement(building);
+			crafted.add(buildingI);
 			return true;
 		}
 
-		CMMsg msg=CMClass.getMsg(mob,building,this,CMMsg.MSG_NOISYMOVEMENT,startStr);
+		final CMMsg msg=CMClass.getMsg(mob,buildingI,this,getActivityMessageType(),startStr);
 		if(mob.location().okMessage(mob,msg))
 		{
 			mob.location().send(mob,msg);
-			building=(Item)msg.target();
+			buildingI=(Item)msg.target();
 			beneficialAffect(mob,mob,asLevel,duration);
 		}
 		else

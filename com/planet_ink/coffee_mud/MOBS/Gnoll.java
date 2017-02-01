@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.MOBS;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,6 +10,7 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -16,14 +18,14 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2003-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -33,21 +35,26 @@ import java.util.*;
 */
 public class Gnoll extends StdMOB
 {
-	public String ID(){return "Gnoll";}
+	@Override
+	public String ID()
+	{
+		return "Gnoll";
+	}
+
 	public Gnoll()
 	{
 		super();
-		Username="a Gnoll";
+		username="a Gnoll";
 		setDescription("a 7 foot tall creature with a body resembling a large human and the head of a hyena.");
 		setDisplayText("A nasty Gnoll stands here.");
-		CMLib.factions().setAlignment(this,Faction.ALIGN_EVIL);
+		CMLib.factions().setAlignment(this,Faction.Align.EVIL);
 		setMoney(20);
-		baseEnvStats.setWeight(300);
+		basePhyStats.setWeight(300);
 		setWimpHitPoint(0);
 
 		Weapon h=CMClass.getWeapon("MorningStar");
-		Random randomizer = new Random(System.currentTimeMillis());
-		int percentage = randomizer.nextInt() % 100;
+		final Random randomizer = new Random(System.currentTimeMillis());
+		final int percentage = randomizer.nextInt() % 100;
 		if((percentage & 1) == 0)
 		{
 		   h = CMClass.getWeapon("Longsword");
@@ -55,22 +62,22 @@ public class Gnoll extends StdMOB
 		if(h!=null)
 		{
 			h.wearAt(Wearable.WORN_WIELD);
-			addInventory(h);
+			addItem(h);
 		}
 
 		baseCharStats().setStat(CharStats.STAT_INTELLIGENCE,6);
 		baseCharStats().setStat(CharStats.STAT_CHARISMA,2);
 		baseCharStats().setStat(CharStats.STAT_STRENGTH,22);
 
-		baseEnvStats().setAbility(0);
-		baseEnvStats().setLevel(2);
-		baseEnvStats().setArmor(50);
+		basePhyStats().setAbility(0);
+		basePhyStats().setLevel(2);
+		basePhyStats().setArmor(90);
 
-		baseState.setHitPoints(CMLib.dice().roll(baseEnvStats().level(),20,baseEnvStats().level()));
+		baseState.setHitPoints(CMLib.dice().roll(basePhyStats().level(),20,basePhyStats().level()));
 
 		recoverMaxState();
 		resetToMaxState();
-		recoverEnvStats();
+		recoverPhyStats();
 		recoverCharStats();
 	}
 

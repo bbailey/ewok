@@ -1,6 +1,9 @@
 package com.planet_ink.coffee_mud.Abilities.Common;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
+import com.planet_ink.coffee_mud.Abilities.Common.CraftingSkill.CraftParms;
+import com.planet_ink.coffee_mud.Abilities.Common.CraftingSkill.CraftingActivity;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,23 +12,22 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
-
-
 
 import java.util.*;
 
 
 /*
-   Copyright 2000-2010 Bo Zimmerman
+   Copyright 2004-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -34,117 +36,248 @@ import java.util.*;
    limitations under the License.
 */
 
-@SuppressWarnings("unchecked")
 public class Torturesmithing extends CraftingSkill implements ItemCraftor
 {
-	public String ID() { return "Torturesmithing"; }
-	public String name(){ return "Torturesmithing";}
-	private static final String[] triggerStrings = {"TORTURESMITH","TORTURESMITHING"};
-	public String[] triggerStrings(){return triggerStrings;}
-    public String supportedResourceString(){return "METAL|MITHRIL|CLOTH";}
-    public String parametersFormat(){ return 
-        "ITEM_NAME\tITEM_LEVEL\tBUILD_TIME_TICKS\tAMOUNT_MATERIAL_REQUIRED\t"
-       +"ITEM_BASE_VALUE\tITEM_CLASS_ID\t"
-       +"LID_LOCK||CONTAINER_TYPE||RIDE_BASIS||WEAPON_CLASS||CODED_WEAR_LOCATION\t"
-       +"CONTAINER_CAPACITY||LIQUID_CAPACITY\t"
-       +"BASE_ARMOR_AMOUNT\tWOOD_METAL_CLOTH\tCODED_SPELL_LIST";}
+	@Override
+	public String ID()
+	{
+		return "Torturesmithing";
+	}
 
-	protected static final int RCP_FINALNAME=0;
-	protected static final int RCP_LEVEL=1;
-	protected static final int RCP_TICKS=2;
-	protected static final int RCP_WOOD=3;
-	protected static final int RCP_VALUE=4;
-	protected static final int RCP_CLASSTYPE=5;
-	protected static final int RCP_MISCTYPE=6;
-	protected static final int RCP_CAPACITY=7;
-	protected static final int RCP_ARMORDMG=8;
-	protected static final int RCP_MATERIAL=9;
-	protected static final int RCP_SPELL=10;
+	private final static String	localizedName	= CMLib.lang().L("Torturesmithing");
 
-    public String parametersFile(){ return "torturesmith.txt";}
-    protected Vector loadRecipes(){return super.loadRecipes(parametersFile());}
+	@Override
+	public String name()
+	{
+		return localizedName;
+	}
 
+	private static final String[]	triggerStrings	= I(new String[] { "TORTURESMITH", "TORTURESMITHING" });
+
+	@Override
+	public String[] triggerStrings()
+	{
+		return triggerStrings;
+	}
+
+	@Override
+	public String supportedResourceString()
+	{
+		return "METAL|MITHRIL|CLOTH";
+	}
+
+	@Override
+	public String parametersFormat()
+	{
+		return
+		"ITEM_NAME\tITEM_LEVEL\tBUILD_TIME_TICKS\tMATERIALS_REQUIRED\t"
+		+"ITEM_BASE_VALUE\tITEM_CLASS_ID\t"
+		+"LID_LOCK||CONTAINER_TYPE||RIDE_BASIS||WEAPON_CLASS||CODED_WEAR_LOCATION\t"
+		+"CONTAINER_CAPACITY||LIQUID_CAPACITY\t"
+		+"BASE_ARMOR_AMOUNT\tWOOD_METAL_CLOTH\tCODED_SPELL_LIST";
+	}
+
+	//protected static final int RCP_FINALNAME=0;
+	//protected static final int RCP_LEVEL=1;
+	//protected static final int RCP_TICKS=2;
+	protected static final int	RCP_WOOD		= 3;
+	protected static final int	RCP_VALUE		= 4;
+	protected static final int	RCP_CLASSTYPE	= 5;
+	protected static final int	RCP_MISCTYPE	= 6;
+	protected static final int	RCP_CAPACITY	= 7;
+	protected static final int	RCP_ARMORDMG	= 8;
+	protected static final int	RCP_MATERIAL	= 9;
+	protected static final int	RCP_SPELL		= 10;
+
+	@Override
+	public String parametersFile()
+	{
+		return "torturesmith.txt";
+	}
+
+	@Override
+	protected List<List<String>> loadRecipes()
+	{
+		return super.loadRecipes(parametersFile());
+	}
+
+	@Override
 	public void unInvoke()
 	{
 		if(canBeUninvoked())
 		{
-			if((affected!=null)&&(affected instanceof MOB))
+			if(affected instanceof MOB)
 			{
-				MOB mob=(MOB)affected;
-				if((building!=null)&&(!aborted))
+				final MOB mob=(MOB)affected;
+				if((buildingI!=null)&&(!aborted))
 				{
 					if(messedUp)
-						commonTell(mob,"You've ruined "+building.name()+"!");
+					{
+						if(activity == CraftingActivity.LEARNING)
+							commonEmote(mob,L("<S-NAME> fail(s) to learn how to make @x1.",buildingI.name()));
+						else
+							commonTell(mob,L("You've ruined @x1!",buildingI.name(mob)));
+						buildingI.destroy();
+					}
 					else
-						dropAWinner(mob,building);
+					if(activity==CraftingActivity.LEARNING)
+					{
+						deconstructRecipeInto( buildingI, recipeHolder );
+						buildingI.destroy();
+					}
+					else
+					{
+						dropAWinner(mob,buildingI);
+						CMLib.achievements().possiblyBumpAchievement(mob, AchievementLibrary.Event.CRAFTING, 1, this);
+					}
 				}
-				building=null;
+				buildingI=null;
 			}
 		}
 		super.unInvoke();
 	}
 
-	public boolean invoke(MOB mob, Vector commands, Environmental givenTarget, boolean auto, int asLevel)
+	@Override
+	public boolean supportsDeconstruction()
 	{
-		int autoGenerate=0;
-		if((auto)&&(givenTarget==this)&&(commands.size()>0)&&(commands.firstElement() instanceof Integer))
+		return true;
+	}
+
+	@Override
+	public boolean mayICraft(final Item I)
+	{
+		if(I==null)
+			return false;
+		if(!super.mayBeCrafted(I))
+			return false;
+		if(!CMLib.flags().isDeadlyOrMaliciousEffect(I))
+			return false;
+		if(I instanceof Ammunition)
+			return false;
+		if(I instanceof Rideable)
+			return true;
+		if(I instanceof Shield)
+			return false;
+		if(I instanceof Weapon)
+			return (isANativeItem(I.Name()));
+		if(I instanceof Armor)
+			return true;
+		if(I instanceof FalseLimb)
+			return true;
+		if(I.rawProperLocationBitmap()==Wearable.WORN_HELD)
+			return true;
+		return (isANativeItem(I.Name()));
+	}
+
+	public boolean supportsMending(Physical I)
+	{
+		return canMend(null, I, true);
+	}
+
+	@Override
+	protected boolean canMend(MOB mob, Environmental E, boolean quiet)
+	{
+		if(!super.canMend(mob,E,quiet))
+			return false;
+		if((!(E instanceof Item))
+		||(!mayICraft((Item)E)))
 		{
-			autoGenerate=((Integer)commands.firstElement()).intValue();
-			commands.removeElementAt(0);
-			givenTarget=null;
+			if(!quiet)
+				commonTell(mob,L("That's not a torturesmithing item."));
+			return false;
 		}
+		return true;
+	}
+
+	@Override
+	public String getDecodedComponentsDescription(final MOB mob, final List<String> recipe)
+	{
+		return super.getComponentDescription( mob, recipe, RCP_WOOD );
+	}
+
+	@Override
+	public boolean invoke(MOB mob, List<String> commands, Physical givenTarget, boolean auto, int asLevel)
+	{
+		return autoGenInvoke(mob,commands,givenTarget,auto,asLevel,0,false,new Vector<Item>(0));
+	}
+	
+	@Override
+	protected boolean autoGenInvoke(final MOB mob, List<String> commands, Physical givenTarget, final boolean auto, 
+								 final int asLevel, int autoGenerate, boolean forceLevels, List<Item> crafted)
+	{
+		if(super.checkStop(mob, commands))
+			return true;
+
+		if(super.checkInfo(mob, commands))
+			return true;
+		
 		randomRecipeFix(mob,addRecipes(mob,loadRecipes()),commands,autoGenerate);
 		if(commands.size()==0)
 		{
-			commonTell(mob,"Make what? Enter \""+triggerStrings()[0].toLowerCase()+" list\" for a list.");
+			commonTell(mob,L("Make what? Enter \"@x1 list\" for a list, \"@x2 info <item>\", \"@x2 learn <item>\" to gain recipes,"
+							+ " or \"@x3 stop\" to cancel.", triggerStrings()[0].toLowerCase(), triggerStrings()[0].toLowerCase(),
+							triggerStrings()[0].toLowerCase()));
 			return false;
 		}
-		Vector recipes=addRecipes(mob,loadRecipes());
-		String str=(String)commands.elementAt(0);
+		final List<List<String>> recipes=addRecipes(mob,loadRecipes());
+		final String str=commands.get(0);
 		String startStr=null;
-        bundling=false;
+		bundling=false;
 		int duration=4;
 		if(str.equalsIgnoreCase("list"))
 		{
 			String mask=CMParms.combine(commands,1);
-			StringBuffer buf=new StringBuffer(CMStrings.padRight("Item",16)+" Lvl Material required\n\r");
+			boolean allFlag=false;
+			if(mask.equalsIgnoreCase("all"))
+			{
+				allFlag=true;
+				mask="";
+			}
+			final StringBuffer buf=new StringBuffer(L("@x1 Lvl Material required\n\r",CMStrings.padRight(L("Item"),16)));
 			for(int r=0;r<recipes.size();r++)
 			{
-				Vector V=(Vector)recipes.elementAt(r);
+				final List<String> V=recipes.get(r);
 				if(V.size()>0)
 				{
-					String item=replacePercent((String)V.elementAt(RCP_FINALNAME),"");
-					int level=CMath.s_int((String)V.elementAt(RCP_LEVEL));
-					String mat=(String)V.elementAt(RCP_MATERIAL);
-					int wood=CMath.s_int((String)V.elementAt(RCP_WOOD));
-                    wood=adjustWoodRequired(wood,mob);
-					if((level<=xlevel(mob))
-					&&((mask==null)||(mask.length()==0)||mask.equalsIgnoreCase("all")||CMLib.english().containsString(item,mask)))
+					final String item=replacePercent(V.get(RCP_FINALNAME),"");
+					final int level=CMath.s_int(V.get(RCP_LEVEL));
+					String mat=V.get(RCP_MATERIAL);
+					final String wood=getComponentDescription(mob,V,RCP_WOOD);
+					if(wood.length()>5)
+						mat="";
+					if(((level<=xlevel(mob))||allFlag)
+					&&((mask.length()==0)||mask.equalsIgnoreCase("all")||CMLib.english().containsString(item,mask)))
 						buf.append(CMStrings.padRight(item,16)+" "+CMStrings.padRight(""+level,3)+" "+wood+" "+mat.toLowerCase()+"\n\r");
 				}
 			}
 			commonTell(mob,buf.toString());
 			return true;
 		}
+		else
+		if(((commands.get(0))).equalsIgnoreCase("learn"))
+		{
+			return doLearnRecipe(mob, commands, givenTarget, auto, asLevel);
+		}
 
-		building=null;
+		activity = CraftingActivity.CRAFTING;
+		buildingI=null;
 		messedUp=false;
 		int amount=-1;
-		if((commands.size()>1)&&(CMath.isNumber((String)commands.lastElement())))
+		if((commands.size()>1)&&(CMath.isNumber(commands.get(commands.size()-1))))
 		{
-			amount=CMath.s_int((String)commands.lastElement());
-			commands.removeElementAt(commands.size()-1);
+			amount=CMath.s_int(commands.get(commands.size()-1));
+			commands.remove(commands.size()-1);
 		}
-		String recipeName=CMParms.combine(commands,0);
-		Vector foundRecipe=null;
-		Vector matches=matchingRecipeNames(recipes,recipeName,true);
+		final String recipeName=CMParms.combine(commands,0);
+		List<String> foundRecipe=null;
+		final List<List<String>> matches=matchingRecipeNames(recipes,recipeName,true);
 		for(int r=0;r<matches.size();r++)
 		{
-			Vector V=(Vector)matches.elementAt(r);
+			final List<String> V=matches.get(r);
 			if(V.size()>0)
 			{
-				int level=CMath.s_int((String)V.elementAt(RCP_LEVEL));
-                if((autoGenerate>0)||(level<=xlevel(mob)))
+				final int level=CMath.s_int(V.get(RCP_LEVEL));
+				if((autoGenerate>0)||(level<=xlevel(mob)))
 				{
 					foundRecipe=V;
 					break;
@@ -153,130 +286,146 @@ public class Torturesmithing extends CraftingSkill implements ItemCraftor
 		}
 		if(foundRecipe==null)
 		{
-			commonTell(mob,"You don't know how to make a '"+recipeName+"'.  Try \""+triggerStrings[0].toLowerCase()+" list\" for a list.");
+			commonTell(mob,L("You don't know how to make a '@x1'.  Try \"@x2 list\" for a list.",recipeName,triggerStrings[0].toLowerCase()));
 			return false;
 		}
-		int woodRequired=CMath.s_int((String)foundRecipe.elementAt(RCP_WOOD));
-        woodRequired=adjustWoodRequired(woodRequired,mob);
-		if(amount>woodRequired) woodRequired=amount;
-		String misctype=(String)foundRecipe.elementAt(RCP_MISCTYPE);
-		String materialtype=(String)foundRecipe.elementAt(RCP_MATERIAL);
+
+		final String woodRequiredStr = foundRecipe.get(RCP_WOOD);
+		final int[] compData = new int[CF_TOTAL];
+		final List<Object> componentsFoundList=getAbilityComponents(mob, woodRequiredStr, "make "+CMLib.english().startWithAorAn(recipeName),autoGenerate,compData);
+		if(componentsFoundList==null)
+			return false;
+		int woodRequired=CMath.s_int(woodRequiredStr);
+		woodRequired=adjustWoodRequired(woodRequired,mob);
+
+		if(amount>woodRequired)
+			woodRequired=amount;
+		final String misctype=foundRecipe.get(RCP_MISCTYPE);
+		final String materialtype=foundRecipe.get(RCP_MATERIAL);
 		int[] pm=null;
 		if(materialtype.equalsIgnoreCase("wood"))
 		{
-		    pm=new int[1];
+			pm=new int[1];
 			pm[0]=RawMaterial.MATERIAL_WOODEN;
 		}
 		else
 		if(materialtype.equalsIgnoreCase("metal"))
 		{
-		    pm=new int[2];
+			pm=new int[2];
 			pm[0]=RawMaterial.MATERIAL_METAL;
 			pm[1]=RawMaterial.MATERIAL_MITHRIL;
 		}
 		else
 		if(materialtype.equalsIgnoreCase("cloth"))
 		{
-		    pm=new int[1];
+			pm=new int[1];
 			pm[0]=RawMaterial.MATERIAL_CLOTH;
 		}
-        bundling=misctype.equalsIgnoreCase("BUNDLE");
-		int[][] data=fetchFoundResourceData(mob,
-											woodRequired,"wood or cloth",pm,
-											0,null,null,
-                                            bundling,
-											autoGenerate,
-											null);
-		if(data==null) return false;
+		bundling=misctype.equalsIgnoreCase("BUNDLE");
+		final int[][] data=fetchFoundResourceData(mob,
+												woodRequired,"wood or cloth",pm,
+												0,null,null,
+												bundling,
+												autoGenerate,
+												null);
+		if(data==null)
+			return false;
 		woodRequired=data[0][FOUND_AMT];
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
 			return false;
-		int lostValue=autoGenerate>0?0:
-            CMLib.materials().destroyResources(mob.location(),data[0][FOUND_AMT],data[0][FOUND_CODE],0,null);
-		building=CMClass.getItem((String)foundRecipe.elementAt(RCP_CLASSTYPE));
-		if(building==null)
+		final int lostValue=autoGenerate>0?0:
+			CMLib.materials().destroyResourcesValue(mob.location(),data[0][FOUND_AMT],data[0][FOUND_CODE],0,null)
+			+CMLib.ableComponents().destroyAbilityComponents(componentsFoundList);
+		buildingI=CMClass.getItem(foundRecipe.get(RCP_CLASSTYPE));
+		if(buildingI==null)
 		{
-			commonTell(mob,"There's no such thing as a "+foundRecipe.elementAt(RCP_CLASSTYPE)+"!!!");
+			commonTell(mob,L("There's no such thing as a @x1!!!",foundRecipe.get(RCP_CLASSTYPE)));
 			return false;
 		}
-		duration=getDuration(CMath.s_int((String)foundRecipe.elementAt(RCP_TICKS)),mob,CMath.s_int((String)foundRecipe.elementAt(RCP_LEVEL)),4);
-		String itemName=replacePercent((String)foundRecipe.elementAt(RCP_FINALNAME),RawMaterial.CODES.NAME(data[0][FOUND_CODE])).toLowerCase();
+		duration=getDuration(CMath.s_int(foundRecipe.get(RCP_TICKS)),mob,CMath.s_int(foundRecipe.get(RCP_LEVEL)),4);
+		buildingI.setMaterial(super.getBuildingMaterial(woodRequired, data, compData));
+		String itemName=replacePercent(foundRecipe.get(RCP_FINALNAME),RawMaterial.CODES.NAME(buildingI.material())).toLowerCase();
 		if(bundling)
 			itemName="a "+woodRequired+"# "+itemName;
 		else
 			itemName=CMLib.english().startWithAorAn(itemName);
-		building.setName(itemName);
-		startStr="<S-NAME> start(s) making "+building.name()+".";
-		displayText="You are making "+building.name();
-		verb="making "+building.name();
-        playSound="hammer.wav";
-		building.setDisplayText(itemName+" lies here");
-		building.setDescription(itemName+". ");
-		building.baseEnvStats().setWeight(woodRequired);
-		building.setBaseValue(CMath.s_int((String)foundRecipe.elementAt(RCP_VALUE))+(woodRequired*(RawMaterial.CODES.VALUE(data[0][FOUND_CODE]))));
-		building.setMaterial(data[0][FOUND_CODE]);
-		building.baseEnvStats().setLevel(CMath.s_int((String)foundRecipe.elementAt(RCP_LEVEL)));
-		building.setSecretIdentity("This is the work of "+mob.Name()+".");
-		int capacity=CMath.s_int((String)foundRecipe.elementAt(RCP_CAPACITY));
-		int armordmg=CMath.s_int((String)foundRecipe.elementAt(RCP_ARMORDMG));
-		int hardness=RawMaterial.CODES.HARDNESS(data[0][FOUND_CODE])-3;
-		String spell=(foundRecipe.size()>RCP_SPELL)?((String)foundRecipe.elementAt(RCP_SPELL)).trim():"";
-		addSpells(building,spell);
-		if(building instanceof Container)
+		buildingI.setName(itemName);
+		startStr=L("<S-NAME> start(s) making @x1.",buildingI.name());
+		displayText=L("You are making @x1",buildingI.name());
+		verb=L("making @x1",buildingI.name());
+		playSound="hammer.wav";
+		buildingI.setDisplayText(L("@x1 lies here",itemName));
+		buildingI.setDescription(itemName+". ");
+		buildingI.basePhyStats().setWeight(woodRequired);
+		buildingI.setBaseValue(CMath.s_int(foundRecipe.get(RCP_VALUE))+(woodRequired*(RawMaterial.CODES.VALUE(data[0][FOUND_CODE]))));
+		buildingI.basePhyStats().setLevel(CMath.s_int(foundRecipe.get(RCP_LEVEL)));
+		buildingI.setSecretIdentity(getBrand(mob));
+		final int capacity=CMath.s_int(foundRecipe.get(RCP_CAPACITY));
+		final int armordmg=CMath.s_int(foundRecipe.get(RCP_ARMORDMG));
+		final int hardness=RawMaterial.CODES.HARDNESS(buildingI.material())-3;
+		final String spell=(foundRecipe.size()>RCP_SPELL)?foundRecipe.get(RCP_SPELL).trim():"";
+		addSpells(buildingI,spell);
+		if(buildingI instanceof Container)
 		{
-			((Container)building).setCapacity(capacity+woodRequired);
+			((Container)buildingI).setCapacity(capacity+woodRequired);
 			if(misctype.equalsIgnoreCase("LID"))
-				((Container)building).setLidsNLocks(true,false,false,false);
+				((Container)buildingI).setDoorsNLocks(true,false,true,false,false,false);
 			else
 			if(misctype.equalsIgnoreCase("LOCK"))
 			{
-				((Container)building).setLidsNLocks(true,false,true,false);
-				((Container)building).setKeyName(Double.toString(Math.random()));
+				((Container)buildingI).setDoorsNLocks(true,false,true,true,false,true);
+				((Container)buildingI).setKeyName(Double.toString(Math.random()));
 			}
 			else
-				((Container)building).setContainTypes(CMath.s_long(misctype));
+				((Container)buildingI).setContainTypes(getContainerType(misctype));
 		}
-		if(building instanceof Rideable)
+		if(buildingI instanceof Rideable)
 		{
-            setRideBasis((Rideable)building,misctype);
+			setRideBasis((Rideable)buildingI,misctype);
+			if(capacity==0)
+				((Rideable)buildingI).setRiderCapacity(1);
+			else
+			if(capacity<5)
+				((Rideable)buildingI).setRiderCapacity(capacity);
 		}
-		if(building instanceof Armor)
+		if((buildingI instanceof Armor)&&(!(buildingI instanceof FalseLimb)))
 		{
-            ((Armor)building).baseEnvStats().setArmor(0);
-            if(armordmg!=0)
-                ((Armor)building).baseEnvStats().setArmor(armordmg+(abilityCode()-1));
-            setWearLocation(building,misctype,hardness);
+			((Armor)buildingI).basePhyStats().setArmor(0);
+			if(armordmg!=0)
+				((Armor)buildingI).basePhyStats().setArmor(armordmg+(baseYield()+abilityCode()-1));
+			setWearLocation(buildingI,misctype,hardness);
 		}
-		if(building instanceof Drink)
+		if(buildingI instanceof Drink)
 		{
-			if(CMLib.flags().isGettable(building))
+			if(CMLib.flags().isGettable(buildingI))
 			{
-				((Drink)building).setLiquidHeld(capacity*50);
-				((Drink)building).setThirstQuenched(250);
+				((Drink)buildingI).setLiquidHeld(capacity*50);
+				((Drink)buildingI).setThirstQuenched(250);
 				if((capacity*50)<250)
-					((Drink)building).setThirstQuenched(capacity*50);
-				((Drink)building).setLiquidRemaining(0);
+					((Drink)buildingI).setThirstQuenched(capacity*50);
+				((Drink)buildingI).setLiquidRemaining(0);
 			}
 		}
-		if(bundling) building.setBaseValue(lostValue);
-		building.recoverEnvStats();
-		building.text();
-		building.recoverEnvStats();
+		if(bundling)
+			buildingI.setBaseValue(lostValue);
+		buildingI.recoverPhyStats();
+		buildingI.text();
+		buildingI.recoverPhyStats();
 
 
 		messedUp=!proficiencyCheck(mob,0,auto);
 
 		if(autoGenerate>0)
 		{
-			commands.addElement(building);
+			crafted.add(buildingI);
 			return true;
 		}
 
-		CMMsg msg=CMClass.getMsg(mob,building,this,CMMsg.MSG_NOISYMOVEMENT,startStr);
+		final CMMsg msg=CMClass.getMsg(mob,buildingI,this,getActivityMessageType(),startStr);
 		if(mob.location().okMessage(mob,msg))
 		{
 			mob.location().send(mob,msg);
-			building=(Item)msg.target();
+			buildingI=(Item)msg.target();
 			beneficialAffect(mob,mob,asLevel,duration);
 		}
 		return true;

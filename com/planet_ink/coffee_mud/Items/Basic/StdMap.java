@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Items.Basic;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,23 +10,22 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
-
-
 import java.util.*;
 
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2001-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -33,10 +33,15 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
-public class StdMap extends StdItem implements com.planet_ink.coffee_mud.Items.interfaces.Map
+
+public class StdMap extends StdItem implements com.planet_ink.coffee_mud.Items.interfaces.RoomMap
 {
-	public String ID(){	return "StdMap";}
+	@Override 
+	public String ID()
+	{	
+		return "StdMap";
+	}
+	
 	protected int oldLevel=0;
 
 	public StdMap()
@@ -45,13 +50,11 @@ public class StdMap extends StdItem implements com.planet_ink.coffee_mud.Items.i
 		setName("a map");
 		setDisplayText("a map sits here");
 		setDescription("Looks like a map of some place.");
-		baseEnvStats().setSensesMask(EnvStats.SENSE_ITEMREADABLE);
+		basePhyStats().setSensesMask(PhyStats.SENSE_ITEMREADABLE);
 		baseGoldValue=10;
 		material=RawMaterial.RESOURCE_PAPER;
-		recoverEnvStats();
+		recoverPhyStats();
 	}
-
-
 
 	protected static class MapRoom
 	{
@@ -61,22 +64,33 @@ public class StdMap extends StdItem implements com.planet_ink.coffee_mud.Items.i
 		boolean positionedAlready=false;
 	}
 
-	public String getMapArea(){return miscText;}
+	@Override 
+	public String getMapArea()
+	{
+		return miscText;
+	}
+	
+	@Override
 	public void setMapArea(String mapName)
-	{ super.setMiscText(mapName);	}
+	{ 
+		super.setMiscText(mapName);	
+	}
 
+	@Override
 	public void setMiscText(String newText)
 	{
 		super.setMiscText(newText);
 		doMapArea();
 	}
+	
+	@Override
 	public void doMapArea()
 	{
-		Vector V=CMParms.parseSemicolons(getMapArea(),true);
+		final List<String> V=CMParms.parseSemicolons(getMapArea(),true);
 		String newName="";
 		for(int v=0;v<V.size();v++)
 		{
-			String areaName=(String)V.elementAt(v);
+			final String areaName=V.get(v);
 			if(areaName.length()>0)
 			{
 				if(newName.length()==0)
@@ -90,52 +104,54 @@ public class StdMap extends StdItem implements com.planet_ink.coffee_mud.Items.i
 			}
 		}
 		this.setName(newName+".");
-		this.setDescription("Looks like "+newName+".");
+		this.setDescription(L("Looks like @x1.",newName));
 		//myMap=null;
 	}
 
-    public MapRoom[][] rebuildGrid(Hashtable areaMap)
-    {
-	    // build grid!
-	    int xoffset=0;
-	    int yoffset=0;
-	    for(Enumeration e=areaMap.elements();e.hasMoreElements();)
+	public MapRoom[][] rebuildGrid(Hashtable<Room,MapRoom> areaMap)
+	{
+		// build grid!
+		int xoffset=0;
+		int yoffset=0;
+		for(final Enumeration<MapRoom> e=areaMap.elements();e.hasMoreElements();)
 		{
-			MapRoom mr=(MapRoom)e.nextElement();
-	        if(mr.x<xoffset) xoffset=mr.x;
-	        if(mr.y<yoffset) yoffset=mr.y;
+			final MapRoom mr=e.nextElement();
+			if(mr.x<xoffset)
+				xoffset=mr.x;
+			if(mr.y<yoffset)
+				yoffset=mr.y;
 		}
 
-	    xoffset=xoffset*-1;
-	    yoffset=yoffset*-1;
+		xoffset=xoffset*-1;
+		yoffset=yoffset*-1;
 
-	    int Xbound=0;
-	    int Ybound=0;
-	    for(Enumeration e=areaMap.elements();e.hasMoreElements();)
+		int Xbound=0;
+		int Ybound=0;
+		for(final Enumeration<MapRoom> e=areaMap.elements();e.hasMoreElements();)
 		{
-			MapRoom room=(MapRoom)e.nextElement();
-	        room.x=room.x+xoffset;
-	        if(room.x>Xbound)
-	            Xbound=room.x;
-	        room.y=room.y+yoffset;
-	        if(room.y>Ybound)
-	            Ybound=room.y;
-	    }
-	    MapRoom[][] grid=new MapRoom[Xbound+1][Ybound+1];
-	    for(Enumeration e=areaMap.elements();e.hasMoreElements();)
+			final MapRoom room=e.nextElement();
+			room.x=room.x+xoffset;
+			if(room.x>Xbound)
+				Xbound=room.x;
+			room.y=room.y+yoffset;
+			if(room.y>Ybound)
+				Ybound=room.y;
+		}
+		final MapRoom[][] grid=new MapRoom[Xbound+1][Ybound+1];
+		for(final Enumeration<MapRoom> e=areaMap.elements();e.hasMoreElements();)
 		{
-			MapRoom room=(MapRoom)e.nextElement();
-	        grid[room.x][room.y]=room;
-	    }
-
+			final MapRoom room=e.nextElement();
+			grid[room.x][room.y]=room;
+		}
 
 		int numStragglers=0;
 		int somethingsLeft=0;
 		// now clear out stragglers.
-	    for(int x=0;x<grid.length;x++)
+		for(int x=0;x<grid.length;x++)
+		{
 			for(int y=0;y<grid[0].length;y++)
 			{
-			    MapRoom room=grid[x][y];
+				final MapRoom room=grid[x][y];
 				if(room!=null)
 				{
 					if(
@@ -157,52 +173,55 @@ public class StdMap extends StdItem implements com.planet_ink.coffee_mud.Items.i
 					}
 				}
 			}
+		}
 		if((numStragglers>0)&&(somethingsLeft>0))
 			return rebuildGrid(areaMap);
 
 		return grid;
-    }
+	}
 
-	public void clearTheSkys(Hashtable mapRooms)
+	public void clearTheSkys(Hashtable<Room,MapRoom> mapRooms)
 	{
-		for(Enumeration e=mapRooms.keys();e.hasMoreElements();)
+		for(final Enumeration<Room> e=mapRooms.keys();e.hasMoreElements();)
 		{
-			Room R=(Room)e.nextElement();
-			Room UP=R.rawDoors()[Directions.UP];
+			final Room R=e.nextElement();
+			final Room UP=R.rawDoors()[Directions.UP];
 			if((UP!=null)
 			&&(UP.roomID().length()==0)
 			&&(UP instanceof GridLocale))
 			{
-				Vector V=((GridLocale)UP).getAllRooms();
+				final List<Room> V=((GridLocale)UP).getAllRooms();
 				for(int v=0;v<V.size();v++)
-					mapRooms.remove(V.elementAt(v));
+					mapRooms.remove(V.get(v));
 			}
-			Room DOWN=R.rawDoors()[Directions.DOWN];
+			final Room DOWN=R.rawDoors()[Directions.DOWN];
 			if((DOWN!=null)
 			&&(DOWN.roomID().length()==0)
 			&&(DOWN instanceof GridLocale))
 			{
-				Vector V=((GridLocale)DOWN).getAllRooms();
+				final List<Room> V=((GridLocale)DOWN).getAllRooms();
 				for(int v=0;v<V.size();v++)
-					mapRooms.remove(V.elementAt(v));
+					mapRooms.remove(V.get(v));
 			}
 		}
 	}
 
-	public Hashtable makeMapRooms(int width)
+	public Hashtable<Room,MapRoom> makeMapRooms(int width)
 	{
-		Vector mapAreas=CMParms.parseSemicolons(getMapArea(),true);
-		Hashtable mapRooms=new Hashtable();
+		final List<String> mapAreas=CMParms.parseSemicolons(getMapArea(),true);
+		final Hashtable<Room,MapRoom> mapRooms=new Hashtable<Room,MapRoom>();
 		for(int a=0;a<mapAreas.size();a++)
 		{
-			Area A=CMLib.map().getArea((String)mapAreas.elementAt(a));
+			final Area A=CMLib.map().getArea(mapAreas.get(a));
 			if(A!=null)
-			for(Enumeration r=A.getCompleteMap();r.hasMoreElements();)
 			{
-				Room R=(Room)r.nextElement();
-				MapRoom mr=new MapRoom();
-				mr.r=R;
-				mapRooms.put(R,mr);
+				for(final Enumeration<Room> r=A.getCompleteMap();r.hasMoreElements();)
+				{
+					final Room R=r.nextElement();
+					final MapRoom mr=new MapRoom();
+					mr.r=R;
+					mapRooms.put(R,mr);
+				}
 			}
 		}
 		clearTheSkys(mapRooms);
@@ -212,28 +231,28 @@ public class StdMap extends StdItem implements com.planet_ink.coffee_mud.Items.i
 
 	public StringBuffer[][] finishMapMaking(int width)
 	{
-		Hashtable mapRooms=makeMapRooms(width);
+		final Hashtable<Room,MapRoom> mapRooms=makeMapRooms(width);
 		StringBuffer[][] map=new StringBuffer[0][0];
 		if(mapRooms.size()>0)
 		{
 			placeRooms(mapRooms);
-			MapRoom[][] grid=rebuildGrid(mapRooms);
+			final MapRoom[][] grid=rebuildGrid(mapRooms);
 			if((grid.length==0)||(grid[0].length==0))
 				return map;
-            int numXSquares=(int)Math.round(Math.floor(CMath.div(width-6,8)));
-            int numYSquares=((numXSquares/2)+1);
-			int xsize=grid.length/numXSquares;
-            int ysize=grid[0].length/numYSquares;
-            if((xsize<0)||(ysize<0))
-            {
-            	Log.errOut("StdMap","Error finishing " + xsize +"/"+ ysize+"/"+width);
-            	return map;
-            }
-            
+			final int numXSquares=(int)Math.round(Math.floor(CMath.div(width-6,8)));
+			final int numYSquares=((numXSquares/2)+1);
+			final int xsize=grid.length/numXSquares;
+			final int ysize=grid[0].length/numYSquares;
+			if((xsize<0)||(ysize<0))
+			{
+				Log.errOut("StdMap","Error finishing " + xsize +"/"+ ysize+"/"+width);
+				return map;
+			}
+
 			map=new StringBuffer[xsize+1][ysize+1];
 			for(int y=0;y<grid[0].length;y++)
 			{
-				int ycoord=y/numYSquares;
+				final int ycoord=y/numYSquares;
 				int lastX=-1;
 				String line1="";
 				String line2="";
@@ -261,7 +280,7 @@ public class StdMap extends StdItem implements com.planet_ink.coffee_mud.Items.i
 						line5="";
 						line6="";
 					}
-					MapRoom room=grid[x][y];
+					final MapRoom room=grid[x][y];
 					if(room==null)
 					{
 						line1+="        ";
@@ -273,12 +292,12 @@ public class StdMap extends StdItem implements com.planet_ink.coffee_mud.Items.i
 					}
 					else
 					{
-						String paddedName=CMStrings.padRight(room.r.displayText().trim(),30);
+						final String paddedName=CMStrings.padRight(room.r.displayText().trim(),30);
 						line1+="---"+dirChar(Directions.NORTH,grid,x,y,'-')+"----";
-						line2+="!"+paddedName.substring(0,6)+"!";
-						line3+=dirChar(Directions.WEST,grid,x,y,'!')+paddedName.substring(6,12)+dirChar(Directions.EAST,grid,x,y,'!');
-						line4+="!"+paddedName.substring(12,18)+"!";
-						line5+="!"+paddedName.substring(18,24)+"!";
+						line2+="|"+paddedName.substring(0,6)+"|";
+						line3+=dirChar(Directions.WEST,grid,x,y,'|')+paddedName.substring(6,12)+dirChar(Directions.EAST,grid,x,y,'|');
+						line4+="|"+paddedName.substring(12,18)+"|";
+						line5+="|"+paddedName.substring(18,24)+"|";
 						line6+="---"+dirChar(Directions.SOUTH,grid,x,y,'-')+"----";
 					}
 				}
@@ -291,40 +310,44 @@ public class StdMap extends StdItem implements com.planet_ink.coffee_mud.Items.i
 			}
 		}
 		for(int x=0;x<map.length;x++)
+		{
 			for(int y=0;y<map[x].length;y++)
-				if(map[x][y]==null) map[x][y]=new StringBuffer("");
+			{
+				if(map[x][y]==null)
+					map[x][y]=new StringBuffer("");
+			}
+		}
 		return map;
 	}
 
-
 	public StringBuffer[][] getMyMappedRoom(int width)
 	{
-        StringBuffer[][] myMap=null;
-		/*if(oldLevel!=envStats().level())
+		StringBuffer[][] myMap=null;
+		/*if(oldLevel!=phyStats().level())
 		{
 			myMap=null;
-			oldLevel=envStats().level();
+			oldLevel=phyStats().level();
 		}
 
 		if(myMap!=null)
 			return myMap;
 
-		Object o=Resources.getResource("map"+envStats().level()+":"+getMapArea());
+		Object o=Resources.getResource("map"+phyStats().level()+":"+getMapArea());
 		if((o!=null)&&(o instanceof StringBuffer[][]))
 			myMap=(StringBuffer[][])o;
 
 		if(myMap!=null)
 			return myMap;
-        */
+		*/
 		myMap=finishMapMaking(width);
-		Resources.submitResource("map"+envStats().level()+":"+getMapArea(),myMap);
+		Resources.submitResource("map"+phyStats().level()+":"+getMapArea(),myMap);
 		return myMap;
 	}
 
 
 	public char dirChar(int dirCode, MapRoom[][] grid, int x, int y, char wall)
 	{
-		MapRoom room=grid[x][y];
+		final MapRoom room=grid[x][y];
 		if(room==null)
 			return ' ';
 		switch(dirCode)
@@ -345,9 +368,12 @@ public class StdMap extends StdItem implements com.planet_ink.coffee_mud.Items.i
 		}
 		MapRoom nextRoom=null;
 		try
-		{	nextRoom=grid[x][y];	}
-		catch(Throwable t){}
-
+		{	
+			nextRoom=grid[x][y];	
+		}
+		catch(final Exception t)
+		{
+		}
 		if(nextRoom==null)
 		{
 			if((room.r!=null)&&(room.r.getRoomInDir(dirCode)==null))
@@ -357,7 +383,8 @@ public class StdMap extends StdItem implements com.planet_ink.coffee_mud.Items.i
 		dirCode=-1;
 		for(int d=Directions.NUM_DIRECTIONS()-1;d>=0;d--)
 		{
-		    if(d==Directions.GATE) continue;
+			if(d==Directions.GATE)
+				continue;
 			if(room.r.getRoomInDir(d)==nextRoom.r)
 			{
 				dirCode=d;
@@ -373,13 +400,13 @@ public class StdMap extends StdItem implements com.planet_ink.coffee_mud.Items.i
 		switch(dirCode)
 		{
 		case Directions.NORTH:
-			return 'N';
+			return '^';
 		case Directions.SOUTH:
-			return 'S';
+			return 'v';
 		case Directions.EAST:
-			return 'E';
+			return '>';
 		case Directions.WEST:
-			return 'W';
+			return '<';
 		case Directions.UP:
 			return 'U';
 		case Directions.DOWN:
@@ -389,95 +416,116 @@ public class StdMap extends StdItem implements com.planet_ink.coffee_mud.Items.i
 	}
 
 
-    public MapRoom getProcessedRoomAt(Hashtable processed, int x, int y)
-    {
-        for(Enumeration e=processed.elements();e.hasMoreElements();)
-        {
-            MapRoom room=(MapRoom)e.nextElement();
-            if((room.x==x)&&(room.y==y))
-                return room;
-        }
-        return null;
-    }
+	public MapRoom getProcessedRoomAt(Hashtable<Room,MapRoom> processed, int x, int y)
+	{
+		for(final Enumeration<MapRoom> e=processed.elements();e.hasMoreElements();)
+		{
+			final MapRoom room=e.nextElement();
+			if((room.x==x)&&(room.y==y))
+				return room;
+		}
+		return null;
+	}
 
-    public MapRoom getRoom(Hashtable allRooms, Room droom)
-    {
-		return (MapRoom)allRooms.get(droom);
-    }
+	public MapRoom getRoom(Hashtable<Room,MapRoom> allRooms, Room droom)
+	{
+		return allRooms.get(droom);
+	}
 
-    public final static int CLUSTERSIZE=3;
+	public final static int CLUSTERSIZE=3;
 
-    public boolean isEmptyCluster(Hashtable processed, int x, int y)
-    {
-        for(Enumeration e=processed.elements();e.hasMoreElements();)
-        {
-            MapRoom room=(MapRoom)e.nextElement();
-            if((((room.x>x-CLUSTERSIZE)&&(room.x<x+CLUSTERSIZE))
-            &&((room.y>y-CLUSTERSIZE)&&(room.y<y+CLUSTERSIZE)))
-            ||((room.x==x)&&(room.y==y)))
-                return false;
-        }
-        return true;
-    }
+	public boolean isEmptyCluster(Hashtable<Room,MapRoom> processed, int x, int y)
+	{
+		for(final Enumeration<MapRoom> e=processed.elements();e.hasMoreElements();)
+		{
+			final MapRoom room=e.nextElement();
+			if((((room.x>x-CLUSTERSIZE)&&(room.x<x+CLUSTERSIZE))
+			&&((room.y>y-CLUSTERSIZE)&&(room.y<y+CLUSTERSIZE)))
+			||((room.x==x)&&(room.y==y)))
+				return false;
+		}
+		return true;
+	}
 
-    public void findEmptyCluster(Hashtable processed, Vector XY)
-    {
-        int x=((Integer)XY.elementAt(0)).intValue();
-        int y=((Integer)XY.elementAt(1)).intValue();
-        int spacing=CLUSTERSIZE;
-        while(true)
-        {
-            for(int i=0;i<8;i++)
-            {
-                int yadjust=0;
-                int xadjust=0;
-                switch(i)
-                {
-                    case 0: xadjust=1; break;
-                    case 1: xadjust=1;yadjust=1; break;
-                    case 2: yadjust=1; break;
-                    case 3: xadjust=1;xadjust=-1; break;
-                    case 4: xadjust=-1; break;
-                    case 5: xadjust=-1;yadjust=-1; break;
-                    case 6: yadjust=-1; break;
-                    case 7: yadjust=-1;xadjust=1; break;
-                }
-                if(isEmptyCluster(processed,x+(spacing*xadjust),y+(spacing*yadjust)))
-                {
-                    XY.setElementAt(Integer.valueOf(x+(spacing*xadjust)),0);
-                    XY.setElementAt(Integer.valueOf(y+(spacing*yadjust)),1);
-                    return;
-                }
-            }
-            spacing+=1;
-        }
-    }
+	public void findEmptyCluster(Hashtable<Room,MapRoom> processed, Vector<Integer> XY)
+	{
+		final int x=XY.elementAt(0).intValue();
+		final int y=XY.elementAt(1).intValue();
+		int spacing=CLUSTERSIZE;
+		while(true)
+		{
+			for(int i=0;i<8;i++)
+			{
+				int yadjust=0;
+				int xadjust=0;
+				switch(i)
+				{
+				case 0:
+					xadjust = 1;
+					break;
+				case 1:
+					xadjust = 1;
+					yadjust = 1;
+					break;
+				case 2:
+					yadjust = 1;
+					break;
+				case 3:
+					xadjust = 1;
+					xadjust = -1;
+					break;
+				case 4:
+					xadjust = -1;
+					break;
+				case 5:
+					xadjust = -1;
+					yadjust = -1;
+					break;
+				case 6:
+					yadjust = -1;
+					break;
+				case 7:
+					yadjust = -1;
+					xadjust = 1;
+					break;
+				}
+				if(isEmptyCluster(processed,x+(spacing*xadjust),y+(spacing*yadjust)))
+				{
+					XY.setElementAt(Integer.valueOf(x+(spacing*xadjust)),0);
+					XY.setElementAt(Integer.valueOf(y+(spacing*yadjust)),1);
+					return;
+				}
+			}
+			spacing+=1;
+		}
+	}
 
-    public boolean anythingThatDirection(MapRoom room, int direction)
-    {
-        Room D=room.r.getRoomInDir(direction);
-        if(D==null)
-            return false;
-        return true;
-    }
+	public boolean anythingThatDirection(MapRoom room, int direction)
+	{
+		final Room D=room.r.getRoomInDir(direction);
+		if(D==null)
+			return false;
+		return true;
+	}
 
 	public boolean okToPlace(MapRoom room)
 	{
-		if(room==null) return false;
+		if(room==null)
+			return false;
 
 		if(room.r.domainType()==Room.DOMAIN_OUTDOORS_AIR)
 			return false;
 
-		if((envStats().level()<1)&&((room.r.domainType()&Room.INDOORS)==Room.INDOORS))
+		if((phyStats().level()<1)&&((room.r.domainType()&Room.INDOORS)==Room.INDOORS))
 			return false;
 
 		boolean ok=false;
 		for(int d=0;d<Directions.NUM_DIRECTIONS()-1;d++)
 		{
-			Exit E=room.r.getExitInDir(d);
+			final Exit E=room.r.getExitInDir(d);
 			if(E!=null)
 			{
-				if(envStats().level()<2)
+				if(phyStats().level()<2)
 				{
 					if((!CMLib.flags().isHidden(E))&&(!CMLib.flags().isInvisible(E))&&(!E.defaultsLocked()))
 						ok=true;
@@ -491,60 +539,65 @@ public class StdMap extends StdItem implements com.planet_ink.coffee_mud.Items.i
 
 	public boolean okToPlace(MapRoom room, Exit exit)
 	{
-		if(!okToPlace(room)) return false;
-		if(exit==null) return false;
-		if(envStats().level()<2)
+		if(!okToPlace(room))
+			return false;
+		if(exit==null)
+			return false;
+		if(phyStats().level()<2)
 		{
 			if((CMLib.flags().isHidden(exit)||CMLib.flags().isInvisible(exit)))
-			   return false;
+				return false;
 			if(exit.defaultsLocked())
 				return false;
 		}
 		return true;
 	}
 
-    public void placeRooms(Hashtable areaMap)
-    {
-        if(areaMap==null) return;
-        if(areaMap.size()==0) return;
-
-        for(Enumeration e=areaMap.elements();e.hasMoreElements();)
-        {
-            MapRoom room=(MapRoom)e.nextElement();
-            room.x=0;
-            room.y=0;
-            for(int d=0;d<Directions.NUM_DIRECTIONS()-1;d++)
-            {
-                Room dir=room.r.getRoomInDir(d);
-                if(dir!=null)
-				{
-					MapRoom rm=getRoom(areaMap,dir);
-					if(rm!=null)
-	                    rm.positionedAlready=false;
-				}
-            }
-        }
-
-        Hashtable processed=new Hashtable();
-        boolean doneSomething=true;
-        while((areaMap.size()>processed.size())&&(doneSomething))
-        {
-            doneSomething=false;
-            for(Enumeration e=areaMap.elements();e.hasMoreElements();)
-            {
-                MapRoom room=(MapRoom)e.nextElement();
-                if((processed.get(room.r)==null)&&(okToPlace(room)))
-                {
-                    placeRoom(room,areaMap,0,0,processed,true,true,0);
-                    doneSomething=true;
-                }
-            }
-        }
-    }
-
-	public void executeMsg(Environmental myHost, CMMsg msg)
+	public void placeRooms(Hashtable<Room,MapRoom> areaMap)
 	{
-		MOB mob=msg.source();
+		if(areaMap==null)
+			return;
+		if(areaMap.size()==0)
+			return;
+
+		for(final Enumeration<MapRoom> e=areaMap.elements();e.hasMoreElements();)
+		{
+			final MapRoom room=e.nextElement();
+			room.x=0;
+			room.y=0;
+			for(int d=0;d<Directions.NUM_DIRECTIONS()-1;d++)
+			{
+				final Room dir=room.r.getRoomInDir(d);
+				if(dir!=null)
+				{
+					final MapRoom rm=getRoom(areaMap,dir);
+					if(rm!=null)
+						rm.positionedAlready=false;
+				}
+			}
+		}
+
+		final Hashtable<Room,MapRoom> processed=new Hashtable<Room,MapRoom>();
+		boolean doneSomething=true;
+		while((areaMap.size()>processed.size())&&(doneSomething))
+		{
+			doneSomething=false;
+			for(final Enumeration<MapRoom> e=areaMap.elements();e.hasMoreElements();)
+			{
+				final MapRoom room=e.nextElement();
+				if((processed.get(room.r)==null)&&(okToPlace(room)))
+				{
+					placeRoom(room,areaMap,0,0,processed,true,true,0);
+					doneSomething=true;
+				}
+			}
+		}
+	}
+
+	@Override
+	public void executeMsg(final Environmental myHost, final CMMsg msg)
+	{
+		final MOB mob=msg.source();
 		if(!msg.amITarget(this))
 			super.executeMsg(myHost,msg);
 		else
@@ -562,12 +615,13 @@ public class StdMap extends StdItem implements com.planet_ink.coffee_mud.Items.i
 					else
 						cols += 2;
 				}
-				StringBuffer map[][]=getMyMappedRoom(cols);
-				if((CMLib.flags().isReadable(this))
+				final StringBuffer map[][]=getMyMappedRoom(cols);
+				if((isReadable())
 				&&(map!=null)
 				&&(map.length>0)
 				&&(map[0].length>0)
-				&&(!mob.isMonster()))
+				&&(!mob.isMonster())
+				&&(msg.targetMessage()!=null))
 				{
 					int x=0;
 					int y=0;
@@ -578,7 +632,7 @@ public class StdMap extends StdItem implements com.planet_ink.coffee_mud.Items.i
 						boolean trans=false;
 						for(int i=0;i<msg.targetMessage().length();i++)
 						{
-							char c=msg.targetMessage().charAt(i);
+							final char c=msg.targetMessage().charAt(i);
 							if(Character.isDigit(c))
 							{
 								trans=true;
@@ -600,131 +654,141 @@ public class StdMap extends StdItem implements com.planet_ink.coffee_mud.Items.i
 						sec="A0";
 					}
 					if((map.length>1)||(map[0].length>1))
+					{
 						if(name().length()>0)
-							mob.session().rawPrintln("Section: "+sec);
+							mob.session().safeRawPrintln(L("Section: @x1",sec));
+					}
 					mob.session().rawPrint(map[x][y].toString());
 					if((map.length>1)||(map[0].length>1))
 					{
 						String letsec="A";
 						if(map.length>25)
+						{
 							for(int l=0;l<map.length/26;l++)
 								letsec+='Z';
+						}
 						letsec=letsec.substring(0,letsec.length()-1)+((char)((('A')+map.length%26)-1));
 						if(name().length()>0)
-							mob.session().rawPrintln("("+sec+") Use 'READ SEC MAPNAME' to read sections A0 through "+letsec+(map[0].length-1)+" (A-"+letsec+", 0-"+(map[0].length-1)+").");
+							mob.session().safeRawPrintln(L("(@x1) Use 'READ SEC MAPNAME' to read sections A0 through @x2@x3 (A-@x4, 0-@x5).",sec,letsec,""+(map[0].length-1),letsec,""+(map[0].length-1)));
 					}
 				}
 				else
-					mob.tell(name()+" appears to be blank.");
+					mob.tell(L("@x1 appears to be blank.",name()));
 			}
 			else
-				mob.tell("You can't see that!");
+				mob.tell(L("You can't see that!"));
 			return;
 		}
 		super.executeMsg(myHost,msg);
 	}
 
 	public void placeRoom(MapRoom room,
-						  Hashtable areaMap,
-                          int favoredX,
-                          int favoredY,
-                          Hashtable processed,
-                          boolean doNotDefer,
+						  Hashtable<Room,MapRoom> areaMap,
+						  int favoredX,
+						  int favoredY,
+						  Hashtable<Room,MapRoom> processed,
+						  boolean doNotDefer,
 						  boolean passTwo,
 						  int depth)
-    {
-        if(room==null) return;
-        if(depth>500) return;
-        MapRoom anythingAt=getProcessedRoomAt(processed,favoredX,favoredY);
-        if(anythingAt!=null)
-        {
-            // maybe someone else will take care of it?
-            if(!doNotDefer)
-                for(Enumeration e=areaMap.elements();e.hasMoreElements();)
-                {
-                    MapRoom roomToBlame=(MapRoom)e.nextElement();
-                    if(roomToBlame!=room)
-                        for(int d=Directions.NUM_DIRECTIONS()-1;d>=0;d--)
-                        {
-                            Room RD=roomToBlame.r.getRoomInDir(d);
-                            if((RD!=null)&&(RD==room.r))
+	{
+		if(room==null)
+			return;
+		if(depth>500)
+			return;
+		final MapRoom anythingAt=getProcessedRoomAt(processed,favoredX,favoredY);
+		if(anythingAt!=null)
+		{
+			// maybe someone else will take care of it?
+			if(!doNotDefer)
+			{
+				for(final Enumeration<MapRoom> e=areaMap.elements();e.hasMoreElements();)
+				{
+					final MapRoom roomToBlame=e.nextElement();
+					if(roomToBlame!=room)
+					{
+						for(int d=Directions.NUM_DIRECTIONS()-1;d>=0;d--)
+						{
+							final Room RD=roomToBlame.r.getRoomInDir(d);
+							if((RD!=null)&&(RD==room.r))
 							{
-								MapRoom MR=getRoom(areaMap,RD);
+								final MapRoom MR=getRoom(areaMap,RD);
 								if((MR!=null)&&(!MR.positionedAlready))
 									return;
 							}
-                        }
-                }
-            // nope; nobody can.  It's up to this!
-            Vector XY=new Vector();
-            XY.addElement(Integer.valueOf(0));
-            XY.addElement(Integer.valueOf(0));
-            findEmptyCluster(processed,XY);
-            room.x=((Integer)XY.elementAt(0)).intValue();
-            room.y=((Integer)XY.elementAt(1)).intValue();
-        }
-        else
-        {
-            room.x=favoredX;
-            room.y=favoredY;
-        }
+						}
+					}
+				}
+			}
+			// nope; nobody can.  It's up to this!
+			final Vector<Integer> XY=new Vector<Integer>();
+			XY.addElement(Integer.valueOf(0));
+			XY.addElement(Integer.valueOf(0));
+			findEmptyCluster(processed,XY);
+			room.x=XY.elementAt(0).intValue();
+			room.y=XY.elementAt(1).intValue();
+		}
+		else
+		{
+			room.x=favoredX;
+			room.y=favoredY;
+		}
 
-        // once done, is never undone.  A room is
-        // considered processed only once!
-        processed.put(room.r,room);
+		// once done, is never undone.  A room is
+		// considered processed only once!
+		processed.put(room.r,room);
 
-        for(int d=Directions.NUM_DIRECTIONS()-1;d>=0;d--)
-        {
-            MapRoom nextRoom=null;
-            if(room.r.getRoomInDir(d)!=null)
-                nextRoom=getRoom(areaMap,room.r.getRoomInDir(d));
+		for(int d=Directions.NUM_DIRECTIONS()-1;d>=0;d--)
+		{
+			MapRoom nextRoom=null;
+			if(room.r.getRoomInDir(d)!=null)
+				nextRoom=getRoom(areaMap,room.r.getRoomInDir(d));
 
-            if((nextRoom!=null)
+			if((nextRoom!=null)
 			&&(processed.get(nextRoom.r)==null)
-            &&(passTwo||((d!=Directions.UP)&&(d!=Directions.DOWN))))
-            {
-                int newFavoredX=room.x;
-                int newFavoredY=room.y;
-                switch(d)
-                {
-                    case Directions.NORTH:
-                        newFavoredY--; break;
-                    case Directions.SOUTH:
-                        newFavoredY++; break;
-                    case Directions.EAST:
-                        newFavoredX++; break;
-                    case Directions.WEST:
-                        newFavoredX--; break;
-                    case Directions.UP:
-                        if(!anythingThatDirection(room,Directions.NORTH))
-                            newFavoredY--;
-                        else
-                        if(!anythingThatDirection(room,Directions.WEST))
-                            newFavoredX--;
-                        else
-                        if(!anythingThatDirection(room,Directions.EAST))
-                            newFavoredX++;
-                        else
-                        if(!anythingThatDirection(room,Directions.SOUTH))
-                            newFavoredY++;
-                        break;
-                    case Directions.DOWN:
-                        if(!anythingThatDirection(room,Directions.SOUTH))
-                            newFavoredY++;
-                        else
-                        if(!anythingThatDirection(room,Directions.EAST))
-                            newFavoredX++;
-                        else
-                        if(!anythingThatDirection(room,Directions.WEST))
-                            newFavoredX--;
-                        else
-                        if(!anythingThatDirection(room,Directions.NORTH))
-                            newFavoredY--;
-                        break;
-                }
-                nextRoom.positionedAlready=true;
-                placeRoom(nextRoom,areaMap,newFavoredX,newFavoredY,processed,false,passTwo,depth+1);
-            }
-        }
-    }
+			&&(passTwo||((d!=Directions.UP)&&(d!=Directions.DOWN))))
+			{
+				int newFavoredX=room.x;
+				int newFavoredY=room.y;
+				switch(d)
+				{
+					case Directions.NORTH:
+						newFavoredY--; break;
+					case Directions.SOUTH:
+						newFavoredY++; break;
+					case Directions.EAST:
+						newFavoredX++; break;
+					case Directions.WEST:
+						newFavoredX--; break;
+					case Directions.UP:
+						if(!anythingThatDirection(room,Directions.NORTH))
+							newFavoredY--;
+						else
+						if(!anythingThatDirection(room,Directions.WEST))
+							newFavoredX--;
+						else
+						if(!anythingThatDirection(room,Directions.EAST))
+							newFavoredX++;
+						else
+						if(!anythingThatDirection(room,Directions.SOUTH))
+							newFavoredY++;
+						break;
+					case Directions.DOWN:
+						if(!anythingThatDirection(room,Directions.SOUTH))
+							newFavoredY++;
+						else
+						if(!anythingThatDirection(room,Directions.EAST))
+							newFavoredX++;
+						else
+						if(!anythingThatDirection(room,Directions.WEST))
+							newFavoredX--;
+						else
+						if(!anythingThatDirection(room,Directions.NORTH))
+							newFavoredY--;
+						break;
+				}
+				nextRoom.positionedAlready=true;
+				placeRoom(nextRoom,areaMap,newFavoredX,newFavoredY,processed,false,passTwo,depth+1);
+			}
+		}
+	}
 }

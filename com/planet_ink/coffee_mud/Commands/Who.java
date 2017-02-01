@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Commands;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,20 +10,21 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.ListingLibrary;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2004-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -30,83 +32,132 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
+@SuppressWarnings({"unchecked","rawtypes"})
 public class Who extends StdCommand
 {
-	public Who(){}
-
-	private String[] access={"WHO","WH"};
-	public String[] getAccessWords(){return access;}
-	
-	protected static final String shortHead=
-		 "^x["
-		+CMStrings.padRight("Race",12)+" "
-		+CMStrings.padRight("Class",12)+" "
-		+CMStrings.padRight("Level",7)
-		+"] Character name^.^N\n\r";
-		 
-	
-	public StringBuffer showWhoShort(MOB who)
+	public Who()
 	{
-		StringBuffer msg=new StringBuffer("");
+	}
+
+	private final String[]	access	= I(new String[] { "WHO", "WH" });
+
+	@Override
+	public String[] getAccessWords()
+	{
+		return access;
+	}
+
+	private final static Class[][]	filterParameters	= new Class[][] { { Boolean.class, Filterer.class } };
+
+	public int[] getShortColWidths(MOB seer)
+	{
+		return new int[]{
+			CMLib.lister().fixColWidth(12,seer.session()),
+			CMLib.lister().fixColWidth(12,seer.session()),
+			CMLib.lister().fixColWidth(7,seer.session()),
+			CMLib.lister().fixColWidth(40,seer.session())
+		};
+	}
+
+	public String getHead(int[] colWidths)
+	{
+		final StringBuilder head=new StringBuilder("");
+		head.append("^x[");
+		if(!CMSecurity.isDisabled(CMSecurity.DisFlag.RACES))
+			head.append(CMStrings.padRight(L("Race"),colWidths[0])+" ");
+		if(!CMSecurity.isDisabled(CMSecurity.DisFlag.CLASSES))
+			head.append(CMStrings.padRight(L("Class"),colWidths[1])+" ");
+		if(!CMSecurity.isDisabled(CMSecurity.DisFlag.LEVELS))
+			head.append(CMStrings.padRight(L("Level"),colWidths[2]));
+		head.append("] Character name^.^N\n\r");
+		return head.toString();
+	}
+
+	public StringBuffer showWhoShort(MOB who, int[] colWidths)
+	{
+		final StringBuffer msg=new StringBuffer("");
 		msg.append("[");
-		if(!CMSecurity.isDisabled("RACES"))
+		if(!CMSecurity.isDisabled(CMSecurity.DisFlag.RACES))
 		{
-		    if(who.charStats().getCurrentClass().raceless())
-				msg.append(CMStrings.padRight(" ",12)+" ");
-		    else
-				msg.append(CMStrings.padRight(who.charStats().raceName(),12)+" ");
+			if(who.charStats().getCurrentClass().raceless())
+				msg.append(CMStrings.padRight(" ",colWidths[0])+" ");
+			else
+				msg.append(CMStrings.padRight(who.charStats().raceName(),colWidths[0])+" ");
 		}
 		String levelStr=who.charStats().displayClassLevel(who,true).trim();
-		int x=levelStr.lastIndexOf(" ");
-		if(x>=0) levelStr=levelStr.substring(x).trim();
-		if(!CMSecurity.isDisabled("CLASSES"))
+		final int x=levelStr.lastIndexOf(' ');
+		if(x>=0)
+			levelStr=levelStr.substring(x).trim();
+		if(!CMSecurity.isDisabled(CMSecurity.DisFlag.CLASSES))
 		{
-		    if(who.charStats().getMyRace().classless())
-				msg.append(CMStrings.padRight(" ",12)+" ");
-		    else
-				msg.append(CMStrings.padRight(who.charStats().displayClassName(),12)+" ");
+			if(who.charStats().getMyRace().classless())
+				msg.append(CMStrings.padRight(" ",colWidths[1])+" ");
+			else
+				msg.append(CMStrings.padRight(who.charStats().displayClassName(),colWidths[1])+" ");
 		}
-		if(!CMSecurity.isDisabled("LEVELS"))
+		if(!CMSecurity.isDisabled(CMSecurity.DisFlag.LEVELS))
 		{
-		    if(who.charStats().getMyRace().leveless()
-		    ||who.charStats().getCurrentClass().leveless())
-				msg.append(CMStrings.padRight(" ",7));
-		    else
-				msg.append(CMStrings.padRight(levelStr,7));
+			if(who.charStats().getMyRace().leveless()
+			||who.charStats().getCurrentClass().leveless())
+				msg.append(CMStrings.padRight(" ",colWidths[2]));
+			else
+				msg.append(CMStrings.padRight(levelStr,colWidths[2]));
 		}
-		String name=null;
-		if(CMath.bset(who.envStats().disposition(),EnvStats.IS_CLOAKED))
-			name="("+(who.Name().equals(who.name())?who.titledName():who.name())+")";
-		else
-			name=(who.Name().equals(who.name())?who.titledName():who.name());
-		if((who.session()!=null)&&(who.session().afkFlag()))
-		{
-			long t=(who.session().getIdleMillis()/1000);
-			String s=t+"s";
-			if(t>600)
-			{
-				t=t/60;
-				s=t+"m";
-				if(t>120)
-				{
-					t=t/60;
-					s=t+"h";
-					if(t>48)
-					{
-						t=t/24;
-						s=t+"d";
-					}
-				}
-			}
-			name=name+(" (idle: "+s+")");
-		}
-		msg.append("] "+CMStrings.padRight(name,40));
+		String name=getWhoName(who);
+		msg.append("] "+CMStrings.padRight(name,colWidths[3]));
 		msg.append("\n\r");
 		return msg;
 	}
 	
-	public boolean execute(MOB mob, Vector commands, int metaFlags)
+	public String getWhoName(MOB seenM)
+	{
+		String name=null;
+		if(CMLib.flags().isCloaked(seenM))
+			name="("+(seenM.Name().equals(seenM.name())?seenM.titledName():seenM.name())+")";
+		else
+			name=(seenM.Name().equals(seenM.name())?seenM.titledName():seenM.name());
+		if((seenM.session()!=null)&&(seenM.session().isAfk()))
+			name=name+(" (idle: "+CMLib.time().date2BestShortEllapsedTime(seenM.session().getIdleMillis())+")");
+		return name;
+	}
+	
+	public boolean checkWho(MOB seerM, MOB seenM, Set<String> friends, Filterer<MOB> mobFilter)
+	{
+		if((seenM!=null)
+		&&(((!CMLib.flags().isCloaked(seenM))
+			||((CMSecurity.isAllowedAnywhere(seerM,CMSecurity.SecFlag.CLOAK)||CMSecurity.isAllowedAnywhere(seerM,CMSecurity.SecFlag.WIZINV))&&(seerM.phyStats().level()>=seenM.phyStats().level()))))
+		&&((friends==null)||(friends.contains(seenM.Name())||(friends.contains("All"))))
+		&&((mobFilter==null)||(mobFilter.passesFilter(seenM)))
+		&&(seenM.basePhyStats().level()>0))
+			return true;
+		return false;
+	}
+
+	public String getWho(MOB mob, Set<String> friends, boolean emptyOnNone, Filterer<MOB> mobFilter)
+	{
+		final StringBuffer msg=new StringBuffer("");
+		final int[] colWidths=getShortColWidths(mob);
+		for(final Session S : CMLib.sessions().localOnlineIterable())
+		{
+			MOB mob2=S.mob();
+			if((mob2!=null)&&(mob2.soulMate()!=null))
+				mob2=mob2.soulMate();
+
+			if(checkWho(mob,mob2,friends,mobFilter))
+				msg.append(showWhoShort(mob2,colWidths));
+		}
+		if((emptyOnNone)&&(msg.length()==0))
+			return "";
+		else
+		{
+			final StringBuffer head=new StringBuffer(getHead(colWidths));
+			head.append(msg.toString());
+			return head.toString();
+		}
+	}
+
+	@Override
+	public boolean execute(MOB mob, List<String> commands, int metaFlags)
 		throws java.io.IOException
 	{
 		String mobName=CMParms.combine(commands,1);
@@ -116,12 +167,12 @@ public class Who extends StdCommand
 		{
 			if((!(CMLib.intermud().i3online()))
 			&&(!CMLib.intermud().imc2online()))
-				mob.tell("Intermud is unavailable.");
+				mob.tell(L("Intermud is unavailable."));
 			else
 				CMLib.intermud().i3who(mob,mobName.substring(1));
 			return false;
 		}
-		HashSet friends=null;
+		Set<String> friends=null;
 		if((mobName!=null)
 		&&(mob!=null)
 		&&(mobName.equalsIgnoreCase("friends"))
@@ -130,65 +181,80 @@ public class Who extends StdCommand
 			friends=mob.playerStats().getFriends();
 			mobName=null;
 		}
-        
-        if((mobName!=null)
-        &&(mob!=null)
-        &&(mobName.equalsIgnoreCase("pk")
-        ||mobName.equalsIgnoreCase("pkill")
-        ||mobName.equalsIgnoreCase("playerkill")))
-        {
-            friends=new HashSet();
-            for(int s=0;s<CMLib.sessions().size();s++)
-            {
-                Session thisSession=CMLib.sessions().elementAt(s);
-                MOB mob2=thisSession.mob();
-                if((mob2!=null)&&(CMath.bset(mob2.getBitmap(),MOB.ATT_PLAYERKILL)))
-                    friends.add(mob2.Name());
-            }
-        }
 
-		StringBuffer msg=new StringBuffer("");
-		for(int s=0;s<CMLib.sessions().size();s++)
+		if((mobName!=null)
+		&&(mob!=null)
+		&&(mobName.equalsIgnoreCase("pk")
+		||mobName.equalsIgnoreCase("pkill")
+		||mobName.equalsIgnoreCase("playerkill")))
 		{
-			Session thisSession=CMLib.sessions().elementAt(s);
-			MOB mob2=thisSession.mob();
-			if((mob2!=null)&&(mob2.soulMate()!=null))
-				mob2=mob2.soulMate();
-
-			if((mob2!=null)
-			&&(!thisSession.killFlag())
-			&&((((mob2.envStats().disposition()&EnvStats.IS_CLOAKED)==0)
-				||((CMSecurity.isAllowedAnywhere(mob,"CLOAK")||CMSecurity.isAllowedAnywhere(mob,"WIZINV"))&&(mob.envStats().level()>=mob2.envStats().level()))))
-			&&((friends==null)||(friends.contains(mob2.Name())||(friends.contains("All"))))
-			&&(CMLib.flags().isInTheGame(mob2,true))
-			&&(mob2.envStats().level()>0))
-				msg.append(showWhoShort(mob2));
-		}
-		if((mobName!=null)&&(msg.length()==0))
-			msg.append("That person doesn't appear to be online.\n\r");
-		else
-		{
-			StringBuffer head=new StringBuffer("");
-			head.append("^x[");
-			if(!CMSecurity.isDisabled("RACES"))
-				head.append(CMStrings.padRight("Race",12)+" ");
-			if(!CMSecurity.isDisabled("CLASSES"))
-				head.append(CMStrings.padRight("Class",12)+" ");
-			if(!CMSecurity.isDisabled("LEVELS"))
-				head.append(CMStrings.padRight("Level",7));
-			head.append("] Character name^.^N\n\r");
-			if(mob!=null)
-				mob.tell(head.toString()+msg.toString());
-			else
+			friends=new HashSet<String>();
+			for(final Session S : CMLib.sessions().allIterable())
 			{
-				commands.clear();
-				commands.addElement(head.toString()+msg.toString());
+				final MOB mob2=S.mob();
+				if((mob2!=null)&&(mob2.isAttributeSet(MOB.Attrib.PLAYERKILL)))
+					friends.add(mob2.Name());
 			}
 		}
+		
+		if((mobName!=null)
+		&&(mob!=null)
+		&&(mobName.equalsIgnoreCase("acct")
+			||mobName.equalsIgnoreCase("accounts")
+			||mobName.equalsIgnoreCase("account"))
+		&&(CMSecurity.isAllowed(mob, mob.location(), CMSecurity.SecFlag.CMDPLAYERS))
+		&&(CMProps.isUsingAccountSystem()))
+		{
+			int[] colWidths = new int[]{
+				CMLib.lister().fixColWidth(20,mob.session()),
+				CMLib.lister().fixColWidth(40,mob.session())
+			};
+			final StringBuilder msg=new StringBuilder("");
+			msg.append("^x[");
+			msg.append(CMStrings.padRight(L("Account"),colWidths[0]));
+			msg.append(L("] Character name^.^N\n\r"));
+			for(final Session S : CMLib.sessions().localOnlineIterable())
+			{
+				MOB mob2=S.mob();
+				if((mob2!=null)&&(mob2.soulMate()!=null))
+					mob2=mob2.soulMate();
+
+				if(checkWho(mob,mob2,friends,null) && (mob2!=null))
+				{
+					final PlayerStats pStats2=mob2.playerStats();
+					final String accountName = (pStats2 != null) && (pStats2.getAccount() != null) ? pStats2.getAccount().getAccountName() : "?!?";
+					msg.append("["+CMStrings.padRight(accountName,colWidths[0]));
+					final String name=getWhoName(mob2);
+					msg.append("] "+CMStrings.padRight(name,colWidths[1]));
+					msg.append("\n\r");
+				}
+			}
+			mob.tell(msg.toString());
+			return false;
+		}
+
+		final String msg = getWho(mob,friends,mobName!=null,null);
+		if((mobName!=null)&&(msg.length()==0))
+			mob.tell(L("That person doesn't appear to be online.\n\r"));
+		else
+			mob.tell(msg);
 		return false;
 	}
-	
-	public boolean canBeOrdered(){return true;}
 
-	
+	@Override
+	public Object executeInternal(MOB mob, int metaFlags, Object... args) throws java.io.IOException
+	{
+		if(args.length==0)
+			return getWho(mob,null,false,null);
+		else
+		if(super.checkArguments(filterParameters, args))
+			return getWho(mob,null,((Boolean)args[0]).booleanValue(),(Filterer)args[1]);
+		return Boolean.FALSE;
+	}
+
+	@Override
+	public boolean canBeOrdered()
+	{
+		return true;
+	}
 }

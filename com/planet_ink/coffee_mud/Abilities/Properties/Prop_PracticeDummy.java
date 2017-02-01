@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Properties;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,6 +10,7 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -16,14 +18,14 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2002-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -34,20 +36,23 @@ import java.util.*;
 public class Prop_PracticeDummy extends Property
 {
 	boolean disabled=false;
-	public String ID() { return "Prop_PracticeDummy"; }
-	public String name(){ return "Practice Dummy";}
-	protected int canAffectCode(){return Ability.CAN_MOBS;}
+	@Override public String ID() { return "Prop_PracticeDummy"; }
+	@Override public String name(){ return "Practice Dummy";}
+	@Override protected int canAffectCode(){return Ability.CAN_MOBS;}
 	protected boolean unkillable=true;
 
+	@Override
 	public String accountForYourself()
 	{ return "Undefeatable";	}
-	
+
+	@Override
 	public void setMiscText(String newMiscText)
 	{
-	    super.setMiscText(newMiscText);
-	    unkillable=newMiscText.toUpperCase().indexOf("KILL")<0;
+		super.setMiscText(newMiscText);
+		unkillable=newMiscText.toUpperCase().indexOf("KILL")<0;
 	}
 
+	@Override
 	public void affectCharState(MOB mob, CharState affectableMaxState)
 	{
 		super.affectCharState(mob,affectableMaxState);
@@ -55,48 +60,49 @@ public class Prop_PracticeDummy extends Property
 			affectableMaxState.setHitPoints(99999);
 	}
 
-	public void affectEnvStats(Environmental E, EnvStats affectableStats)
+	@Override
+	public void affectPhyStats(Physical E, PhyStats affectableStats)
 	{
-		super.affectEnvStats(E,affectableStats);
+		super.affectPhyStats(E,affectableStats);
 		if(unkillable)
 			affectableStats.setArmor(100);
 	}
 
 
-	public boolean okMessage(Environmental myHost, CMMsg msg)
+	@Override
+	public boolean okMessage(final Environmental myHost, final CMMsg msg)
 	{
-		if(!super.okMessage(myHost,msg)) 
-		    return false;
+		if(!super.okMessage(myHost,msg))
+			return false;
 		if((affected instanceof MOB)
 		&&(msg.amISource((MOB)affected)))
 		{
 			if((msg.sourceMinor()==CMMsg.TYP_DEATH)&&(unkillable))
 			{
-			    msg.source().tell("You are not allowed to die.");
-			    return false;
+				msg.source().tell(L("You are not allowed to die."));
+				return false;
 			}
 			else
-			if(CMath.bset(msg.targetCode(),CMMsg.MASK_MALICIOUS))
+			if(CMath.bset(msg.targetMajor(),CMMsg.MASK_MALICIOUS))
 			{
 				if(unkillable)
 					msg.source().curState().setHitPoints(99999);
-				((MOB)affected).makePeace();
-				Room room=((MOB)affected).location();
+				((MOB)affected).makePeace(true);
+				final Room room=((MOB)affected).location();
 				if(room!=null)
 				for(int i=0;i<room.numInhabitants();i++)
 				{
-					MOB mob=room.fetchInhabitant(i);
+					final MOB mob=room.fetchInhabitant(i);
 					if((mob.getVictim()!=null)&&(mob.getVictim()==affected))
-						mob.makePeace();
+						mob.makePeace(true);
 				}
 				return false;
 			}
 			else
-			if((msg.targetMinor()==CMMsg.TYP_GET)
-			&&(msg.target()!=null)
+			if(((msg.targetMinor()==CMMsg.TYP_GET)||(msg.targetMinor()==CMMsg.TYP_PUSH)||(msg.targetMinor()==CMMsg.TYP_PULL))
 			&&(msg.target() instanceof Item))
 			{
-				msg.source().tell("Dummys cant get anything.");
+				msg.source().tell(L("Dummys cant get anything."));
 				return false;
 			}
 		}

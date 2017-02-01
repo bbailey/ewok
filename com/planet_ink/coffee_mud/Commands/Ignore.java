@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Commands;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,20 +10,21 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2004-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -30,80 +32,82 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
+
 public class Ignore extends StdCommand
 {
 	public Ignore(){}
 
-	private String[] access={"IGNORE"};
-	public String[] getAccessWords(){return access;}
-	public boolean execute(MOB mob, Vector commands, int metaFlags)
+	private final String[] access=I(new String[]{"IGNORE"});
+	@Override public String[] getAccessWords(){return access;}
+	@Override
+	public boolean execute(MOB mob, List<String> commands, int metaFlags)
 		throws java.io.IOException
 	{
-		PlayerStats pstats=mob.playerStats();
-		if(pstats==null) return false;
-		HashSet h=pstats.getIgnored();
-		if((commands.size()<2)||(((String)commands.elementAt(1)).equalsIgnoreCase("list")))
+		final PlayerStats pstats=mob.playerStats();
+		if(pstats==null)
+			return false;
+		final Set<String> h=pstats.getIgnored();
+		if((commands.size()<2)||(commands.get(1).equalsIgnoreCase("list")))
 		{
 			if(h.size()==0)
-				mob.tell("You have no names on your ignore list.  Use IGNORE ADD to add more.");
+				mob.tell(L("You have no names on your ignore list.  Use IGNORE ADD to add more."));
 			else
 			{
-				StringBuffer str=new StringBuffer("You are ignoring: ");
-				for(Iterator e=h.iterator();e.hasNext();)
-					str.append(((String)e.next())+" ");
+				final StringBuffer str=new StringBuffer(L("You are ignoring: "));
+				for (final Object element : h)
+					str.append(((String)element)+" ");
 				mob.tell(str.toString());
 			}
 		}
 		else
-		if(((String)commands.elementAt(1)).equalsIgnoreCase("ADD"))
+		if(commands.get(1).equalsIgnoreCase("ADD"))
 		{
 			String name=CMParms.combine(commands,2);
 			if(name.length()==0)
 			{
-				mob.tell("Add whom?");
+				mob.tell(L("Add whom?"));
 				return false;
 			}
 			name=CMStrings.capitalizeAndLower(name);
-			if(!CMLib.players().playerExists(name))
+			if((!CMLib.players().playerExists(name))&&(name.indexOf('@')<0))
 			{
-				mob.tell("No player by that name was found.");
+				mob.tell(L("No player by that name was found."));
 				return false;
 			}
 			if(h.contains(name))
 			{
-				mob.tell("That name is already on your list.");
+				mob.tell(L("That name is already on your list."));
 				return false;
 			}
 			h.add(name);
-			mob.tell("The Player '"+name+"' has been added to your ignore list.");
+			mob.tell(L("The Player '@x1' has been added to your ignore list.",name));
 		}
 		else
-		if(((String)commands.elementAt(1)).equalsIgnoreCase("REMOVE"))
+		if(commands.get(1).equalsIgnoreCase("REMOVE"))
 		{
-			String name=CMParms.combine(commands,2);
+			final String name=CMParms.combine(commands,2);
 			if(name.length()==0)
 			{
-				mob.tell("Remove whom?");
+				mob.tell(L("Remove whom?"));
 				return false;
 			}
 			if(!h.contains(name))
 			{
-				mob.tell("That name '"+name+"' does not appear on your list.  Watch your casing!");
+				mob.tell(L("That name '@x1' does not appear on your list.  Watch your casing!",name));
 				return false;
 			}
 			h.remove(name);
-			mob.tell("The Player '"+name+"' has been removed from your ignore list.");
+			mob.tell(L("The Player '@x1' has been removed from your ignore list.",name));
 		}
 		else
 		{
-			mob.tell("Parameter '"+((String)commands.elementAt(1))+"' is not recognized.  Try LIST, ADD, or REMOVE.");
+			mob.tell(L("Parameter '@x1' is not recognized.  Try LIST, ADD, or REMOVE.",(commands.get(1))));
 			return false;
 		}
 		return false;
 	}
-	
-	public boolean canBeOrdered(){return true;}
 
-	
+	@Override public boolean canBeOrdered(){return true;}
+
+
 }

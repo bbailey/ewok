@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Songs;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -14,17 +15,16 @@ import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
-
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2003-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,50 +32,52 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
+
 public class Skill_SongWrite extends BardSkill
 {
-	public String ID() { return "Skill_SongWrite"; }
-	public String name(){ return "Song Write";}
-	protected int canAffectCode(){return 0;}
-	protected int canTargetCode(){return CAN_ITEMS;}
-	public int abstractQuality(){return Ability.QUALITY_INDIFFERENT;}
-	private static final String[] triggerStrings = {"SONGWRITE"};
-	public String[] triggerStrings(){return triggerStrings;}
-    public int classificationCode(){return Ability.ACODE_SKILL|Ability.DOMAIN_CALLIGRAPHY;}
+	@Override public String ID() { return "Skill_SongWrite"; }
+	private final static String localizedName = CMLib.lang().L("Song Write");
+	@Override public String name() { return localizedName; }
+	@Override protected int canAffectCode(){return 0;}
+	@Override protected int canTargetCode(){return CAN_ITEMS;}
+	@Override public int abstractQuality(){return Ability.QUALITY_INDIFFERENT;}
+	private static final String[] triggerStrings =I(new String[] {"SONGWRITE"});
+	@Override public String[] triggerStrings(){return triggerStrings;}
+	@Override public int classificationCode(){return Ability.ACODE_SKILL|Ability.DOMAIN_CALLIGRAPHY;}
 
-	public boolean invoke(MOB mob, Vector commands, Environmental givenTarget, boolean auto, int asLevel)
+	@Override
+	public boolean invoke(MOB mob, List<String> commands, Physical givenTarget, boolean auto, int asLevel)
 	{
 		if(commands.size()<2)
 		{
-			mob.tell("Write which song onto what?");
+			mob.tell(L("Write which song onto what?"));
 			return false;
 		}
-		Environmental target=mob.location().fetchFromMOBRoomFavorsItems(mob,null,(String)commands.lastElement(),Wearable.FILTER_UNWORNONLY);
+		final Environmental target=mob.location().fetchFromMOBRoomFavorsItems(mob,null,commands.get(commands.size()-1),Wearable.FILTER_UNWORNONLY);
 		if((target==null)||(!CMLib.flags().canBeSeenBy(target,mob)))
 		{
-			mob.tell("You don't see '"+((String)commands.lastElement())+"' here.");
+			mob.tell(L("You don't see '@x1' here.",(commands.get(commands.size()-1))));
 			return false;
 		}
 		if(!(target instanceof Scroll))
 		{
-			mob.tell("You can't write music on that.");
+			mob.tell(L("You can't write music on that."));
 			return false;
 		}
 		if((mob.curState().getMana()<mob.maxState().getMana())&&(!auto))
 		{
-			mob.tell("You need to be at full mana to cast this.");
+			mob.tell(L("You need to be at full mana to cast this."));
 			return false;
 		}
 
-		commands.removeElementAt(commands.size()-1);
-		Scroll scroll=(Scroll)target;
+		commands.remove(commands.size()-1);
+		final Scroll scroll=(Scroll)target;
 
-		String spellName=CMParms.combine(commands,0).trim();
+		final String spellName=CMParms.combine(commands,0).trim();
 		Song scrollThis=null;
-		for(int a=0;a<mob.numLearnedAbilities();a++)
+		for(int a=0;a<mob.numAbilities();a++)
 		{
-			Ability A=mob.fetchAbility(a);
+			final Ability A=mob.fetchAbility(a);
 			if((A!=null)
 			&&(A instanceof Song)
 			&&(A.name().toUpperCase().startsWith(spellName.toUpperCase()))
@@ -84,21 +86,23 @@ public class Skill_SongWrite extends BardSkill
 		}
 		if(scrollThis==null)
 		{
-			mob.tell("You don't know how to write '"+spellName+"'.");
+			mob.tell(L("You don't know how to write '@x1'.",spellName));
 			return false;
 		}
 		int numSpells=(CMLib.ableMapper().qualifyingClassLevel(mob,this)+(2*getXLEVELLevel(mob))-CMLib.ableMapper().qualifyingLevel(mob,this));
-		if(numSpells<0) numSpells=0;
+		if(numSpells<0)
+			numSpells=0;
 		if(scroll.getSpells().size()>numSpells)
 		{
-			mob.tell("You aren't powerful enough to write any more magic onto "+scroll.name()+".");
+			mob.tell(L("You aren't powerful enough to write any more magic onto @x1.",scroll.name()));
 			return false;
 		}
 
-		for(int i=0;i<scroll.getSpells().size();i++)
-			if(((Ability)scroll.getSpells().elementAt(i)).ID().equals(scrollThis.ID()))
+		final List<Ability> spells=scroll.getSpells();
+		for(final Ability spell: spells)
+			if(spell.ID().equals(scrollThis.ID()))
 			{
-				mob.tell("That spell is already written on "+scroll.name()+".");
+				mob.tell(L("That spell is already written on @x1.",scroll.name()));
 				return false;
 			}
 
@@ -106,19 +110,20 @@ public class Skill_SongWrite extends BardSkill
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
 			return false;
 
-		if(!auto)mob.curState().setMana(0);
+		if(!auto)
+			mob.curState().setMana(0);
 
 		int experienceToLose=20*CMLib.ableMapper().lowestQualifyingLevel(scrollThis.ID());
-        experienceToLose=getXPCOSTAdjustment(mob,experienceToLose);
+		experienceToLose=getXPCOSTAdjustment(mob,experienceToLose);
 		CMLib.leveler().postExperience(mob,null,null,-experienceToLose,false);
-		mob.tell("You lose "+experienceToLose+" experience points for the effort.");
+		mob.tell(L("You lose @x1 experience points for the effort.",""+experienceToLose));
 
-		boolean success=proficiencyCheck(mob,0,auto);
+		final boolean success=proficiencyCheck(mob,0,auto);
 
 		if(success)
 		{
 			setMiscText(scrollThis.ID());
-			CMMsg msg=CMClass.getMsg(mob,target,this,(auto?CMMsg.MASK_ALWAYS:0)|CMMsg.MSG_DELICATE_SMALL_HANDS_ACT,"^S<S-NAME> write(s) music onto <T-NAMESELF>, singing softly.^?");
+			final CMMsg msg=CMClass.getMsg(mob,target,this,(auto?CMMsg.MASK_ALWAYS:0)|CMMsg.MSG_DELICATE_SMALL_HANDS_ACT,L("^S<S-NAME> write(s) music onto <T-NAMESELF>, singing softly.^?"));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);
@@ -133,7 +138,7 @@ public class Skill_SongWrite extends BardSkill
 
 		}
 		else
-			beneficialWordsFizzle(mob,target,"<S-NAME> attempt(s) to write music on <T-NAMESELF>, singing softly, and looking very frustrated.");
+			beneficialWordsFizzle(mob,target,L("<S-NAME> attempt(s) to write music on <T-NAMESELF>, singing softly, and looking very frustrated."));
 
 
 		// return whether it worked

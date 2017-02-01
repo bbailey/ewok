@@ -1,7 +1,9 @@
 package com.planet_ink.coffee_mud.Libraries;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.ColorLibrary.ColorState;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -16,14 +18,14 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2004-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -31,23 +33,42 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
 public class CoffeeFilter extends StdLibrary implements TelnetFilter
 {
-    public String ID(){return "CoffeeFilter";}
-    public Hashtable tagTable=null;
-	
-	public Hashtable getTagTable()
+	@Override
+	public String ID()
 	{
-		if(tagTable==null) tagTable=CMStrings.makeNumericHash(TelnetFilter.FILTER_DESCS);
+		return "CoffeeFilter";
+	}
+
+	private Hashtable<String, Pronoun>	tagTable	= null;
+	private ColorState					normalColor	= null;
+
+	@Override
+	public void initializeClass()
+	{
+		normalColor = CMLib.color().getNormalColor();
+	}
+
+	@Override
+	public Map<String, Pronoun> getTagTable()
+	{
+		if(tagTable==null)
+		{
+				tagTable=new Hashtable<String,Pronoun>();
+				for(final Pronoun P : Pronoun.values())
+					tagTable.put(P.suffix, P);
+		}
 		return tagTable;
 	}
-	
-    
+
+
+	@Override
 	public String simpleOutFilter(String msg)
 	{
-		if(msg==null) return null;
-		StringBuffer buf=new StringBuffer(msg);
+		if(msg==null)
+			return null;
+		final StringBuffer buf=new StringBuffer(msg);
 		for(int i=0;i<buf.length();i++)
 		{
 			switch(buf.charAt(i))
@@ -60,39 +81,39 @@ public class CoffeeFilter extends StdLibrary implements TelnetFilter
 				{
 					switch(buf.charAt(i+1))
 					{
+					case '%':
+						buf.deleteCharAt(i);
+						break;
 					case 'n':
 					case 'r':
-						{
 						buf.setCharAt(i,(char)13);
 						if((i>=buf.length()-2)||((i<buf.length()-2)&&((buf.charAt(i+2))!=10)))
 							buf.setCharAt(i+1,(char)10);
 						else
 						if(i<buf.length()-2)
 							buf.deleteCharAt(i+1);
-						}
 						break;
 					case '\'':
 					case '`':
-						{
 						buf.setCharAt(i,'\'');
 						buf.deleteCharAt(i+1);
-						}
 						break;
 					}
 				}
 				break;
 			}
 		}
-    	if(CMSecurity.isDebugging("OUTPUT"))
-    		Log.debugOut("CoffeeFilter","OUTPUT: ?: "+buf.toString());
+		if(CMSecurity.isDebugging(CMSecurity.DbgFlag.OUTPUT))
+			Log.debugOut("CoffeeFilter","OUTPUT: ?: "+buf.toString());
 		return buf.toString();
 	}
-	
+
+	@Override
 	public String[] wrapOnlyFilter(String msg, int wrap)
 	{
 		int loop=0;
-		StringBuilder buf=new StringBuilder(msg);
-		int len=(wrap>0)?wrap:Integer.MAX_VALUE;
+		final StringBuilder buf=new StringBuilder(msg);
+		int len=(wrap>0)?wrap:(Integer.MAX_VALUE/3);
 		int lastSpace=0;
 		int firstAlpha=-1;
 		int amperStop = -1;
@@ -116,13 +137,15 @@ public class CoffeeFilter extends StdLibrary implements TelnetFilter
 						if(((loop<buf.length()-1)&&((buf.charAt(loop+1))!=10))
 						&&((loop>0)&&((buf.charAt(loop-1))!=10)))
 							buf.insert(loop+1,(char)10);
-						if(wrap>0) len=loop+wrap;
+						if(wrap>0)
+							len=loop+wrap;
 						lastSpace=loop;
 					}
 					break;
 				case (char)10:
 					{
-						if(wrap>0) len=loop+wrap;
+						if(wrap>0)
+							len=loop+wrap;
 						lastSpace=loop;
 					}
 					break;
@@ -133,8 +156,8 @@ public class CoffeeFilter extends StdLibrary implements TelnetFilter
 					&&((buf.substring(loop+2,loop+7).equalsIgnoreCase("sound"))
 					   ||(buf.substring(loop+2,loop+7).equalsIgnoreCase("music"))))
 					{
-						int x=buf.indexOf("(",loop+7);
-						int y=buf.indexOf(")",loop+7);
+						final int x=buf.indexOf("(",loop+7);
+						final int y=buf.indexOf(")",loop+7);
 						if((x>=0)&&(y>=x))
 						{
 							buf.delete(loop,y+1);
@@ -160,16 +183,18 @@ public class CoffeeFilter extends StdLibrary implements TelnetFilter
 				case '%':
 					if(loop<buf.length()-2)
 					{
-						int dig1=hexStr.indexOf(buf.charAt(loop+1));
-						int dig2=hexStr.indexOf(buf.charAt(loop+2));
+						final int dig1=hexStr.indexOf(buf.charAt(loop+1));
+						final int dig2=hexStr.indexOf(buf.charAt(loop+2));
 						if((dig1>=0)&&(dig2>=0))
 						{
-							buf.setCharAt(loop,(char)((dig1*16)+dig2));
+							final int val=((dig1*16)+dig2);
+							buf.setCharAt(loop,(char)val);
 							buf.deleteCharAt(loop+1);
 							if((buf.charAt(loop))==13)
 								buf.setCharAt(loop+1,(char)10);
 							else
 								buf.deleteCharAt(loop+1);
+							loop--; // force a retry of this char
 						}
 					}
 					break;
@@ -179,23 +204,22 @@ public class CoffeeFilter extends StdLibrary implements TelnetFilter
 					{
 						switch(buf.charAt(loop+1))
 						{
+						case '%':
+							buf.deleteCharAt(loop);
+							break;
 						case 'n':
 						case 'r':
-							{
 							buf.setCharAt(loop,(char)13);
 							if((loop>=buf.length()-2)||((loop<buf.length()-2)&&((buf.charAt(loop+2))!=10)))
 								buf.setCharAt(loop+1,(char)10);
 							else
 							if(loop<buf.length()-2)
 								buf.deleteCharAt(loop+1);
-							}
 							break;
 						case '\'':
 						case '`':
-							{
 							buf.setCharAt(loop,'\'');
 							buf.deleteCharAt(loop+1);
-							}
 							break;
 						}
 					}
@@ -204,10 +228,12 @@ public class CoffeeFilter extends StdLibrary implements TelnetFilter
 				case '\033': // skip escapes
 					if((loop < buf.length()-1) && (buf.charAt(loop+1)=='['))
 					{
-						while((len < buf.length()-1) && (buf.charAt(loop)!='m'))
+						char loopc=buf.charAt(loop);
+						while( (loop < buf.length()-1) && (loopc!='m') && (loopc!='z') )
 						{
 							len++;
 							loop++;
+							loopc=buf.charAt(loop);
 						}
 						len++; // and one more for the 'm'.
 					}
@@ -216,6 +242,47 @@ public class CoffeeFilter extends StdLibrary implements TelnetFilter
 				{
 					len++;
 					loop++;
+					if(loop<buf.length())
+					{
+						final char c=buf.charAt(loop);
+						switch(c)
+						{
+						case ColorLibrary.COLORCODE_BACKGROUND:
+							if(loop+1<buf.length())
+							{
+								len++;
+								loop++;
+							}
+							break;
+						case ColorLibrary.COLORCODE_FANSI256:
+						case ColorLibrary.COLORCODE_BANSI256:
+							if(loop+3<buf.length())
+							{
+								len+=3;
+								loop+=3;
+							}
+							break;
+						case '<': 
+						case '&':
+						{
+							len++;
+							loop++;
+							while(loop<(buf.length()-1))
+							{
+								if(((c=='<')&&((buf.charAt(loop)!='^')||(buf.charAt(loop+1)!='>')))
+								||((c=='&')&&(buf.charAt(loop)!=';')))
+								{
+									len++;
+									loop++;
+								}
+							}
+							len++;
+							break;
+						}
+						default:
+							break;
+						}
+					}
 					break;
 				}
 				default:
@@ -247,24 +314,310 @@ public class CoffeeFilter extends StdLibrary implements TelnetFilter
 				}
 				loop=lastSp+2;
 			}
-			if(wrap>0)len=loop+wrap;
+			if(wrap>0)
+				len=loop+wrap;
 		}
 
-		if(firstAlpha<0) firstAlpha=0;
+		if(firstAlpha<0)
+			firstAlpha=0;
 		if(firstAlpha<buf.length())
 			buf.setCharAt(firstAlpha,Character.toUpperCase(buf.charAt(firstAlpha)));
 		return buf.toString().split("\n\r");
 	}
-    
+
+	protected int convertEscape(final Session S, final StringBuffer str, final int index)
+	{
+		int enDex = index + 1;
+		final char c = str.charAt(enDex);
+		switch (c)
+		{
+		case '?':
+		{
+			if((S!=null)&&(S.getClientTelnetMode(Session.TELNET_ANSI)))
+			{
+				ColorState lastColor=S.getLastColor();
+				final ColorState currColor=S.getCurrentColor();
+				if((lastColor.foregroundCode()==currColor.foregroundCode())
+				&&(lastColor.backgroundCode()==currColor.backgroundCode()))
+					lastColor=normalColor;
+				final String[] clookup = S.getColorCodes();
+				String escapeSequence;
+				if(lastColor.foregroundCode() < 256)
+					escapeSequence=clookup[lastColor.foregroundCode()];
+				else
+					escapeSequence="\033[38;5;"+(lastColor.foregroundCode() & 0xff)+"m";
+				if(lastColor.backgroundCode()=='.')
+					escapeSequence=ColorLibrary.Color.NONE.getANSICode()+escapeSequence;
+				else
+				{
+					String bgEscapeSequence;
+					if(lastColor.backgroundCode() < 256)
+					{
+						bgEscapeSequence=clookup[lastColor.backgroundCode()];
+						if(bgEscapeSequence==null)
+							bgEscapeSequence=ColorLibrary.Color.BGBLACK.getANSICode();
+						else
+						if(ColorLibrary.MAP_ANSICOLOR_TO_ANSIBGCOLOR.containsKey(bgEscapeSequence))
+							bgEscapeSequence=ColorLibrary.MAP_ANSICOLOR_TO_ANSIBGCOLOR.get(bgEscapeSequence);
+					}
+					else
+						bgEscapeSequence="\033[48;5;"+(lastColor.backgroundCode() & 0xff)+"m";
+					escapeSequence+=bgEscapeSequence;
+				}
+				S.setLastColor(S.getCurrentColor());
+				S.setCurrentColor(lastColor);
+				str.insert(index+2, escapeSequence);
+				str.delete(index, index+2);
+				return index+escapeSequence.length()-1;
+			}
+			str.delete(index, index+2);
+			return index-1;
+		}
+		case ColorLibrary.COLORCODE_FANSI256:
+		case ColorLibrary.COLORCODE_BANSI256:
+		{
+			if(((S!=null)&&(!S.getClientTelnetMode(Session.TELNET_ANSI)))
+			||(enDex>str.length()-5))
+			{
+				str.delete(index, index+5);
+				return index-1;
+			}
+			enDex++;
+			int finalNum=-1;
+			int num=str.charAt(enDex)-'0';
+			if((num>=0)&&(num<=5))
+			{
+				int buildNum=(num*36);
+				num=str.charAt(enDex+1)-'0';
+				if((num>=0)&&(num<=5))
+				{
+					buildNum+=(num*6);
+					num=str.charAt(enDex)-'0';
+					if((num>=0)&&(num<=5))
+					{
+						finalNum=buildNum + num + 16;
+					}
+				}
+			}
+			if((finalNum < 0) && (str.charAt(enDex)==str.charAt(enDex-1)))
+			{
+				enDex++;
+				num=CMath.hexDigit(str.charAt(enDex));
+				final int num2=CMath.hexDigit(str.charAt(enDex+1));
+				if((num>=0)&&(num2>=0))
+					finalNum=(num*16)+num2;
+			}
+			if(finalNum >=0)
+			{
+				final boolean isFg=(c==ColorLibrary.COLORCODE_FANSI256);
+				String escapeSequence;
+				if(isFg)
+				{
+					escapeSequence="\033[38;5;"+finalNum+"m";
+					if((S!=null)&&(S.getCurrentColor().backgroundCode()!='.'))
+						escapeSequence=ColorLibrary.Color.NONE.getANSICode()+escapeSequence;
+				}
+				else
+					escapeSequence="\033[48;5;"+finalNum+"m";
+				str.insert(index+5, escapeSequence);
+				str.delete(index, index+5);
+				if(S!=null)
+				{
+					if(isFg)
+					{
+						S.setLastColor(S.getCurrentColor());
+						S.setCurrentColor(CMLib.color().valueOf((char)(256 | finalNum), '.'));
+					}
+					else
+					{
+						S.setCurrentColor(CMLib.color().valueOf(S.getCurrentColor().foregroundCode(), (char)(256 | finalNum)));
+					}
+				}
+				return index+escapeSequence.length()-1;
+			}
+			str.delete(index, index+5);
+			return index-1;
+		}
+		case ColorLibrary.COLORCODE_BACKGROUND:
+		{
+			enDex++;
+			if((S!=null)&&(!S.getClientTelnetMode(Session.TELNET_ANSI)))
+			{
+				str.delete(index, index+2);
+				return index-1;
+			}
+			final char bc=str.charAt(enDex);
+			final String[] clookup = (S==null)?CMLib.color().standardColorLookups():S.getColorCodes();
+			final String bgEscapeSequence;
+			final String escapeSequence=clookup[bc];
+			if(escapeSequence == null)
+				bgEscapeSequence = null;
+			else
+				bgEscapeSequence=ColorLibrary.MAP_ANSICOLOR_TO_ANSIBGCOLOR.get(escapeSequence);
+			if(bgEscapeSequence != null)
+			{
+				str.insert(index+3, bgEscapeSequence);
+				str.delete(index, index+3);
+				if(S!=null)
+				{
+					final ColorState curColor=S.getCurrentColor();
+					S.setCurrentColor(CMLib.color().valueOf(curColor.foregroundCode(), bc));
+				}
+				return index+bgEscapeSequence.length()-1;
+			}
+			else
+			if(escapeSequence != null)
+			{
+				str.insert(index+3, escapeSequence);
+				str.delete(index, index+3);
+				return index+escapeSequence.length()-1;
+			}
+			else
+			{
+				str.delete(index, index+3);
+				return index-1;
+			}
+		}
+		case '>':
+			/* why was this here?
+			if (currentColor > 0)
+			{
+				if (clookup()[c] == null)
+					escapeCodes = clookup()[currentColor];
+				else if (clookup()[currentColor] == null)
+					escapeCodes = clookup[c];
+				else
+					escapeCodes = clookup()[c] + clookup()[currentColor];
+			}
+			else
+			*/
+			str.delete(index, index+1);
+			return index;
+		case '<':
+		{
+			while(enDex<(str.length()-1))
+			{
+				if((str.charAt(enDex)!='^')||(str.charAt(enDex+1)!='>'))
+					enDex++;
+				else
+				if((S==null)
+				||(!S.getClientTelnetMode(Session.TELNET_MXP))
+				||(!S.isAllowedMxp(str.substring(index,enDex+2))))
+				{
+					str.delete(index,enDex+2);
+					enDex=index-1;
+					return enDex;
+				}
+				else
+				{
+					str.delete(enDex, enDex+1);
+					str.delete(index, index+1);
+					return enDex-1;
+				}
+			}
+			str.delete(index, index+1);
+			return index;
+		}
+		case '&':
+		{
+			while(enDex<(str.length()-1))
+			{
+				if(str.charAt(enDex)!=';')
+					enDex++;
+				else
+				if((S==null)
+				||(!S.getClientTelnetMode(Session.TELNET_MXP))
+				||(!S.isAllowedMxp(str.substring(index,enDex+1))))
+				{
+					str.delete(index,enDex+1);
+					enDex=index-1;
+					return enDex;
+				}
+				else
+				{
+					str.delete(index, index+1);
+					return enDex;
+				}
+			}
+			str.delete(index, index+1);
+			return index;
+		}
+		case '"':
+			str.delete(index, index+1);
+			return index;
+		case '0': case '1': case '2': case '3': case '4':
+		case '5': case '6': case '7': case '8': case '9':
+			if((S==null)||(S.getClientTelnetMode(Session.TELNET_MSP)))
+			{
+				final int escOrd=CMProps.Str.ESC0.ordinal() + (c - ('0'));
+				final CMProps.Str escEnum=CMProps.Str.values()[escOrd];
+				final String escapeSequence=CMProps.getVar(escEnum);
+				str.insert(index+2, escapeSequence);
+				str.delete(index, index+2);
+				return index+escapeSequence.length()-1;
+			}
+			else
+			{
+				str.delete(index, index+2);
+				return index-1;
+			}
+		case '.':
+			if((S==null)||(S.getClientTelnetMode(Session.TELNET_ANSI)))
+			{
+				final String[] clookup = (S==null)?CMLib.color().standardColorLookups():S.getColorCodes();
+				String escapeSequence=clookup[c];
+				if(escapeSequence==null)
+					escapeSequence="";
+				str.insert(index+2, escapeSequence);
+				str.delete(index, index+2);
+				return index+escapeSequence.length()-1;
+			}
+			else
+			{
+				str.delete(index, index+2);
+				return index-1;
+			}
+		case '^':
+			str.delete(index, index+1);
+			return index;
+		default:
+			if((c>=0)&&(c<256)&&((S==null)||(S.getClientTelnetMode(Session.TELNET_ANSI))))
+			{
+				final String[] clookup = (S==null)?CMLib.color().standardColorLookups():S.getColorCodes();
+				String escapeSequence=clookup[c];
+				if(escapeSequence==null)
+					escapeSequence="^";
+				if((S!=null)&&(escapeSequence.length()>0)&&(escapeSequence.charAt(0)=='\033'))
+				{
+					final ColorState state=S.getCurrentColor();
+					if(state.backgroundCode()!='.')
+						escapeSequence=ColorLibrary.Color.NONE.getANSICode()+escapeSequence;
+					S.setLastColor(state);
+					S.setCurrentColor(CMLib.color().valueOf(c,'.'));
+				}
+				str.insert(index+2, escapeSequence);
+				str.delete(index, index+2);
+				return index+escapeSequence.length()-1;
+			}
+			else
+			{
+				str.delete(index, index+2);
+				return index-1;
+			}
+		}
+	}
+
 	// no word-wrapping, text filtering or ('\','n') -> '\n' translations
-	// (it's not a member of the interface either so probably shouldn't be public)
+	@Override
 	public String colorOnlyFilter(String msg, Session S)
 	{
-		if(msg==null) return null;
+		if(msg==null)
+			return null;
 
-		if(msg.length()==0) return msg;
-		StringBuffer buf=new StringBuffer(msg);
-		Session CS=S;
+		if(msg.length()==0)
+			return msg;
+		final StringBuffer buf=new StringBuffer(msg);
+		final Session CS=S;
 		//if(CS==null) CS=(Session)CMClass.getCommon("DefaultSession");
 		int loop=0;
 
@@ -273,24 +626,27 @@ public class CoffeeFilter extends StdLibrary implements TelnetFilter
 			switch(buf.charAt(loop))
 			{
 			case '>':
-			    if((S!=null)&&(S.clientTelnetMode(Session.TELNET_MXP)))
-			    {
+				if((S!=null)
+				&&(S.getClientTelnetMode(Session.TELNET_MXP)))
+				{
 					buf.delete(loop,loop+1);
 					buf.insert(loop,"&gt;".toCharArray());
 					loop+=3;
-			    }
-			    break;
+				}
+				break;
 			case '"':
-			    if((S!=null)&&(S.clientTelnetMode(Session.TELNET_MXP)))
-			    {
+				if((S!=null)
+				&&(S.getClientTelnetMode(Session.TELNET_MXP)))
+				{
 					buf.delete(loop,loop+1);
 					buf.insert(loop,"&quot;".toCharArray());
 					loop+=5;
-			    }
-			    break;
+				}
+				break;
 			case '&':
-			    if((S!=null)&&(S.clientTelnetMode(Session.TELNET_MXP)))
-			    {
+				if((S!=null)
+				&&(S.getClientTelnetMode(Session.TELNET_MXP)))
+				{
 					if((!buf.substring(loop,loop+3).equalsIgnoreCase("lt;"))
 					&&(buf.substring(loop,loop+3).equalsIgnoreCase("gt;")))
 					{
@@ -298,8 +654,8 @@ public class CoffeeFilter extends StdLibrary implements TelnetFilter
 						buf.insert(loop,"&amp;".toCharArray());
 						loop+=4;
 					}
-			    }
-			    else
+				}
+				else
 				if(loop<buf.length()-3)
 				{
 					if(buf.substring(loop,loop+3).equalsIgnoreCase("lt;"))
@@ -309,145 +665,187 @@ public class CoffeeFilter extends StdLibrary implements TelnetFilter
 						buf.replace(loop,loop+3,">");
 				}
 				break;
-				case '<':
-				    if((S!=null)&&(S.clientTelnetMode(Session.TELNET_MXP)))
-					{
-						buf.delete(loop,loop+1);
-						buf.insert(loop,"&lt;".toCharArray());
-						loop+=3;
-					}
-				    break;
-				case '^':
+			case '<':
+				if((S!=null)
+				&&(S.getClientTelnetMode(Session.TELNET_MXP)))
 				{
-					if((loop<buf.length()-1)&&(CS!=null))
-					{
-						int colorID = CS.getColor( buf.charAt(loop+1) );
-						if (colorID != -1)
-						{
-							String colorEscStr = CS.makeEscape(colorID);
-							int csl=0;
-							if (colorEscStr != null)
-							{
-								csl = colorEscStr.length();
-								if (csl > 0)
-									buf.replace(loop,loop+2 ,colorEscStr);
-							}
-							if (csl == 0)
-							{
-								// remove the color code
-								buf.deleteCharAt(loop);
-								buf.deleteCharAt(loop);
-								loop-=1;
-							}
-							else
-							if((colorID<('0'))||(colorID>('9')))
-							{
-							    // begin MXP tags
-							    if(buf.charAt(loop)=='<')
-							    {
-									int tagStart=loop;
-							        while(loop<(buf.length()-1))
-							        {
-							            if((buf.charAt(loop)!='^')||(buf.charAt(loop+1)!='>'))
-							            {
-								            loop++;
-								            if(loop>=(buf.length()-1))
-								            {
-								                loop=tagStart;
-								                break;
-								            }
-							            }
-							            else
-							            if((S!=null)&&(!S.clientTelnetMode(Session.TELNET_MXP)))
-								        {
-							                buf.delete(tagStart,loop+2);
-								            loop=tagStart-1;
-								            break;
-								        }
-							            else
-							            {
-							                loop--;
-							                break;
-							            }
-							        }
-							    }
-							    else
-							    {
-									loop+=csl-1;	// already processed 1 char
-							    }
-							}
-							else
-							{
-								loop--;
-							}
-						}
-					}
-					break;
+					buf.delete(loop,loop+1);
+					buf.insert(loop,"&lt;".toCharArray());
+					loop+=3;
 				}
+				break;
+			case '^':
+				if(loop<buf.length()-1)
+					loop=convertEscape(CS, buf, loop);
+				break;
 			default:
 				break;
 			}
 			loop++;
 		}
 
-		if ((S!=null)&&(S.currentColor() != ('N'))&&(S.clientTelnetMode(Session.TELNET_ANSI)))
-			buf.append(S.makeEscape('N'));
-    	if(CMSecurity.isDebugging("OUTPUT"))
-    		Log.debugOut("CoffeeFilter","OUTPUT: "+(((S!=null)&&(S.mob()!=null))?S.mob().Name():"")+": "+buf.toString());
+		if ((S!=null)
+		&&(normalColor!=null)
+		&&(!normalColor.equals(S.getCurrentColor()))
+		&&(S.getClientTelnetMode(Session.TELNET_ANSI)))
+		{
+			buf.append(S.getColorCodes()['N']);
+			S.setLastColor(S.getCurrentColor());
+			S.setCurrentColor(normalColor);
+		}
+		if(CMSecurity.isDebugging(CMSecurity.DbgFlag.OUTPUT))
+			Log.debugOut("CoffeeFilter","OUTPUT: "+(((S!=null)&&(S.mob()!=null))?S.mob().Name():"")+": "+buf.toString());
 		return buf.toString();
 	}
-    
-    
-    public String getLastWord(StringBuffer buf, int lastSp, int lastSpace)
-    {
-        String lastWord="";
-        if(lastSp>lastSpace)
-        {
-            lastWord=CMStrings.removeColors(buf.substring(lastSpace,lastSp)).trim().toUpperCase();
-            while((lastWord.length()>0)&&(!Character.isLetterOrDigit(lastWord.charAt(0))))
-                  lastWord=lastWord.substring(1);
-            while((lastWord.length()>0)&&(!Character.isLetterOrDigit(lastWord.charAt(lastWord.length()-1))))
-                  lastWord=lastWord.substring(0,lastWord.length()-1);
-            for(int i=lastWord.length()-1;i>=0;i--)
-                if(!Character.isLetterOrDigit(lastWord.charAt(i)))
-                { lastWord=lastWord.substring(i+1); break;}
-        }
-        else
-        {
-            for(int i=(lastSpace-1);((i>=0)&&(!Character.isLetterOrDigit(buf.charAt(i))));i--)
-                lastWord=buf.charAt(i)+lastWord;
-            lastWord=CMStrings.removeColors(lastWord).trim().toUpperCase();
-        }
-        return lastWord;
-    }
-    
-	public String fullOutFilter(Session S,
-							    MOB mob,
-							    Environmental source,
-							    Environmental target,
-							    Environmental tool,
-							    String msg,
-							    boolean wrapOnly)
+
+	// no word-wrapping, text filtering or ('\','n') -> '\n' translations
+	@Override
+	public String mxpSafetyFilter(String msg, Session S)
 	{
-		if(msg==null) return null;
+		if(msg==null)
+			return null;
 
-		if(msg.length()==0) return msg;
-        String newMsg=(S==null)?null:CMLib.lang().sessionTranslation(msg);
-        if(newMsg!=null) msg=newMsg;
-        
+		if(msg.length()==0)
+			return msg;
+		final StringBuffer buf=new StringBuffer(msg);
+		int loop=0;
+
+		while(buf.length()>loop)
+		{
+			switch(buf.charAt(loop))
+			{
+			case '>':
+				if((S!=null)
+				&&(S.getClientTelnetMode(Session.TELNET_MXP)))
+				{
+					buf.delete(loop,loop+1);
+					buf.insert(loop,"&gt;".toCharArray());
+					loop+=3;
+				}
+				break;
+			case '"':
+				if((S!=null)
+				&&(S.getClientTelnetMode(Session.TELNET_MXP)))
+				{
+					buf.delete(loop,loop+1);
+					buf.insert(loop,"&quot;".toCharArray());
+					loop+=5;
+				}
+				break;
+			case '&':
+				if((S!=null)
+				&&(S.getClientTelnetMode(Session.TELNET_MXP)))
+				{
+					if((!buf.substring(loop,loop+3).equalsIgnoreCase("lt;"))
+					&&(buf.substring(loop,loop+3).equalsIgnoreCase("gt;")))
+					{
+						buf.delete(loop,loop+1);
+						buf.insert(loop,"&amp;".toCharArray());
+						loop+=4;
+					}
+				}
+				else
+				if(loop<buf.length()-3)
+				{
+					if(buf.substring(loop,loop+3).equalsIgnoreCase("lt;"))
+						buf.replace(loop,loop+3,"<");
+					else
+					if(buf.substring(loop,loop+3).equalsIgnoreCase("gt;"))
+						buf.replace(loop,loop+3,">");
+				}
+				break;
+			case '<':
+				if((S!=null)
+				&&(S.getClientTelnetMode(Session.TELNET_MXP)))
+				{
+					buf.delete(loop,loop+1);
+					buf.insert(loop,"&lt;".toCharArray());
+					loop+=3;
+				}
+				break;
+			default:
+				break;
+			}
+			loop++;
+		}
+
+		if(CMSecurity.isDebugging(CMSecurity.DbgFlag.OUTPUT))
+			Log.debugOut("CoffeeFilter","OUTPUT: "+(((S!=null)&&(S.mob()!=null))?S.mob().Name():"")+": "+buf.toString());
+		return buf.toString();
+	}
+
+	@Override
+	public String getLastWord(StringBuffer buf, int lastSp, int lastSpace)
+	{
+		String lastWord="";
+		if(lastSp>lastSpace)
+		{
+			lastWord=CMStrings.removeColors(buf.substring(lastSpace,lastSp)).trim().toUpperCase();
+			while((lastWord.length()>0)&&(!Character.isLetterOrDigit(lastWord.charAt(0))))
+				  lastWord=lastWord.substring(1);
+			while((lastWord.length()>0)&&(!Character.isLetterOrDigit(lastWord.charAt(lastWord.length()-1))))
+				  lastWord=lastWord.substring(0,lastWord.length()-1);
+			for(int i=lastWord.length()-1;i>=0;i--)
+				if(!Character.isLetterOrDigit(lastWord.charAt(i)))
+				{ lastWord=lastWord.substring(i+1); break;}
+		}
+		else
+		{
+			for(int i=(lastSpace-1);((i>=0)&&(!Character.isLetterOrDigit(buf.charAt(i))));i--)
+				lastWord=buf.charAt(i)+lastWord;
+			lastWord=CMStrings.removeColors(lastWord).trim().toUpperCase();
+		}
+		return lastWord;
+	}
+
+	@Override
+	public String fullOutFilter(Session S,
+								MOB mob,
+								Physical source,
+								Environmental target,
+								Environmental tool,
+								final String msg,
+								boolean wrapOnly)
+	{
+		if(msg==null)
+			return null;
+
+		if(msg.length()==0)
+			return msg;
+
 		boolean doSagain=false;
-        boolean firstSdone=false;
-		StringBuffer buf=new StringBuffer(msg);
+		boolean firstSdone=false;
+		final StringBuffer buf=new StringBuffer(msg);
 
-		int wrap=(S!=null)?S.getWrap():78;
-		int len=(wrap>0)?wrap:Integer.MAX_VALUE;
+		final int wrap=(S!=null)?S.getWrap():78;
+		int len=(wrap>0)?wrap:(Integer.MAX_VALUE/3);
 		int loop=0;
 		int lastSpace=0;
 		int firstAlpha=-1;
 		int amperStop = -1;
 
+		int loopDebugCtr=0;
+		int lastLoop=-1;
+
 		while(buf.length()>loop)
 		{
+			if(loop==lastLoop)
+			{
+				//BZ: delete when this is fixed. 
+				//BZ: 11/2015 - this might be fixed now!
+				if(++loopDebugCtr>5) 
+				{
+					Log.debugOut("CoffeeFilter","LOOP: "+loop+"/"+wrap+"/!"+(buf.charAt(loop)=='\033')+"!/"+lastSpace+"/"+firstAlpha+"/"+amperStop+"/"+doSagain+"/"+firstSdone+"/"+buf.length()+"/"+loopDebugCtr);
+					Log.debugOut("CoffeeFilter",buf.toString());
+					break;
+				}
+			}
+			else
+			{
+				lastLoop=loop;
+				loopDebugCtr=0;
+			}
+
 			int lastSp=-1;
 			while((loop<len)&&(buf.length()>loop))
 			{
@@ -465,13 +863,15 @@ public class CoffeeFilter extends StdLibrary implements TelnetFilter
 						if(((loop<buf.length()-1)&&((buf.charAt(loop+1))!=10))
 						&&((loop>0)&&((buf.charAt(loop-1))!=10)))
 							buf.insert(loop+1,(char)10);
-						if(wrap>0) len=loop+wrap;
+						if(wrap>0)
+							len=loop+wrap;
 						lastSpace=loop;
 					}
 					break;
 				case (char)10:
 					{
-						if(wrap>0) len=loop+wrap;
+						if(wrap>0)
+							len=loop+wrap;
 						lastSpace=loop;
 					}
 					break;
@@ -480,23 +880,37 @@ public class CoffeeFilter extends StdLibrary implements TelnetFilter
 					break;
 				case '!':
 					if((loop<buf.length()-10)
-					&&(S!=null)
 					&&(buf.charAt(loop+1)=='!')
 					&&((buf.substring(loop+2,loop+7).equalsIgnoreCase("sound"))
 					   ||(buf.substring(loop+2,loop+7).equalsIgnoreCase("music"))))
 					{
-						int x=buf.indexOf("(",loop+7);
-						int y=buf.indexOf(")",loop+7);
+						final int x=buf.indexOf("(",loop+7);
+						final int y=buf.indexOf(")",loop+7);
 						if((x>=0)&&(y>=x))
 						{
-							if((S.clientTelnetMode(Session.TELNET_MSP))
+							if((S!=null)
+							&&(S.getClientTelnetMode(Session.TELNET_MSP)||S.getClientTelnetMode(Session.TELNET_MXP))
 							&&((source==null)
 							   ||(source==mob)
-							   ||(CMLib.flags().canBeHeardBy(source,mob))))
+							   ||(CMLib.flags().canBeHeardSpeakingBy(source,mob))))
 							{
-                                if(wrap>0)
-                                    len=len+(y-loop)+1;
-								loop=y;
+								if(S.getClientTelnetMode(Session.TELNET_MXP))
+								{
+									buf.setCharAt(loop+1, '<');
+									buf.setCharAt(x, ' ');
+									buf.setCharAt(y, '>');
+									buf.deleteCharAt(loop);
+									if(wrap>0)
+										len=len+(y-loop);
+									loop=y-1;
+								}
+								else
+								if(S.getClientTelnetMode(Session.TELNET_MSP))
+								{
+									if(wrap>0)
+										len=len+(y-loop)+1;
+									loop=y;
+								}
 							}
 							else
 							{
@@ -507,27 +921,30 @@ public class CoffeeFilter extends StdLibrary implements TelnetFilter
 					}
 					break;
 				case '>':
-				    if((S!=null)&&(S.clientTelnetMode(Session.TELNET_MXP)))
-				    {
+					if((S!=null)
+					&&(S.getClientTelnetMode(Session.TELNET_MXP)))
+					{
 						buf.delete(loop,loop+1);
 						buf.insert(loop,"&gt;".toCharArray());
 						loop+=3;
-				    }
-				    break;
+					}
+					break;
 				case '"':
-				    if((S!=null)&&(S.clientTelnetMode(Session.TELNET_MXP)))
-				    {
+					if((S!=null)
+					&&(S.getClientTelnetMode(Session.TELNET_MXP)))
+					{
 						buf.delete(loop,loop+1);
 						buf.insert(loop,"&quot;".toCharArray());
 						loop+=5;
-				    }
-				    break;
+					}
+					break;
 				case '&':
 					if(loop < amperStop)
 						break;
 					else
-				    if((S!=null)&&(S.clientTelnetMode(Session.TELNET_MXP)))
-				    {
+					if((S!=null)
+					&&(S.getClientTelnetMode(Session.TELNET_MXP)))
+					{
 						if((!buf.substring(loop,loop+3).equalsIgnoreCase("lt;"))
 						&&(!buf.substring(loop,loop+3).equalsIgnoreCase("gt;")))
 						{
@@ -536,9 +953,9 @@ public class CoffeeFilter extends StdLibrary implements TelnetFilter
 							loop+=4;
 						}
 						else
-						    loop+=3;
-				    }
-				    else
+							loop+=3;
+					}
+					else
 					if(loop<buf.length()-3)
 					{
 						if(buf.substring(loop,loop+3).equalsIgnoreCase("lt;"))
@@ -551,32 +968,35 @@ public class CoffeeFilter extends StdLibrary implements TelnetFilter
 				case '%':
 					if(loop<buf.length()-2)
 					{
-						int dig1=hexStr.indexOf(buf.charAt(loop+1));
-						int dig2=hexStr.indexOf(buf.charAt(loop+2));
+						final int dig1=hexStr.indexOf(buf.charAt(loop+1));
+						final int dig2=hexStr.indexOf(buf.charAt(loop+2));
 						if((dig1>=0)&&(dig2>=0))
 						{
-							buf.setCharAt(loop,(char)((dig1*16)+dig2));
+							final int val=((dig1*16)+dig2);
+							buf.setCharAt(loop,(char)val);
 							buf.deleteCharAt(loop+1);
 							if((buf.charAt(loop))==13)
 								buf.setCharAt(loop+1,(char)10);
 							else
 								buf.deleteCharAt(loop+1);
+							if(buf.charAt(loop)=='\033')
+								loop--; // force a retry of this char
 						}
 					}
 					break;
 				case '(':
 					if((!wrapOnly)&&(loop<(buf.length()-1)))
 					{
-						char c2=Character.toUpperCase(buf.charAt(loop+1));
+						final char c2=Character.toUpperCase(buf.charAt(loop+1));
 						if(((loop<buf.length()-2)&&(buf.charAt(loop+2)==')')&&(c2=='S'))
 						||((loop<buf.length()-3)&&(buf.charAt(loop+3)==')')&&(Character.toUpperCase(buf.charAt(loop+2))=='S')&&((c2=='Y')||(c2=='E'))))
 						{
-                            String lastWord=getLastWord(buf,lastSp,lastSpace);
-							int lastParen=(c2=='S')?loop+2:loop+3;
+							final String lastWord=getLastWord(buf,lastSp,lastSpace);
+							final int lastParen=(c2=='S')?loop+2:loop+3;
 							if(lastWord.equals("A")
-                            ||lastWord.equals("YOU")
-                            ||lastWord.equals("1")
-                            ||doSagain)
+							||lastWord.equals("YOU")
+							||lastWord.equals("1")
+							||doSagain)
 							{
 								if(c2=='Y')
 									buf.replace(loop,lastParen+1,CMStrings.sameCase("y",buf.charAt(loop+1)));
@@ -595,7 +1015,7 @@ public class CoffeeFilter extends StdLibrary implements TelnetFilter
 									buf.deleteCharAt(loop);
 								}
 							}
-                            firstSdone=true;
+							firstSdone=true;
 						}
 					}
 					break;
@@ -604,6 +1024,9 @@ public class CoffeeFilter extends StdLibrary implements TelnetFilter
 					{
 						switch(buf.charAt(loop+1))
 						{
+						case '%':
+							buf.deleteCharAt(loop);
+							break;
 						case 'n':
 						case 'r':
 							{
@@ -636,42 +1059,50 @@ public class CoffeeFilter extends StdLibrary implements TelnetFilter
 						char lc=' ';
 						for(;(ldex<buf.length())&&(cmd!=null);ldex++)
 						{
-						    lc=buf.charAt(ldex);
-						    if(lc=='>') 
-						        break;
-						    switch(lc)
-						    {
-						    	case '<':
-						    	case '\n':
-						    	case '\r':
-						    	    cmd=null;
-						    	    break;
-						    	default:
+							lc=buf.charAt(ldex);
+							if(lc=='>')
+								break;
+							switch(lc)
+							{
+								case '<':
+								case '\n':
+								case '\r':
+									cmd=null;
+									break;
+								default:
 									cmd.append(Character.toUpperCase(lc));
-							    	break;
-						    }
+									break;
+							}
 						}
 						if((cmd!=null)&&(ldex<buf.length())&&(buf.charAt(ldex)=='>')&&(cmd.length()>1)&&(cmd.length()<14))
 						{
 							Environmental regarding=null;
 							switch(cmd.charAt(0))
 							{
-							case 'S': regarding=source; break;
-							case 'T': regarding=target; break;
-							case 'O': regarding=tool; break;
+							case 'S':
+								regarding = source;
+								break;
+							case 'T':
+								regarding = target;
+								break;
+							case 'O':
+								regarding = tool;
+								break;
 							}
 							String replacement=null;
-							Integer I=(Integer)getTagTable().get(cmd.substring(1));
-							if(I==null)
+							final Pronoun P=getTagTable().get(cmd.substring(1));
+							if(P==null)
 							{
-							    if((S!=null)&&(S.clientTelnetMode(Session.TELNET_MXP)))
-							    {
+								if((S!=null)
+								&&(S.getClientTelnetMode(Session.TELNET_MXP))
+								&&(S.isAllowedMxp(buf.substring(loop,loop+1))))
+								{
 									buf.delete(loop,loop+1);
 									buf.insert(loop,"&lt;".toCharArray());
-							    }
+								}
 							}
 							else
-							switch(I.intValue())
+							switch(P)
 							{
 							case NAME:
 								{
@@ -679,40 +1110,78 @@ public class CoffeeFilter extends StdLibrary implements TelnetFilter
 										replacement="";
 									else
 									if(mob==regarding)
-                                    {
+									{
 										replacement="you";
-                                        if(!firstSdone) doSagain=true;
-                                    }
+										if(!firstSdone)
+											doSagain=true;
+									}
 									else
-									if(((!CMLib.flags().canSee(mob))||(!CMLib.flags().canBeSeenBy(regarding,mob)))&&(regarding.Name().trim().length()>0))
+									if((mob!=null)
+									&&((!CMLib.flags().canSee(mob))||(!CMLib.flags().canBeSeenBy(regarding,mob)))
+									&&(regarding.Name().trim().length()>0))
 										replacement=((regarding instanceof MOB)?"someone":"something");
-                                    else
-                                    if(regarding instanceof MOB)
-                                        replacement=((MOB)regarding).displayName(mob);
-                                    else
+									else
+									if(regarding instanceof PhysicalAgent)
+										replacement=((PhysicalAgent)regarding).name(mob);
+									else
 										replacement=regarding.name();
 								}
 								break;
-                            case NAMENOART:
-                                {
-                                    if(regarding==null)
-                                        replacement="";
-                                    else
-                                    if(mob==regarding)
-                                    {
-                                        replacement="you";
-                                        if(!firstSdone) doSagain=true;
-                                    }
-                                    else
-                                    if(((!CMLib.flags().canSee(mob))||(!CMLib.flags().canBeSeenBy(regarding,mob)))&&(regarding.Name().trim().length()>0))
-                                        replacement=((regarding instanceof MOB)?"someone":"something");
-                                    else
-                                    if(regarding instanceof MOB)
-                                        replacement=CMLib.english().cleanArticles(((MOB)regarding).displayName(mob));
-                                    else
-                                        replacement=CMLib.english().cleanArticles(regarding.name());
-                                }
-                            break;
+							case ACCOUNTNAME:
+								{
+									if(regarding==null)
+										replacement="";
+									else
+									if(mob==regarding)
+									{
+										replacement="you";
+										if(!firstSdone)
+											doSagain=true;
+									}
+									else
+									if((mob!=null)
+									&&((!CMLib.flags().canSee(mob))||(!CMLib.flags().canBeSeenBy(regarding,mob)))
+									&&(regarding.Name().trim().length()>0))
+										replacement=((regarding instanceof MOB)?"someone":"something");
+									else
+									if(regarding instanceof MOB)
+									{
+										if((((MOB)regarding).playerStats()!=null)
+										&&(((MOB)regarding).playerStats().getAccount()!=null))
+											replacement=((MOB)regarding).playerStats().getAccount().getAccountName();
+										else
+											replacement=((MOB)regarding).name(mob);
+									}
+									else
+									if(regarding instanceof PhysicalAgent)
+										replacement=((PhysicalAgent)regarding).name(mob);
+									else
+										replacement=regarding.name();
+								}
+								break;
+							case NAMENOART:
+								{
+									if(regarding==null)
+										replacement="";
+									else
+									if(mob==regarding)
+									{
+										replacement="you";
+										if(!firstSdone)
+											doSagain=true;
+									}
+									else
+									if((mob!=null)
+									&&((!CMLib.flags().canSee(mob))||(!CMLib.flags().canBeSeenBy(regarding,mob)))
+									&&(regarding.Name().trim().length()>0))
+										replacement=((regarding instanceof MOB)?"someone":"something");
+									else
+									if(regarding instanceof PhysicalAgent)
+										replacement=CMLib.english().cleanArticles(((PhysicalAgent)regarding).name(mob));
+									else
+										replacement=CMLib.english().cleanArticles(regarding.name());
+								}
+							break;
 							case NAMESELF:
 								{
 									if(regarding==null)
@@ -722,19 +1191,22 @@ public class CoffeeFilter extends StdLibrary implements TelnetFilter
 										replacement="yourself";
 									else
 									if(mob==regarding)
-                                    {
-                                        replacement="you";
-                                        if(!firstSdone) doSagain=true;
-                                    }
+									{
+										replacement="you";
+										if(!firstSdone)
+											doSagain=true;
+									}
 									else
-									if(((!CMLib.flags().canSee(mob))||(!CMLib.flags().canBeSeenBy(regarding,mob)))&&(regarding.Name().trim().length()>0))
+									if((mob!=null)
+									&&((!CMLib.flags().canSee(mob))||(!CMLib.flags().canBeSeenBy(regarding,mob)))
+									&&(regarding.Name().trim().length()>0))
 										replacement=((regarding instanceof MOB)?"someone":"something");
 									else
 									if(source==target)
 										replacement=((regarding instanceof MOB)?(((MOB)regarding).charStats().himher()+"self"):"itself");
-                                    else
-                                    if(regarding instanceof MOB)
-                                        replacement=((MOB)regarding).displayName(mob);
+									else
+									if(regarding instanceof PhysicalAgent)
+										replacement=((PhysicalAgent)regarding).name(mob);
 									else
 										replacement=regarding.name();
 								}
@@ -747,12 +1219,14 @@ public class CoffeeFilter extends StdLibrary implements TelnetFilter
 									if(mob==regarding)
 										replacement="your";
 									else
-									if(((!CMLib.flags().canSee(mob))||(!CMLib.flags().canBeSeenBy(regarding,mob)))&&(regarding.Name().trim().length()>0))
+									if((mob!=null)
+									&&((!CMLib.flags().canSee(mob))||(!CMLib.flags().canBeSeenBy(regarding,mob)))
+									&&(regarding.Name().trim().length()>0))
 										replacement=((regarding instanceof MOB)?"someone's":"something's");
 									else
-                                    if(regarding instanceof MOB)
-                                        replacement=((MOB)regarding).displayName(mob)+"'s";
-                                    else
+									if(regarding instanceof PhysicalAgent)
+										replacement=((PhysicalAgent)regarding).name(mob)+"'s";
+									else
 										replacement=regarding.name()+"'s";
 								}
 								break;
@@ -777,10 +1251,11 @@ public class CoffeeFilter extends StdLibrary implements TelnetFilter
 										replacement="";
 									else
 									if(mob==regarding)
-                                    {
-                                        replacement="you";
-                                        if(!firstSdone) doSagain=true;
-                                    }
+									{
+										replacement="you";
+										if(!firstSdone)
+											doSagain=true;
+									}
 									else
 									if(regarding instanceof MOB)
 										replacement=((MOB)regarding).charStats().himher();
@@ -824,10 +1299,11 @@ public class CoffeeFilter extends StdLibrary implements TelnetFilter
 										replacement="";
 									else
 									if(mob==regarding)
-                                    {
-                                        replacement="you";
-                                        if(!firstSdone) doSagain=true;
-                                    }
+									{
+										replacement="you";
+										if(!firstSdone)
+											doSagain=true;
+									}
 									else
 									if(regarding instanceof MOB)
 										replacement=((MOB)regarding).charStats().heshe();
@@ -835,17 +1311,17 @@ public class CoffeeFilter extends StdLibrary implements TelnetFilter
 										replacement="its";
 								}
 								break;
-                            case SIRMADAM:
-                                {
-                                    if(regarding==null)
-                                        replacement="";
-                                    else
-                                    if(regarding instanceof MOB)
-                                        replacement=((MOB)regarding).charStats().sirmadam();
-                                    else
-                                        replacement="sir";
-                                }
-                                break;
+							case SIRMADAM:
+								{
+									if(regarding==null)
+										replacement="";
+									else
+									if(regarding instanceof MOB)
+										replacement=((MOB)regarding).charStats().sirmadam();
+									else
+										replacement="sir";
+								}
+								break;
 							case ISARE:
 								{
 									if(regarding==null)
@@ -854,19 +1330,18 @@ public class CoffeeFilter extends StdLibrary implements TelnetFilter
 									if(mob==regarding)
 										replacement="are";
 									else
-									if(regarding instanceof MOB)
 										replacement="is";
 								}
 								break;
-                            case ISARE2:
-                                {
-                                    String lastWord=getLastWord(buf,lastSp,lastSpace);
-                                    if((lastWord.equals("A")||lastWord.equals("YOU")||lastWord.equals("1")||doSagain))
-                                        replacement="is";
-                                    else
-                                        replacement="are";
-                                }
-                                break;
+							case ISARE2:
+								{
+									final String lastWord=getLastWord(buf,lastSp,lastSpace);
+									if((lastWord.equals("A")||lastWord.equals("YOU")||lastWord.equals("1")||doSagain))
+										replacement="is";
+									else
+										replacement="are";
+								}
+								break;
 							case HASHAVE:
 								{
 									if(regarding==null)
@@ -882,15 +1357,17 @@ public class CoffeeFilter extends StdLibrary implements TelnetFilter
 							}
 							if(replacement!=null)
 							{
-                                String newReplacement=CMLib.lang().filterTranslation(replacement);
-                                if(newReplacement!=null) replacement=newReplacement;
+								final String newReplacement=CMLib.lang().filterTranslation(replacement);
+								if(newReplacement!=null)
+									replacement=newReplacement;
 								buf.delete(loop,ldex+1);
 								buf.insert(loop,replacement.toCharArray());
 								loop--;
 							}
 						}
 						else
-					    if((S!=null)&&(S.clientTelnetMode(Session.TELNET_MXP)))
+						if((S!=null)
+						&&(S.getClientTelnetMode(Session.TELNET_MXP)))
 						{
 							buf.delete(loop,loop+1);
 							buf.insert(loop,"&lt;".toCharArray());
@@ -899,90 +1376,58 @@ public class CoffeeFilter extends StdLibrary implements TelnetFilter
 					}
 					break;
 					case '\033': // skip escapes
-						if((loop < buf.length()-1) && (buf.charAt(loop+1)=='['))
-						{
-							while((len < buf.length()-1) && (buf.charAt(loop)!='m'))
-							{
-								len++;
-								loop++;
-							}
-							len++; // and one more for the 'm'.
-						}
-						break;
-					case '^':
 					{
-						if((loop<buf.length()-1)&&(S!=null))
+						if((S!=null)&&(!S.getClientTelnetMode(Session.TELNET_ANSI)))
 						{
-							int colorID = S.getColor( buf.charAt(loop+1) );
-							if (colorID != -1)
+							int oldLoop=loop;
+							if((loop < buf.length()-1) && (buf.charAt(loop+1)=='['))
 							{
-								String colorEscStr = S.makeEscape(colorID);
-								int csl=0;
-								if (colorEscStr != null)
+								loop++; // added 2013, see comment below
+								char loopc=buf.charAt(loop);
+								while( (loop < buf.length()-1) && (loopc!='m') && (loopc!='z') )
 								{
-									csl = colorEscStr.length();
-									if (csl > 0)
-										buf.replace(loop,loop+2 ,colorEscStr);
+									loop++;
+									loopc=buf.charAt(loop);
 								}
-								if (csl == 0)
+								buf.delete(oldLoop,loop+1);
+								loop=oldLoop-1;
+							}
+						}
+						else
+						{
+							if((loop < buf.length()-1) && (buf.charAt(loop+1)=='['))
+							{
+								loop++; // added 2013, see comment below
+								char loopc=buf.charAt(loop);
+								while( (loop < buf.length()-1) && (loopc!='m') && (loopc!='z') )
 								{
-									// remove the color code
-									buf.deleteCharAt(loop);
-									buf.deleteCharAt(loop);
-									loop-=1;
+									len++;
+									loop++;
+									loopc=buf.charAt(loop);
 								}
-								else
-								if((colorID<('0'))||(colorID>('9')))
-								{
-								    // begin MXP tags
-								    if(buf.charAt(loop)=='<')
-								    {
-										int tagStart=loop;
-								        while(loop<(buf.length()-1))
-								        {
-								            if((buf.charAt(loop)!='^')||(buf.charAt(loop+1)!='>'))
-								            {
-									            loop++;
-									            if(loop>=(buf.length()-1))
-									            {
-									                loop=tagStart;
-									                break;
-									            }
-								            }
-								            else
-								            if(!S.clientTelnetMode(Session.TELNET_MXP))
-									        {
-								                buf.delete(tagStart,loop+2);
-									            loop=tagStart-1;
-									            break;
-									        }
-								            else
-								            {
-								                if(wrap>0)len+=(loop-tagStart);
-								                loop--;
-								                break;
-								            }
-								        }
-								    }
-								    else
-								    {
-										loop+=csl-1;	// already processed 1 char
-										if(wrap>0)len+=csl;		// does not count for any length
-								    }
-								}
-								else
-								{
-									loop--;
-									if(wrap>0)len+=csl;		// does not count for any length
-								}
+								//if(buf.charAt(loop)=='\033')
+								//	loop--; // force a retry of this char. 2013: why do this?  only possible if you didn't move, and this promises less moving!
 							}
 						}
 						break;
 					}
-				default:
-					if((firstAlpha < 0)&&(Character.isLetter(buf.charAt(loop))))
-						firstAlpha = loop;
-					break;
+					case '^':
+					{
+						if(loop<buf.length()-1)
+						{
+							final int oldLoop=loop;
+							loop=convertEscape(S, buf, loop);
+							if(wrap>0)
+								len=(loop-oldLoop)+len+1;
+						}
+						break;
+					}
+					default:
+					{
+						if((firstAlpha < 0)&&(Character.isLetter(buf.charAt(loop))))
+							firstAlpha = loop;
+						break;
+					}
 				}
 				loop++;
 			}
@@ -1009,14 +1454,22 @@ public class CoffeeFilter extends StdLibrary implements TelnetFilter
 				}
 				loop=lastSp+2;
 			}
-			if(wrap>0)len=loop+wrap;
+			if(wrap>0)
+				len=loop+wrap;
 		}
 
-		if(firstAlpha<0) firstAlpha=0;
+		if(firstAlpha<0)
+			firstAlpha=0;
 		if(firstAlpha<buf.length())
 			buf.setCharAt(firstAlpha,Character.toUpperCase(buf.charAt(firstAlpha)));
-		if ((S!=null)&&(S.currentColor() != ('N'))&&(S.clientTelnetMode(Session.TELNET_ANSI)))
-			buf.append(S.makeEscape('N'));
+		if((S!=null)
+		&&(!normalColor.equals(S.getCurrentColor()))
+		&&(S.getClientTelnetMode(Session.TELNET_ANSI)))
+		{
+			buf.append(S.getColorCodes()['N']);
+			S.setLastColor(S.getCurrentColor());
+			S.setCurrentColor(normalColor);
+		}
 
 		/* fabulous debug code
 		for(int i=0;i<buf.length();i+=25)
@@ -1047,56 +1500,87 @@ public class CoffeeFilter extends StdLibrary implements TelnetFilter
 			System.out.print(" \n");
 		}
 		//*/
-    	if(CMSecurity.isDebugging("OUTPUT"))
-    		Log.debugOut("CoffeeFilter","OUTPUT: "+(((S!=null)&&(S.mob()!=null))?S.mob().Name():"")+": "+buf.toString());
+		if(CMSecurity.isDebugging(CMSecurity.DbgFlag.OUTPUT))
+			Log.debugOut("CoffeeFilter","OUTPUT: "+(((S!=null)&&(S.mob()!=null))?S.mob().Name():"")+": "+buf.toString());
 		return buf.toString();
 	}
 
 
-	public StringBuffer simpleInFilter(StringBuffer input, boolean allowMXP)
+	@Override
+	public String simpleInFilter(StringBuilder input)
 	{
-		if(input==null) return null;
+		return simpleInFilter(input, false);
+	}
+
+	@Override
+	public String simpleInFilter(StringBuilder input, boolean permitMXPTags)
+	{
+		if(input==null)
+			return null;
 
 		int x=0;
 		while(x<input.length())
 		{
-			char c=input.charAt(x);
-			if(c=='\'')
+			final char c=input.charAt(x);
+			switch(c)
+			{
+			case '\'':
 				input.setCharAt(x,'`');
-			else
-			if((c=='^')&&(x<(input.length()-1))&&(!allowMXP))
+				break;
+			case '%':
+				if(x<input.length()-2)
+				{
+					final int dig1=hexStr.indexOf(input.charAt(x+1));
+					final int dig2=hexStr.indexOf(input.charAt(x+2));
+					if((dig1>=0)&&(dig2>=0))
+					{
+						final int val=((dig1*16)+dig2);
+						if((val==0xff)||(val==0)||(val==0x1b))
+						{
+							input.insert(x,'\\');
+							x++;
+						}
+					}
+				}
+				break;
+			case '^':
+				if((x<(input.length()-1))&&(!permitMXPTags))
+				{
+					switch(input.charAt(x+1))
+					{
+					case '<':
+					case '>':
+					case '&':
+						input.deleteCharAt(x);
+						break;
+					}
+				}
+				break;
+			case 8:
 			{
-			    switch(input.charAt(x+1))
-			    {
-			    case '<':
-			    case '>':
-			    case '&':
-			        input.deleteCharAt(x);
-			        break;
-			    }
-			}
-			else
-			if(c==8)
-			{
-				String newStr=input.toString();
+				final String newStr=input.toString();
 				if(x==0)
-					input=new StringBuffer(newStr.substring(x+1));
+					input=new StringBuilder(newStr.substring(x+1));
 				else
 				{
-					input=new StringBuffer(newStr.substring(0,x-1)+newStr.substring(x+1));
+					input=new StringBuilder(newStr.substring(0,x-1)+newStr.substring(x+1));
 					x--;
 				}
 				x--;
+				break;
+			}
 			}
 			x++;
 		}
-		return new StringBuffer(input.toString());
+		return input.toString();
 	}
 
-	public String fullInFilter(String input, boolean allowMXP)
+	@Override
+	public String fullInFilter(String input)
 	{
-		if(input==null) return null;
-		StringBuffer buf=new StringBuffer(input);
+		if(input==null)
+			return null;
+		final StringBuilder buf=new StringBuilder(input);
 		for(int i=0;i<buf.length();i++)
 		{
 			switch(buf.charAt(i))
@@ -1111,13 +1595,14 @@ public class CoffeeFilter extends StdLibrary implements TelnetFilter
 				break;
 			}
 		}
-		return simpleInFilter(buf,allowMXP).toString();
+		return simpleInFilter(buf,false).toString();
 	}
-	
+
+	@Override
 	public String safetyFilter(String s)
 	{
-		StringBuffer s1=new StringBuffer(s);
-		
+		final StringBuffer s1=new StringBuffer(s);
+
 		int x=-1;
 		while((++x)<s1.length())
 		{

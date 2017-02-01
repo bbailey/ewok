@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Druid;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -14,17 +15,16 @@ import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
-
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2004-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -33,45 +33,90 @@ import java.util.*;
    limitations under the License.
 */
 
-@SuppressWarnings("unchecked")
 public class Chant_TremorSense extends Chant
 {
-	public String ID() { return "Chant_TremorSense"; }
-	public String name(){return "Tremor Sense";}
-	public String displayText(){return "(Tremor Sense)";}
-    public int classificationCode(){return Ability.ACODE_CHANT|Ability.DOMAIN_DEEPMAGIC;}
-	public int abstractQuality(){ return Ability.QUALITY_OK_SELF;}
-	protected int canAffectCode(){return CAN_MOBS|CAN_ROOMS;}
-	protected Vector rooms=new Vector();
+	@Override
+	public String ID()
+	{
+		return "Chant_TremorSense";
+	}
 
+	private final static String	localizedName	= CMLib.lang().L("Tremor Sense");
+
+	@Override
+	public String name()
+	{
+		return localizedName;
+	}
+
+	private final static String	localizedStaticDisplay	= CMLib.lang().L("(Tremor Sense)");
+
+	@Override
+	public String displayText()
+	{
+		return localizedStaticDisplay;
+	}
+
+	@Override
+	public int classificationCode()
+	{
+		return Ability.ACODE_CHANT | Ability.DOMAIN_DEEPMAGIC;
+	}
+
+	@Override
+	public int abstractQuality()
+	{
+		return Ability.QUALITY_OK_SELF;
+	}
+
+	@Override
+	protected int canAffectCode()
+	{
+		return CAN_MOBS | CAN_ROOMS;
+	}
+
+	protected Vector<Room>	rooms	= new Vector<Room>();
+
+	@Override
+	public CMObject copyOf()
+	{
+		final Chant_TremorSense obj=(Chant_TremorSense)super.copyOf();
+		obj.rooms=new Vector<Room>();
+		obj.rooms.addAll(rooms);
+		return obj;
+	}
+
+	@Override
 	public void unInvoke()
 	{
 		// undo the affects of this spell
-		if((affected==null)||(!(affected instanceof MOB)))
+		if(!(affected instanceof MOB))
 		{
 			super.unInvoke();
 			return;
 		}
-		MOB mob=(MOB)affected;
+		final MOB mob=(MOB)affected;
 
 		super.unInvoke();
 
 		if(canBeUninvoked())
 			if((mob.location()!=null)&&(!mob.amDead()))
-				mob.location().show(mob,null,CMMsg.MSG_OK_VISUAL,"<S-YOUPOSS> tremor sense fades.");
+				mob.location().show(mob,null,CMMsg.MSG_OK_VISUAL,L("<S-YOUPOSS> tremor sense fades."));
 		for(int r=0;r<rooms.size();r++)
 		{
-			Room R=(Room)rooms.elementAt(r);
-			Ability A=R.fetchEffect(ID());
+			final Room R=rooms.elementAt(r);
+			final Ability A=R.fetchEffect(ID());
 			if((A!=null)&&(A.invoker()==mob))
 				A.unInvoke();
 		}
 	}
 
-	public void executeMsg(Environmental myHost, CMMsg msg)
+	@Override
+	public void executeMsg(final Environmental myHost, final CMMsg msg)
 	{
 		super.executeMsg(myHost,msg);
-		if(affected==null) return;
+		if(affected==null)
+			return;
 		if(affected instanceof MOB)
 		{
 			if(msg.amISource((MOB)affected)
@@ -89,12 +134,12 @@ public class Chant_TremorSense extends Chant
 			&&(invoker.location()!=null))
 			{
 				if(invoker.location()==affected)
-					invoker.tell("You feel footsteps around you.");
+					invoker.tell(L("You feel footsteps around you."));
 				else
 				{
-					int dir=CMLib.tracking().radiatesFromDir((Room)affected,rooms);
+					final int dir=CMLib.tracking().radiatesFromDir((Room)affected,rooms);
 					if(dir>=0)
-						invoker.tell("You feel footsteps "+Directions.getInDirectionName(dir));
+						invoker.tell(L("You feel footsteps @x1",CMLib.directions().getInDirectionName(dir)));
 				}
 			}
 			else
@@ -103,18 +148,19 @@ public class Chant_TremorSense extends Chant
 				||(msg.tool().ID().endsWith("_Earthquake"))))
 			{
 				if(invoker.location()==affected)
-					invoker.tell("You feel a ferocious rumble.");
+					invoker.tell(L("You feel a ferocious rumble."));
 				else
 				{
-					int dir=CMLib.tracking().radiatesFromDir((Room)affected,rooms);
+					final int dir=CMLib.tracking().radiatesFromDir((Room)affected,rooms);
 					if(dir>=0)
-						invoker.tell("You feel a ferocious rumble "+Directions.getInDirectionName(dir));
+						invoker.tell(L("You feel a ferocious rumble @x1",CMLib.directions().getInDirectionName(dir)));
 				}
 			}
 		}
 	}
 
-	public boolean invoke(MOB mob, Vector commands, Environmental givenTarget, boolean auto, int asLevel)
+	@Override
+	public boolean invoke(MOB mob, List<String> commands, Physical givenTarget, boolean auto, int asLevel)
 	{
 		MOB target=mob;
 		if((auto)&&(givenTarget!=null)&&(givenTarget instanceof MOB))
@@ -122,45 +168,41 @@ public class Chant_TremorSense extends Chant
 
 		if(target.fetchEffect(this.ID())!=null)
 		{
-			mob.tell(target,null,null,"<S-NAME> <S-IS-ARE> already sensing tremors.");
+			mob.tell(target,null,null,L("<S-NAME> <S-IS-ARE> already sensing tremors."));
 			return false;
 		}
 
 		if((!CMLib.flags().isSitting(mob))||(mob.riding()!=null))
 		{
-			mob.tell("You must be sitting on the ground for this chant to work.");
+			mob.tell(L("You must be sitting on the ground for this chant to work."));
 			return false;
 		}
 
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
 			return false;
 
-		boolean success=proficiencyCheck(mob,0,auto);
+		final boolean success=proficiencyCheck(mob,0,auto);
 
 		if(success)
 		{
-			// it worked, so build a copy of this ability,
-			// and add it to the affects list of the
-			// affected MOB.  Then tell everyone else
-			// what happened.
-			CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),(auto?"":"^S<S-NAME> chant(s) to <S-HIM-HERSELF>.  ")+"<T-NAME> gain(s) a sense of the earth!^?");
+			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),L("@x1<T-NAME> gain(s) a sense of the earth!^?",L(auto?"":"^S<S-NAME> chant(s) to <S-HIM-HERSELF>.  ")));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);
-				rooms=new Vector();
+				rooms=new Vector<Room>();
 				TrackingLibrary.TrackingFlags flags;
-				flags = new TrackingLibrary.TrackingFlags()
-						.add(TrackingLibrary.TrackingFlag.NOEMPTYGRIDS)
-						.add(TrackingLibrary.TrackingFlag.NOAIR)
-						.add(TrackingLibrary.TrackingFlag.NOWATER);
-				CMLib.tracking().getRadiantRooms(mob.location(),rooms,flags,null,5,null);
+				flags = CMLib.tracking().newFlags()
+						.plus(TrackingLibrary.TrackingFlag.NOEMPTYGRIDS)
+						.plus(TrackingLibrary.TrackingFlag.NOAIR)
+						.plus(TrackingLibrary.TrackingFlag.NOWATER);
+				int range=5 +(super.getXMAXRANGELevel(mob)/2);
+				CMLib.tracking().getRadiantRooms(mob.location(),rooms,flags,null,range,null);
 				for(int r=0;r<rooms.size();r++)
 				{
-					Room R=(Room)rooms.elementAt(r);
+					final Room R=rooms.elementAt(r);
 					if((R!=mob.location())
 					&&(R.domainType()!=Room.DOMAIN_INDOORS_AIR)
-					&&(R.domainType()!=Room.DOMAIN_INDOORS_UNDERWATER)
-					&&(R.domainType()!=Room.DOMAIN_INDOORS_WATERSURFACE)
+					&&(!CMLib.flags().isWateryRoom(R))
 					&&(R.domainType()!=Room.DOMAIN_OUTDOORS_AIR)
 					&&(R.domainType()!=Room.DOMAIN_OUTDOORS_UNDERWATER)
 					&&(R.domainType()!=Room.DOMAIN_OUTDOORS_WATERSURFACE))
@@ -170,7 +212,7 @@ public class Chant_TremorSense extends Chant
 			}
 		}
 		else
-			return beneficialWordsFizzle(mob,target,"<S-NAME> chant(s), but nothing happens.");
+			return beneficialWordsFizzle(mob,target,L("<S-NAME> chant(s), but nothing happens."));
 
 
 		// return whether it worked

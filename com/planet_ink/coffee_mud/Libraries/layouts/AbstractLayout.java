@@ -3,8 +3,25 @@ import java.util.*;
 
 import com.planet_ink.coffee_mud.core.CMStrings;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.AreaGenerationLibrary.LayoutNode;
 import com.planet_ink.coffee_mud.Libraries.interfaces.AreaGenerationLibrary.*;
 import com.planet_ink.coffee_mud.core.Directions;
+
+/*
+   Copyright 2008-2016 Bo Zimmerman
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+	   http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+*/
 /**
  * Abstract area layout pattern
  * node tags:
@@ -13,30 +30,37 @@ import com.planet_ink.coffee_mud.core.Directions;
  * nodeflags: corner, gate, intersection, tee
  * NODEGATEEXIT: (for gate, offleaf, square): n s e w etc
  * noderun: (for surround, street): n,s e,w
- *  
+ *
  * @author Bo Zimmerman
  */
 public abstract class AbstractLayout implements LayoutManager
 {
 	Random r = new Random();
-	
-	public int diff(int width, int height, int num) { 
-		int x = width * height;
-		return (x<num) ? (num - x) : (x - num); 
+
+	public int diff(int width, int height, int num) {
+		final int x = width * height;
+		return (x<num) ? (num - x) : (x - num);
 	}
-	
+
+	@Override
 	public abstract String name();
-	public abstract Vector<LayoutNode> generate(int num, int dir);
-	
+
+	@Override
+	public abstract List<LayoutNode> generate(int num, int dir);
+
 	public static int getDirection(LayoutNode from, LayoutNode to)
 	{
-		if(to.coord()[1]<from.coord()[1]) return Directions.NORTH;
-		if(to.coord()[1]>from.coord()[1]) return Directions.SOUTH;
-		if(to.coord()[0]<from.coord()[0]) return Directions.WEST;
-		if(to.coord()[0]>from.coord()[0]) return Directions.EAST;
+		if(to.coord()[1]<from.coord()[1])
+			return Directions.NORTH;
+		if(to.coord()[1]>from.coord()[1])
+			return Directions.SOUTH;
+		if(to.coord()[0]<from.coord()[0])
+			return Directions.WEST;
+		if(to.coord()[0]>from.coord()[0])
+			return Directions.EAST;
 		return -1;
 	}
-	
+
 	public static LayoutRuns getRunDirection(int dirCode)
 	{
 		switch(dirCode)
@@ -50,5 +74,5 @@ public abstract class AbstractLayout implements LayoutManager
 		}
 		return LayoutRuns.ns;
 	}
-	
+
 }

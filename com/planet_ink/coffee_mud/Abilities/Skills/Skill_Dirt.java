@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Skills;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,21 +10,21 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
-
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2001-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -31,54 +32,113 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
+
 public class Skill_Dirt extends StdSkill
 {
-	boolean doneTicking=false;
-	public String ID() { return "Skill_Dirt"; }
-	public String name(){ return "Dirt";}
-	public String displayText(){ return "(Dirt in your eyes)";}
-	protected int canAffectCode(){return CAN_MOBS;}
-	protected int canTargetCode(){return CAN_MOBS;}
-	public int abstractQuality(){return Ability.QUALITY_MALICIOUS;}
-	private static final String[] triggerStrings = {"DIRT"};
-	public String[] triggerStrings(){return triggerStrings;}
-    public int classificationCode(){ return Ability.ACODE_SKILL|Ability.DOMAIN_DIRTYFIGHTING;}
-	public int maxRange(){return adjustedMaxInvokerRange(1);}
-	public int usageType(){return USAGE_MOVEMENT;}
-
-	public void affectEnvStats(Environmental affected, EnvStats affectableStats)
+	@Override
+	public String ID()
 	{
-		super.affectEnvStats(affected,affectableStats);
-		if(!doneTicking)
-			affectableStats.setSensesMask(affectableStats.sensesMask()|EnvStats.CAN_NOT_SEE);
+		return "Skill_Dirt";
 	}
 
-	public boolean okMessage(Environmental myHost, CMMsg msg)
+	private final static String	localizedName	= CMLib.lang().L("Dirt");
+
+	@Override
+	public String name()
 	{
-		if((affected==null)||(!(affected instanceof MOB)))
+		return localizedName;
+	}
+
+	private final static String	localizedStaticDisplay	= CMLib.lang().L("(Dirt in your eyes)");
+
+	@Override
+	public String displayText()
+	{
+		return localizedStaticDisplay;
+	}
+
+	@Override
+	protected int canAffectCode()
+	{
+		return CAN_MOBS;
+	}
+
+	@Override
+	protected int canTargetCode()
+	{
+		return CAN_MOBS;
+	}
+
+	@Override
+	public int abstractQuality()
+	{
+		return Ability.QUALITY_MALICIOUS;
+	}
+
+	private static final String[]	triggerStrings	= I(new String[] { "DIRT" });
+
+	@Override
+	public String[] triggerStrings()
+	{
+		return triggerStrings;
+	}
+
+	@Override
+	public int classificationCode()
+	{
+		return Ability.ACODE_SKILL | Ability.DOMAIN_DIRTYFIGHTING;
+	}
+
+	@Override
+	public int maxRange()
+	{
+		return adjustedMaxInvokerRange(1);
+	}
+
+	@Override
+	public int usageType()
+	{
+		return USAGE_MOVEMENT;
+	}
+
+	boolean	doneTicking	= false;
+
+	@Override
+	public void affectPhyStats(Physical affected, PhyStats affectableStats)
+	{
+		super.affectPhyStats(affected,affectableStats);
+		if(!doneTicking)
+			affectableStats.setSensesMask(affectableStats.sensesMask()|PhyStats.CAN_NOT_SEE);
+	}
+
+	@Override
+	public boolean okMessage(final Environmental myHost, final CMMsg msg)
+	{
+		if(!(affected instanceof MOB))
 			return true;
 
-		MOB mob=(MOB)affected;
+		final MOB mob=(MOB)affected;
 
 		if((doneTicking)&&(msg.amISource(mob)))
 			unInvoke();
 		return true;
 	}
 
+	@Override
 	public void unInvoke()
 	{
-		if((affected==null)||(!(affected instanceof MOB)))
+		if(!(affected instanceof MOB))
 			return;
-		MOB mob=(MOB)affected;
+		final MOB mob=(MOB)affected;
 
 		super.unInvoke();
 
 		if(canBeUninvoked())
-			mob.tell("You can see again!");
+			mob.tell(L("You can see again!"));
 	}
 
-	public int castingQuality(MOB mob, Environmental target)
+	@Override
+	public int castingQuality(MOB mob, Physical target)
 	{
 		if((mob!=null)&&(target!=null))
 		{
@@ -90,94 +150,100 @@ public class Skill_Dirt extends StdSkill
 				return Ability.QUALITY_INDIFFERENT;
 			if((target instanceof MOB)&&(((MOB)target).charStats().getBodyPart(Race.BODY_EYE)==0))
 				return Ability.QUALITY_INDIFFERENT;
-            if((target instanceof MOB)&&(!CMLib.flags().canSee((MOB)target)))
-                return Ability.QUALITY_INDIFFERENT;
-	        if(CMLib.flags().isSleeping(target))
+			if((target instanceof MOB)&&(!CMLib.flags().canSee((MOB)target)))
+				return Ability.QUALITY_INDIFFERENT;
+			if(CMLib.flags().isSleeping(target))
 				return Ability.QUALITY_INDIFFERENT;
 			if(CMLib.flags().isFlying(mob))
 				return Ability.QUALITY_INDIFFERENT;
 		}
 		return super.castingQuality(mob,target);
 	}
-	
+
 	public boolean hereOK(MOB mob)
 	{
-		Room R=mob.location();
-		if(R==null) return false;
-		if((R.domainConditions()==Room.CONDITION_WET)
+		final Room R=mob.location();
+		if(R==null)
+			return false;
+		if(CMath.bset(R.getClimateType(),Places.CLIMASK_WET)
 		 ||(R.domainType()==Room.DOMAIN_OUTDOORS_AIR)
 		 ||(R.domainType()==Room.DOMAIN_OUTDOORS_CITY)
 		 ||(R.domainType()==Room.DOMAIN_OUTDOORS_SPACEPORT)
-		 ||(R.domainType()==Room.DOMAIN_OUTDOORS_UNDERWATER)
-		 ||(R.domainType()==Room.DOMAIN_OUTDOORS_WATERSURFACE)
+		 ||(CMLib.flags().isWateryRoom(R))
 		 ||(R.domainType()==Room.DOMAIN_INDOORS_AIR)
-		 ||(R.domainType()==Room.DOMAIN_INDOORS_UNDERWATER)
-		 ||(R.domainType()==Room.DOMAIN_INDOORS_WATERSURFACE)
 		 ||(R.domainType()==Room.DOMAIN_INDOORS_MAGIC)
 		 ||(R.domainType()==Room.DOMAIN_INDOORS_STONE)
 		 ||(R.domainType()==Room.DOMAIN_INDOORS_METAL)
 		 ||(R.domainType()==Room.DOMAIN_INDOORS_CAVE)
-		 ||(R.domainType()==Room.DOMAIN_INDOORS_WOOD))
+		 ||(R.domainType()==Room.DOMAIN_INDOORS_WOOD)
+		 ||(R.getAtmosphere()==RawMaterial.RESOURCE_SAND)
+		 ||(R.getAtmosphere()==RawMaterial.RESOURCE_DUST))
 			return false;
 		return true;
 	}
-	
-	public boolean invoke(MOB mob, Vector commands, Environmental givenTarget, boolean auto, int asLevel)
+
+	@Override
+	public boolean invoke(MOB mob, List<String> commands, Physical givenTarget, boolean auto, int asLevel)
 	{
-		MOB target=this.getTarget(mob,commands,givenTarget);
-		if(target==null) return false;
+		final MOB target=this.getTarget(mob,commands,givenTarget);
+		if(target==null)
+			return false;
 
 
 		if(!hereOK(mob))
 		{
-            if(!auto)
-    			mob.tell("There's no dirt here to kick!");
+			if(!auto)
+				mob.tell(L("There's no dirt here to kick!"));
 			return false;
 		}
 
 		if((!auto)&&(mob.charStats().getBodyPart(Race.BODY_FOOT)<=0))
 		{
-			mob.tell("You need feet to kick.");
+			mob.tell(L("You need feet to kick."));
 			return false;
 		}
 
 		if((!auto)&&(target.charStats().getBodyPart(Race.BODY_EYE)==0))
 		{
-			mob.tell(target.name()+" has no eyes, and would not be affected.");
+			mob.tell(L("@x1 has no eyes, and would not be affected.",target.name(mob)));
 			return false;
 		}
-		
-        if(CMLib.flags().isSleeping(target))
-        {
-            if(!auto)
-                mob.tell(target.name()+" has "+target.charStats().hisher()+" eyes closed.");
-            return false;
-        }
-        
+
+		if(CMLib.flags().isSleeping(target))
+		{
+			CMLib.commands().forceStandardCommand(target, "Wake", new XVector<String>("Wake"));
+			if(CMLib.flags().isSleeping(target))
+			{
+				if(!auto)
+					mob.tell(L("@x1 has @x2 eyes closed.",target.name(mob),target.charStats().hisher()));
+				return false;
+			}
+		}
+
 		if((!auto)&&CMLib.flags().isFlying(mob))
 		{
-			mob.tell("You are too far from the ground to kick dirt.");
+			mob.tell(L("You are too far from the ground to kick dirt."));
 			return false;
 		}
 
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
 			return false;
 
-		boolean success=proficiencyCheck(mob,-(target.charStats().getStat(CharStats.STAT_DEXTERITY)*3)+(2*getXLEVELLevel(mob)),auto);
+		final boolean success=proficiencyCheck(mob,-(target.charStats().getStat(CharStats.STAT_DEXTERITY)*3)+(2*getXLEVELLevel(mob)),auto);
 
 		if(success)
 		{
-			CMMsg msg=CMClass.getMsg(mob,target,this,CMMsg.MSK_MALICIOUS_MOVE|CMMsg.TYP_JUSTICE|(auto?CMMsg.MASK_ALWAYS:0),auto?"Dirt flies at <T-NAME>!":"^F^<FIGHT^><S-NAME> kick(s) dirt at <T-NAMESELF>.^</FIGHT^>^?");
-            CMLib.color().fixSourceFightColor(msg);
+			final CMMsg msg=CMClass.getMsg(mob,target,this,CMMsg.MSK_MALICIOUS_MOVE|CMMsg.TYP_JUSTICE|(auto?CMMsg.MASK_ALWAYS:0),auto?L("Dirt flies at <T-NAME>!"):L("^F^<FIGHT^><S-NAME> kick(s) dirt at <T-NAMESELF>.^</FIGHT^>^?"));
+			CMLib.color().fixSourceFightColor(msg);
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);
-				mob.location().show(target,null,CMMsg.MSG_OK_VISUAL,"<S-NAME> <S-IS-ARE> blinded!");
+				mob.location().show(target,null,CMMsg.MSG_OK_VISUAL,L("<S-NAME> <S-IS-ARE> blinded!"));
 				maliciousAffect(mob,target,asLevel,3+(getXLEVELLevel(mob)/3),-1);
 			}
 		}
 		else
-			return maliciousFizzle(mob,target,"<S-NAME> attempt(s) to kick dirt at <T-NAMESELF>, but miss(es).");
+			return maliciousFizzle(mob,target,L("<S-NAME> attempt(s) to kick dirt at <T-NAMESELF>, but miss(es)."));
 		return success;
 	}
 }

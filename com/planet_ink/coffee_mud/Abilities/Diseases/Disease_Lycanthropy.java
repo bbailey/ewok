@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Diseases;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -16,14 +17,14 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2003-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,48 +33,55 @@ import java.util.*;
    limitations under the License.
 */
 
-@SuppressWarnings("unchecked")
 public class Disease_Lycanthropy extends Disease
 {
-	public String ID() { return "Disease_Lycanthropy"; }
-	public String name(){ return "Lycanthropy";}
-	public String displayText(){ return "(Lycanthropy)";}
-	protected int canAffectCode(){return CAN_MOBS;}
-	protected int canTargetCode(){return CAN_MOBS;}
-	public int abstractQuality(){return Ability.QUALITY_MALICIOUS;}
-	public boolean putInCommandlist(){return false;}
+	@Override public String ID() { return "Disease_Lycanthropy"; }
+	private final static String localizedName = CMLib.lang().L("Lycanthropy");
+	@Override public String name() { return localizedName; }
+	private final static String localizedStaticDisplay = CMLib.lang().L("(Lycanthropy)");
+	@Override public String displayText() { return localizedStaticDisplay; }
+	@Override protected int canAffectCode(){return CAN_MOBS;}
+	@Override protected int canTargetCode(){return CAN_MOBS;}
+	@Override public int abstractQuality(){return Ability.QUALITY_MALICIOUS;}
+	@Override public boolean putInCommandlist(){return false;}
 
-	protected int DISEASE_TICKS(){return 9999999;}
-	protected int DISEASE_DELAY(){return 50;}
-	protected String DISEASE_DONE(){return "Your lycanthropy is cured.";}
-	protected String DISEASE_START(){return "^G<S-NAME> feel(s) different.^?";}
-	protected String DISEASE_AFFECT(){return "";}
+	@Override protected int DISEASE_TICKS(){return 9999999;}
+	@Override protected int DISEASE_DELAY(){return 50;}
+	@Override protected String DISEASE_DONE(){return L("Your lycanthropy is cured.");}
+	@Override protected String DISEASE_START(){return L("^G<S-NAME> feel(s) different.^?");}
+	@Override protected String DISEASE_AFFECT(){return "";}
 	protected boolean DISEASE_STD(){return false;}
-	public int difficultyLevel(){return 8;}
-	
+	@Override public int difficultyLevel(){return 8;}
+
 	protected boolean changed=false;
-	public int abilityCode(){return DiseaseAffect.SPREAD_CONSUMPTION|DiseaseAffect.SPREAD_DAMAGE;}
-	protected Vector deathTrail=null;
+	@Override public int spreadBitmap(){return DiseaseAffect.SPREAD_CONSUMPTION|DiseaseAffect.SPREAD_DAMAGE;}
+	protected List<Room> deathTrail=null;
 	protected Race theRace=null;
-	protected Race lycanRace(){
-		if(!changed) return null;
-		if(theRace==null) theRace=CMClass.getRace("WereWolf");
+	protected Race lycanRace()
+	{
+		if(!changed)
+			return null;
+		if(theRace==null)
+			theRace=CMClass.getRace("WereWolf");
 		return theRace;
 	}
 
-	public void affectEnvStats(Environmental affected, EnvStats affectableStats)
+	@Override
+	public void affectPhyStats(Physical affected, PhyStats affectableStats)
 	{
-		super.affectEnvStats(affected,affectableStats);
-		if(!(affected instanceof MOB)) return;
+		super.affectPhyStats(affected,affectableStats);
+		if(!(affected instanceof MOB))
+			return;
 		if(lycanRace()!=null)
 		{
-			if(affected.name().indexOf(" ")>0)
-				affectableStats.setName("a "+lycanRace().name()+" called "+affected.name());
+			if(affected.name().indexOf(' ')>0)
+				affectableStats.setName(L("a @x1 called @x2",lycanRace().name(),affected.name()));
 			else
-				affectableStats.setName(affected.name()+" the "+lycanRace().name());
+				affectableStats.setName(L("@x1 the @x2",affected.name(),lycanRace().name()));
 			lycanRace().setHeightWeight(affectableStats,'M');
 		}
 	}
+	@Override
 	public void affectCharStats(MOB affected, CharStats affectableStats)
 	{
 		super.affectCharStats(affected,affectableStats);
@@ -87,22 +95,24 @@ public class Disease_Lycanthropy extends Disease
 
 	public MOB victimHere(Room room, MOB mob)
 	{
-		if(room==null) return null;
-		if(mob==null) return null;
+		if(room==null)
+			return null;
+		if(mob==null)
+			return null;
 		for(int i=0;i<room.numInhabitants();i++)
 		{
-			MOB M=room.fetchInhabitant(i);
+			final MOB M=room.fetchInhabitant(i);
 			if((M!=null)
 			&&(M!=mob)
 			&&(!CMLib.flags().isEvil(M))
 			&&(mob.mayIFight(M))
-			&&(M.envStats().level()<(mob.envStats().level()+5)))
+			&&(M.phyStats().level()<(mob.phyStats().level()+5)))
 				return M;
 		}
 		return null;
 	}
 
-	protected boolean findVictim(MOB mob, Room room, Vector rooms, int depth)
+	protected boolean findVictim(MOB mob, Room room, Vector<Room> rooms, int depth)
 	{
 		if(depth>5)
 			return false;
@@ -113,8 +123,8 @@ public class Disease_Lycanthropy extends Disease
 		}
 		for(int d=Directions.NUM_DIRECTIONS()-1;d>=0;d--)
 		{
-			Room R=room.getRoomInDir(d);
-			Exit E=room.getExitInDir(d);
+			final Room R=room.getRoomInDir(d);
+			final Exit E=room.getExitInDir(d);
 			if((R!=null)&&(E!=null)&&(E.isOpen()))
 			{
 				if(findVictim(mob,R,rooms,depth+1))
@@ -129,15 +139,18 @@ public class Disease_Lycanthropy extends Disease
 
 	public void tickLycanthropically(MOB mob)
 	{
-		if(mob==null) return;
-		if(mob.location()==null) return;
-		if(mob.isInCombat()) return;
+		if(mob==null)
+			return;
+		if(mob.location()==null)
+			return;
+		if(mob.isInCombat())
+			return;
 
 		if((CMLib.dice().rollPercentage()<15)
 		&&((mob.location().domainType()&Room.INDOORS)>0))
-			mob.location().show(mob,null,CMMsg.MSG_NOISE,"<S-NAME> howl(s) at the moon! ARROOOOOOOO!!!!");
+			mob.location().show(mob,null,CMMsg.MSG_NOISE,L("<S-NAME> howl(s) at the moon! ARROOOOOOOO!!!!"));
 		// time to tick lycanthropically
-		MOB M=victimHere(mob.location(),mob);
+		final MOB M=victimHere(mob.location(),mob);
 		if(M!=null)
 		{
 			deathTrail=null;
@@ -148,39 +161,39 @@ public class Disease_Lycanthropy extends Disease
 		   deathTrail=null;
 		if(deathTrail==null)
 		{
-			Vector rooms=new Vector();
+			final Vector<Room> rooms=new Vector<Room>();
 			if((findVictim(mob,mob.location(),rooms,0))&&(rooms.size()>0))
 			{
 				TrackingLibrary.TrackingFlags flags;
-				flags = new TrackingLibrary.TrackingFlags()
-						.add(TrackingLibrary.TrackingFlag.OPENONLY)
-						.add(TrackingLibrary.TrackingFlag.AREAONLY)
-						.add(TrackingLibrary.TrackingFlag.NOEMPTYGRIDS)
-						.add(TrackingLibrary.TrackingFlag.NOAIR)
-						.add(TrackingLibrary.TrackingFlag.NOWATER);
-				deathTrail=CMLib.tracking().findBastardTheBestWay(mob.location(),rooms,flags,50);
+				flags = CMLib.tracking().newFlags()
+						.plus(TrackingLibrary.TrackingFlag.OPENONLY)
+						.plus(TrackingLibrary.TrackingFlag.AREAONLY)
+						.plus(TrackingLibrary.TrackingFlag.NOEMPTYGRIDS)
+						.plus(TrackingLibrary.TrackingFlag.NOAIR)
+						.plus(TrackingLibrary.TrackingFlag.NOWATER);
+				deathTrail=CMLib.tracking().findTrailToAnyRoom(mob.location(),rooms,flags,50);
 				if(deathTrail!=null)
-					deathTrail.addElement(mob.location());
+					deathTrail.add(mob.location());
 			}
 		}
 		if(deathTrail!=null)
 		{
-			int nextDirection=CMLib.tracking().trackNextDirectionFromHere(deathTrail,mob.location(),true);
+			final int nextDirection=CMLib.tracking().trackNextDirectionFromHere(deathTrail,mob.location(),true);
 			if((nextDirection==999)
 			||(nextDirection==-1))
 				deathTrail=null;
 			else
 			if(nextDirection>=0)
 			{
-				Room nextRoom=mob.location().getRoomInDir(nextDirection);
+				final Room nextRoom=mob.location().getRoomInDir(nextDirection);
 				if((nextRoom!=null)
 				&&((nextRoom.getArea()==mob.location().getArea()))||(!mob.isMonster()))
 				{
-					if(!CMLib.tracking().move(mob,nextDirection,false,false))
+					if(!CMLib.tracking().walk(mob,nextDirection,false,false))
 						deathTrail=null;
 					else
 					if(CMLib.dice().rollPercentage()<15)
-						mob.location().show(mob,null,CMMsg.MSG_NOISE,"<S-NAME> sniff(s) at the air.");
+						mob.location().show(mob,null,CMMsg.MSG_NOISE,L("<S-NAME> sniff(s) at the air."));
 
 				}
 				else
@@ -189,41 +202,48 @@ public class Disease_Lycanthropy extends Disease
 		}
 	}
 
+	@Override
 	public boolean tick(Tickable ticking, int tickID)
 	{
-		if(!super.tick(ticking,tickID))	return false;
-		if(affected==null) return false;
-		if(!(affected instanceof MOB)) return true;
+		if(!super.tick(ticking,tickID))
+			return false;
+		if(affected==null)
+			return false;
+		if(!(affected instanceof MOB))
+			return true;
 
-		MOB mob=(MOB)affected;
-		if(mob.amDead()) return true;
+		final MOB mob=(MOB)affected;
+		if(mob.amDead())
+			return true;
 
 		if(!changed)
 		{
-			if(mob.location()==null) return true;
-			Area A=mob.location().getArea();
-			if(((A.getTimeObj().getTODCode()==TimeClock.TIME_DUSK)||(A.getTimeObj().getTODCode()==TimeClock.TIME_NIGHT))
-			&&(A.getTimeObj().getMoonPhase()==4))
+			if(mob.location()==null)
+				return true;
+			final Area A=mob.location().getArea();
+			if(((A.getTimeObj().getTODCode()==TimeClock.TimeOfDay.DUSK)||(A.getTimeObj().getTODCode()==TimeClock.TimeOfDay.NIGHT))
+			&&(A.getTimeObj().getMoonPhase(mob.location())==TimeClock.MoonPhase.FULL))
 			{
 				changed=true;
-				mob.location().show(mob,null,CMMsg.MSG_OK_VISUAL,"<S-NAME> turn(s) into a "+lycanRace().name()+"!");
+				mob.location().show(mob,null,CMMsg.MSG_OK_VISUAL,L("<S-NAME> turn(s) into a @x1!",lycanRace().name()));
 				mob.recoverCharStats();
-				mob.recoverEnvStats();
+				mob.recoverPhyStats();
 				mob.recoverMaxState();
 				mob.location().recoverRoomStats();
 			}
 		}
 		else
 		{
-			if(mob.location()==null) return true;
-			Area A=mob.location().getArea();
-			if(((A.getTimeObj().getTODCode()!=TimeClock.TIME_DUSK)&&(A.getTimeObj().getTODCode()!=TimeClock.TIME_NIGHT))
-			||(A.getTimeObj().getMoonPhase()!=4))
+			if(mob.location()==null)
+				return true;
+			final Area A=mob.location().getArea();
+			if(((A.getTimeObj().getTODCode()!=TimeClock.TimeOfDay.DUSK)&&(A.getTimeObj().getTODCode()!=TimeClock.TimeOfDay.NIGHT))
+			||(A.getTimeObj().getMoonPhase(mob.location())!=TimeClock.MoonPhase.FULL))
 			{
 				changed=false;
-				mob.location().show(mob,null,CMMsg.MSG_OK_VISUAL,"<S-NAME> revert(s) to normal.");
+				mob.location().show(mob,null,CMMsg.MSG_OK_VISUAL,L("<S-NAME> revert(s) to normal."));
 				mob.recoverCharStats();
-				mob.recoverEnvStats();
+				mob.recoverPhyStats();
 				mob.recoverMaxState();
 				mob.location().recoverRoomStats();
 				return true;

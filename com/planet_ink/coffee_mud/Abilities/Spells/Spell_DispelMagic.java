@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Spells;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,21 +10,21 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
-
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2001-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -31,64 +32,68 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
+
 public class Spell_DispelMagic extends Spell
 {
-	public String ID() { return "Spell_DispelMagic"; }
-	public String name(){return "Dispel Magic";}
-	protected int canTargetCode(){return CAN_ITEMS|CAN_MOBS|CAN_EXITS|CAN_ROOMS;}
-	public int abstractQuality(){ return Ability.QUALITY_MALICIOUS;}
-	public int classificationCode(){ return Ability.ACODE_SPELL|Ability.DOMAIN_EVOCATION;}
+	@Override public String ID() { return "Spell_DispelMagic"; }
+	private final static String localizedName = CMLib.lang().L("Dispel Magic");
+	@Override public String name() { return localizedName; }
+	@Override protected int canTargetCode(){return CAN_ITEMS|CAN_MOBS|CAN_EXITS|CAN_ROOMS;}
+	@Override public int abstractQuality(){ return Ability.QUALITY_MALICIOUS;}
+	@Override public int classificationCode(){ return Ability.ACODE_SPELL|Ability.DOMAIN_EVOCATION;}
 
-    public int castingQuality(MOB mob, Environmental target)
-    {
-        if(mob!=null)
-        {
-            Ability A=null;
-            if(target==mob)
-            {
-                for(int e=0;e<mob.numEffects();e++)
-                {
-                    A=mob.fetchEffect(e);
-                    if((A!=null)
-                    &&(A.canBeUninvoked())
-                    &&(A.abstractQuality()==Ability.QUALITY_MALICIOUS)
-                    &&(A.invoker()!=mob)
-                    &&(A.invoker().envStats().level()<=mob.envStats().level()+5))
-                        return super.castingQuality(mob, target,Ability.QUALITY_BENEFICIAL_SELF);
-                }
-            }
-            else
-            if(target instanceof MOB)
-            {
-                for(int e=0;e<((MOB)target).numEffects();e++)
-                {
-                    A=((MOB)target).fetchEffect(e);
-                    if((A!=null)
-                    &&((A.abstractQuality()==Ability.QUALITY_BENEFICIAL_OTHERS)
-                        ||(A.abstractQuality()==Ability.QUALITY_BENEFICIAL_SELF))
-                    &&(A.invoker()==((MOB)target))
-                    &&(A.invoker().envStats().level()<=mob.envStats().level()+5))
-                        return super.castingQuality(mob, target,Ability.QUALITY_MALICIOUS);
-                }
-            }
-            if((mob.isMonster())&&(mob.isInCombat()))
-                return Ability.QUALITY_INDIFFERENT;
-        }
-        return super.castingQuality(mob,target);
-    }
-    
-	public boolean invoke(MOB mob, Vector commands, Environmental givenTarget, boolean auto, int asLevel)
+	@Override
+	public int castingQuality(MOB mob, Physical target)
 	{
-		Environmental target=getAnyTarget(mob,commands,givenTarget,Wearable.FILTER_ANY);
-		if(target==null) return false;
+		if(mob!=null)
+		{
+			Ability A=null;
+			if(target==mob)
+			{
+				for(final Enumeration<Ability> a=mob.effects();a.hasMoreElements();)
+				{
+					A=a.nextElement();
+					if((A!=null)
+					&&(A.canBeUninvoked())
+					&&(A.abstractQuality()==Ability.QUALITY_MALICIOUS)
+					&&(A.invoker()!=mob)
+					&&(A.invoker().phyStats().level()<=mob.phyStats().level()+5))
+						return super.castingQuality(mob, target,Ability.QUALITY_BENEFICIAL_SELF);
+				}
+			}
+			else
+			if(target instanceof MOB)
+			{
+				for(final Enumeration<Ability> a=((MOB)target).personalEffects();a.hasMoreElements();)
+				{
+					A=a.nextElement();
+					if((A!=null)
+					&&((A.abstractQuality()==Ability.QUALITY_BENEFICIAL_OTHERS)
+						||(A.abstractQuality()==Ability.QUALITY_BENEFICIAL_SELF))
+					&&(A.invoker()==((MOB)target))
+					&&(A.invoker().phyStats().level()<=mob.phyStats().level()+5))
+						return super.castingQuality(mob, target,Ability.QUALITY_MALICIOUS);
+				}
+			}
+			if((mob.isMonster())&&(mob.isInCombat()))
+				return Ability.QUALITY_INDIFFERENT;
+		}
+		return super.castingQuality(mob,target);
+	}
+
+	@Override
+	public boolean invoke(MOB mob, List<String> commands, Physical givenTarget, boolean auto, int asLevel)
+	{
+		final Physical target=getAnyTarget(mob,commands,givenTarget,Wearable.FILTER_ANY);
+		if(target==null)
+			return false;
 
 		Ability revokeThis=null;
 		boolean foundSomethingAtLeast=false;
-        boolean admin=CMSecurity.isASysOp(mob);
+		final boolean admin=CMSecurity.isASysOp(mob);
 		for(int a=0;a<target.numEffects();a++)
 		{
-			Ability A=target.fetchEffect(a);
+			final Ability A=target.fetchEffect(a);
 			if((A!=null)
 			&&(A.canBeUninvoked())
 			&&(((A.classificationCode()&Ability.ALL_ACODES)==Ability.ACODE_SPELL)
@@ -100,8 +105,8 @@ public class Spell_DispelMagic extends Spell
 				foundSomethingAtLeast=true;
 				if((A.invoker()!=null)
 				&&((A.invoker()==mob)
-    				||(A.invoker().envStats().level()<=mob.envStats().level()+5)
-                    ||admin))
+					||(A.invoker().phyStats().level()<=mob.phyStats().level()+5)
+					||admin))
 					revokeThis=A;
 			}
 		}
@@ -109,12 +114,12 @@ public class Spell_DispelMagic extends Spell
 		if(revokeThis==null)
 		{
 			if(foundSomethingAtLeast)
-				mob.tell(mob,target,null,"The magic on <T-NAME> appears too powerful to dispel.");
+				mob.tell(mob,target,null,L("The magic on <T-NAME> appears too powerful to dispel."));
 			else
 			if(auto)
-				mob.tell("Nothing seems to be happening.");
+				mob.tell(L("Nothing seems to be happening."));
 			else
-				mob.tell(mob,target,null,"<T-NAME> do(es) not appear to be affected by anything you can dispel.");
+				mob.tell(mob,target,null,L("<T-NAME> do(es) not appear to be affected by anything you can dispel."));
 			return false;
 		}
 
@@ -122,21 +127,23 @@ public class Spell_DispelMagic extends Spell
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
 			return false;
 
-		int diff=revokeThis.invoker().envStats().level()-mob.envStats().level();
-		if(diff<0) diff=0;
+		int diff=revokeThis.invoker().phyStats().level()-mob.phyStats().level();
+		if(diff<0)
+			diff=0;
 		else diff=diff*-20;
 
-		boolean success=proficiencyCheck(mob,diff,auto);
+		final boolean success=proficiencyCheck(mob,diff,auto);
 		if(success)
 		{
 			int affectType=verbalCastCode(mob,target,auto);
 			if(((!mob.isMonster())&&(target instanceof MOB)&&(!((MOB)target).isMonster()))
 			||(mob==target)
-			||(mob.getGroupMembers(new HashSet()).contains(target)))
+			||(mob.getGroupMembers(new HashSet<MOB>()).contains(target)))
 				affectType=CMMsg.MSG_CAST_VERBAL_SPELL;
-			if(auto) affectType=affectType|CMMsg.MASK_ALWAYS;
+			if(auto)
+				affectType=affectType|CMMsg.MASK_ALWAYS;
 
-			CMMsg msg=CMClass.getMsg(mob,target,this,affectType,auto?revokeThis.name()+" is dispelled from <T-NAME>.":"^S<S-NAME> dispel(s) "+revokeThis.name()+" from <T-NAMESELF>.^?");
+			final CMMsg msg=CMClass.getMsg(mob,target,this,affectType,auto?L("@x1 is dispelled from <T-NAME>.",revokeThis.name()):L("^S<S-NAME> dispel(s) @x1 from <T-NAMESELF>.^?",revokeThis.name()));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);
@@ -144,7 +151,7 @@ public class Spell_DispelMagic extends Spell
 			}
 		}
 		else
-			beneficialWordsFizzle(mob,target,"<S-NAME> attempt(s) to dispel "+revokeThis.name()+" from <T-NAMESELF>, but flub(s) it.");
+			beneficialWordsFizzle(mob,target,L("<S-NAME> attempt(s) to dispel @x1 from <T-NAMESELF>, but flub(s) it.",revokeThis.name()));
 
 
 		// return whether it worked

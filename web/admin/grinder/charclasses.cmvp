@@ -12,10 +12,10 @@
         {
             if(charclassid.indexOf(' ')>=0)
             {
-                window.alert('No spaces are allowed in your ID!');
+                if(window.alert) window.alert('No spaces are allowed in your ID!');
                 return;
             }
-            var strFeatures="top=0,left=75,resizeable=no,scrollbars=yes,height=600,width=750,alwaysRaised=yes,dependent=yes";
+            var strFeatures="top=0,left=75,resizeable=no,scrollbars=yes,height=600,width=790,alwaysRaised=yes,dependent=yes";
             w=window.open("charclass.cmvp?AUTH=@Authenticate?AUTH@&CLASS="+charclassid+action,
             	"CharClass",strFeatures, false);
         }
@@ -41,13 +41,16 @@
         <TABLE WIDTH=50% BORDER=1>
         <TR><TD BGCOLOR=WHITE ALIGN=CENTER><FONT COLOR=BLACK SIZE=-1><B>Menu</B></FONT></TD></TR>
         <TR><TD><a href="javascript:Clicked('/grinder/loggedin.cmvp');"><FONT COLOR=WHITE SIZE=-1><B>MUDGrinder Menu</B></FONT></A></TD></TR>
+        @if?CheckAuthCode?SYSOP=true@
+        <TR><TD><A href="javascript:Clicked('/grinder/crossclass.cmvp')"><FONT SIZE=-1 COLOR=WHITE><B>Cross Class Analysis</B></FONT></a></TD></TR>
+        @endif@
         <TR><TD><a href="javascript:Refresh();"><FONT COLOR=WHITE SIZE=-1><B>Refresh Page</B></FONT></A></TD></TR>
         </TABLE>
     </TD>
     </TR>
     </TABLE>
 <CENTER>
-<FORM NAME=RESOURCES TARGET=_top METHOD=POST ACTION="charclasses.cmvp">
+<FORM  ACCEPT-CHARSET="UTF-8" NAME=RESOURCES TARGET=_top METHOD=POST ACTION="charclasses.cmvp">
 <INPUT TYPE=HIDDEN NAME=AUTH VALUE="@Authenticate?AUTH@">
     <TABLE WIDTH=100% BORDER=1>
     <TR><TD WIDTH=100% COLSPAN=6 BGCOLOR=WHITE ALIGN=CENTER><FONT COLOR=BLACK><H2>CoffeeMud @MudServerVersion@ Class Manager</H2></FONT></TD></TR>

@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Thief;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,21 +10,21 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
-
 import java.util.*;
 
 /*
-   Copyright 2000-2010 Bo Zimmerman
+   Copyright 2001-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -31,102 +32,121 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
+
 public class Thief_Bribe extends ThiefSkill
 {
-	public String ID() { return "Thief_Bribe"; }
-	public String name(){ return "Bribe";}
-	protected int canAffectCode(){return 0;}
-	protected int canTargetCode(){return CAN_MOBS;}
-	public int abstractQuality(){return Ability.QUALITY_OK_OTHERS;}
-	private static final String[] triggerStrings = {"BRIBE"};
-	public String[] triggerStrings(){return triggerStrings;}
-	protected boolean disregardsArmorCheck(MOB mob){return true;}
+	@Override public String ID() { return "Thief_Bribe"; }
+	private final static String localizedName = CMLib.lang().L("Bribe");
+	@Override public String name() { return localizedName; }
+	@Override protected int canAffectCode(){return 0;}
+	@Override protected int canTargetCode(){return CAN_MOBS;}
+	@Override public int abstractQuality(){return Ability.QUALITY_OK_OTHERS;}
+	private static final String[] triggerStrings =I(new String[] {"BRIBE"});
+	@Override public String[] triggerStrings(){return triggerStrings;}
+	@Override public boolean disregardsArmorCheck(MOB mob){return true;}
 	protected MOB lastChecked=null;
-    public int classificationCode() {   return Ability.ACODE_SKILL|Ability.DOMAIN_INFLUENTIAL; }
+	@Override public int classificationCode() {   return Ability.ACODE_SKILL|Ability.DOMAIN_INFLUENTIAL; }
 
-	public boolean invoke(MOB mob, Vector commands, Environmental givenTarget, boolean auto, int asLevel)
+	@Override
+	public boolean invoke(MOB mob, List<String> commands, Physical givenTarget, boolean auto, int asLevel)
 	{
 		if(commands.size()<1)
 		{
-			mob.tell("Bribe whom?");
+			mob.tell(L("Bribe whom?"));
 			return false;
 		}
-		Vector V=new Vector();
-		V.addElement(commands.elementAt(0));
-		MOB target=this.getTarget(mob,V,givenTarget);
-		if(target==null) return false;
+		final Vector<String> V=new Vector<String>();
+		V.addElement(commands.get(0));
+		final MOB target=this.getTarget(mob,V,givenTarget);
+		if(target==null)
+			return false;
 
-		commands.removeElementAt(0);
+		commands.remove(0);
 
-		if((!target.mayIFight(mob))||(target.charStats().getStat(CharStats.STAT_INTELLIGENCE)<3))
+		if((!target.mayIFight(mob))
+		||(target.charStats().getStat(CharStats.STAT_INTELLIGENCE)<3)
+		||(!target.isMonster()))
 		{
-			mob.tell("You can't bribe "+target.name()+".");
+			mob.tell(L("You can't bribe @x1.",target.name(mob)));
 			return false;
 		}
 
 		if(commands.size()<1)
 		{
-			mob.tell("Bribe "+target.charStats().himher()+" to do what?");
+			mob.tell(L("Bribe @x1 to do what?",target.charStats().himher()));
 			return false;
 		}
 
-		Object O=CMLib.english().findCommand(target,commands);
+		CMObject O=CMLib.english().findCommand(target,commands);
 		if(O instanceof Command)
 		{
 			if((!((Command)O).canBeOrdered())||(!((Command)O).securityCheck(mob)))
 			{
-				mob.tell("You can't bribe someone into doing that.");
+				mob.tell(L("You can't bribe someone into doing that."));
 				return false;
 			}
 		}
-
-		if(((String)commands.elementAt(0)).toUpperCase().startsWith("FOL"))
+		else
 		{
-			mob.tell("You can't bribe someone to following you.");
+			if(O instanceof Ability)
+				O=CMLib.english().getToEvoke(target,new XVector<String>(commands));
+			if(O instanceof Ability)
+			{
+				if(CMath.bset(((Ability)O).flags(),Ability.FLAG_NOORDERING))
+				{
+					mob.tell(L("You can't bribe @x1 to do that.",target.name(mob)));
+					return false;
+				}
+			}
+		}
+
+		if(commands.get(0).toUpperCase().startsWith("FOL"))
+		{
+			mob.tell(L("You can't bribe someone to following you."));
 			return false;
 		}
 
-		int oldProficiency=proficiency();
+		final int oldProficiency=proficiency();
 
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
 			return false;
 
 
-		double amountRequired=CMLib.beanCounter().getTotalAbsoluteNativeValue(target)
-						+((double)((100l-((mob.charStats().getStat(CharStats.STAT_CHARISMA)+(2l*getXLEVELLevel(mob)))*2)))*target.envStats().level());
+		final double amountRequired=CMLib.beanCounter().getTotalAbsoluteNativeValue(target)
+						+((double)((100l-((mob.charStats().getStat(CharStats.STAT_CHARISMA)+(2l*getXLEVELLevel(mob)))*2)))*target.phyStats().level());
 
-		String currency=CMLib.beanCounter().getCurrency(target);
+		final String currency=CMLib.beanCounter().getCurrency(target);
 		boolean success=proficiencyCheck(mob,0,auto);
 
 		if((!success)||(CMLib.beanCounter().getTotalAbsoluteValue(mob,currency)<amountRequired))
 		{
-			CMMsg msg=CMClass.getMsg(mob,target,this,CMMsg.MSG_SPEAK,"^T<S-NAME> attempt(s) to bribe <T-NAMESELF> to '"+CMParms.combine(commands,0)+"', but no deal is reached.^?");
+			final CMMsg msg=CMClass.getMsg(mob,target,this,CMMsg.MSG_SPEAK,L("^T<S-NAME> attempt(s) to bribe <T-NAMESELF> to '@x1', but no deal is reached.^?",CMParms.combine(commands,0)));
 			if(mob.location().okMessage(mob,msg))
 				mob.location().send(mob,msg);
 			if(CMLib.beanCounter().getTotalAbsoluteValue(mob,currency)<amountRequired)
 			{
-			    String costWords=CMLib.beanCounter().nameCurrencyShort(currency,amountRequired);
-				mob.tell(target.charStats().HeShe()+" requires "+costWords+" to do this.");
+				final String costWords=CMLib.beanCounter().nameCurrencyShort(currency,amountRequired);
+				mob.tell(L("@x1 requires @x2 to do this.",target.charStats().HeShe(),costWords));
 			}
 			success=false;
 		}
 		else
 		{
-		    String costWords=CMLib.beanCounter().nameCurrencyShort(target,amountRequired);
-			CMMsg msg=CMClass.getMsg(mob,target,this,CMMsg.MSG_SPEAK,"^T<S-NAME> bribe(s) <T-NAMESELF> to '"+CMParms.combine(commands,0)+"' for "+costWords+".^?");
+			final String costWords=CMLib.beanCounter().nameCurrencyShort(target,amountRequired);
+			final CMMsg msg=CMClass.getMsg(mob,target,this,CMMsg.MSG_SPEAK,L("^T<S-NAME> bribe(s) <T-NAMESELF> to '@x1' for @x2.^?",CMParms.combine(commands,0),costWords));
 			CMLib.beanCounter().subtractMoney(mob,currency,amountRequired);
-			mob.recoverEnvStats();
-            CMMsg msg2=CMClass.getMsg(mob,target,null,CMMsg.MSG_ORDER,null);
+			mob.recoverPhyStats();
+			final CMMsg omsg=CMClass.getMsg(mob,target,null,CMMsg.MSG_ORDER,null);
 			if((mob.location().okMessage(mob,msg))
-            &&(mob.location().okMessage(mob,msg2)))
+			&&(mob.location().okMessage(mob,omsg)))
 			{
 				mob.location().send(mob,msg);
-                mob.location().send(mob,msg2);
-				target.doCommand(commands,Command.METAFLAG_FORCED);
+				mob.location().send(mob,omsg);
+				if(omsg.sourceMinor()==CMMsg.TYP_ORDER)
+					target.doCommand(commands,MUDCmdProcessor.METAFLAG_FORCED|MUDCmdProcessor.METAFLAG_ORDER);
 			}
 			CMLib.beanCounter().addMoney(mob,currency,amountRequired);
-			target.recoverEnvStats();
+			target.recoverPhyStats();
 		}
 		if(target==lastChecked)
 			setProficiency(oldProficiency);

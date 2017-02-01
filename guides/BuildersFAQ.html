@@ -15,7 +15,7 @@
     <tr>
       <td colspan="2" align="left" bgcolor="#dfdfdf" width="100%">
       <h1>The Builders F.A.Q.</h1>
-      <h2>CoffeeMud 5.6</h2>
+      <h2>CoffeeMud 5.9</h2>
       </td>
     </tr>
     <tr>
@@ -42,10 +42,12 @@ supports it?</a></li>
         <li><a href="#q02">Where do suggestions, questions, and bugs
 go?</a></li>
         <li><a href="#q03">Does CoffeeMud support Remorting?</a></li>
+        <li><a href="BuildersFAQ.html#q37">How can I localize CoffeeMud
+to translate it into other
+human languages?</a></li>
         <li><a href="#q04">Does CoffeeMud have a Building Port?</a></li>
         <li><a href="#q05">Does CoffeeMud have any other combat
-options
-besides normal, queue, and manual?</a></li>
+options?</a></li>
         <li><a href="#q06">What databases can CoffeeMud work with?</a></li>
         <li><a href="#q07">How do Clans work?</a></li>
         <li><a href="#q08">What does Hunger/Thirst/Fatigue affect?</a></li>
@@ -71,6 +73,8 @@ CoffeeMud?</a></li>
 Pointless version of CoffeeMud?</a></li>
         <li><a href="#q23">How do I make a Raceless version of
 CoffeeMud?</a></li>
+        <li><a href="#stddelete">How do I delete all the stock classes
+or races and make my own?</a></li>
         <li><a href="#q24">How do I make an item that never loses
 Condition?</a></li>
         <li><a href="#q25">How can I make food that doesn't rot?</a></li>
@@ -93,11 +97,10 @@ sell their raw gathered resources?</a></li>
         <li><a href="#q36">How can I have a
 command like ROM's "SCAN" for seeing in
 multiple rooms?</a></li>
-        <li><a href="#q37">How can I make CoffeeMud support other
-human languages?</a></li>
+        <li><a href="#q38">How can I delete Classes I don't want?</a></li>
+        <li><a href="#q39">How can I delete Player Races I don't want?</a></li>
       </ul>
-      <a name="answers" id="answers">&nbsp;
-      </a>
+      <a name="answers" id="answers">&nbsp; </a>
       <h3><a name="q00" id="q00">What should I know to run
 a CoffeeMud?</a></h3>
       <p>Well, for starters, if
@@ -166,22 +169,86 @@ Wizard' or something. In that class file:</p>
       <p>In that case, the player
 would have to have 30 levels in both
 "Wizard" and "Power Wizard" to qualify for the "Super Wizard" CharClass.</p>
+      <h3><a name="q37" id="q37">How can I localize CoffeeMud to
+translate it into other human languages?</a></h3>
+      <p>Getting CoffeeMud 100% translated will be difficult, but
+here's a quick way to get you the first 90% of the way there. &nbsp;</p>
+      <p>First, copy the input parser file <span
+ style="font-style: italic;">resources/parser_en_TX.properties</span>
+into the same folder with a different language name, such as <span
+ style="font-style: italic;">resources/parser_fr_CA.properties</span>
+for Canadian French. &nbsp;</p>
+      <p>Next copy the output translation file <span
+ style="font-style: italic;">resources/translation_en_TX.properties</span>
+and rename the copy, just like you did with the input parser file.</p>
+      <p>Open up coffeemud.ini file, find the entries for LANGUAGE= and
+COUNTRY= and change them accordingly.</p>
+      <p>Open up your copy of <span style="font-style: italic;">resources/parser_??_??.properties</span>
+and scroll down until you see [command-word-processor] and a line
+underneath it which says<span style="font-weight: bold;"> #autoignore
+9999</span>. &nbsp;Remove the hash mark # so that it says&nbsp;<span
+ style="font-weight: bold;">autoignore 9999</span>. &nbsp;Save the
+file, we will edit it again later.</p>
+      <p>Open up your copy of <span style="font-style: italic;">resources/translation_??_??.properties</span>
+and scroll down until you see [session-translation] and a line
+underneath it which says<span style="font-weight: bold;"> #autoignore
+9999</span>. &nbsp;Remove the hash mark # so that it says&nbsp;<span
+ style="font-weight: bold;">autoignore 9999</span>. &nbsp;Save the
+file, we will edit it again later.</p>
+      <p>Now log into your mud as your Archon and start entering
+commands.&nbsp;As you enter commands and do things, the parser and
+translation files will fill up with unlocalized strings that it
+encounters. &nbsp;Early versions of this feature won't capture EVERY
+string, only those designated as localizeable, but eventually every
+string will be handled. &nbsp;When you are satisfied you've seen every
+string and entered every command you want to localize, you can stop and
+let your users take care of the rest.</p>
+      <p>Last step (for now at least), is to re-open your parser and
+translation property files and find the two sections we modified
+earlier. &nbsp;You will see that those sections have been filled with a
+whole much of lines like this: <br />
+IGNOREWHOLE "You are now speaking @x1."<br />
+IGNOREWHOLE "WIMPY"<br />
+You want to change those lines to REPLACEEXACT commands, while being
+careful to maintain case sensitivity, like this:<br />
+REPLACEEXACT "You are now speaking @x1." WITH "Que vous parlez @x1."<br />
+REPLACEEXACT "WIMPY" WITH "MAUVIETTE"<br />
+      </p>
+      <p>You can keep the AUTOIGNORE 9999 command at the bottom of the
+list, and it will continue to add any new strings it encounters which
+were missed the first time around.</p>
+      <p>After
+this, it gets easy, but tedious -- you'll need to localize all the
+faction files (alignment.ini), all the help files, text files,
+lists.ini, and all the other loose files.<br />
+      </p>
+      <p>For everything that the above does not catch, CoffeeMud
+supports other languages through a translation
+system which utilizes regular expressions. &nbsp;Again, read through
+the files
+resources/parser_en_TX.properties and
+resources/translation_en_TX.properties. &nbsp;The former translates
+text entered by the user, the later translates text sent TO the user.
+&nbsp;Experimenting with these features will get you there, one phrase
+at a time.</p>
       <h3><a name="q04" id="q04">Does CoffeeMud have a
 Building Port?</a></h3>
       <p>No, there is no separate
 port for world content creation. All
 building tools are on-line realtime. It is easy to export and import
 areas, so you can run more than one copy. This can be essential if you
-are also making coding changes, which will often require reboots.</p>
+are also making coding changes, which can be activated more quickly by
+rebooting your mud than with online code reloads.</p>
       <h3><a name="q05" id="q05">Does CoffeeMud have any
 other combat
 options besides normal, queue, and manual?</a></h3>
-      <p>Not as part of the base
-code. However, Matthew
-(roguestar191@comcast.net), a member of the CoffeeMud Yahoo Group, has
-developed a patch that enables more flexibility in combat control. It
-can be found in the Files section at
-http://games.groups.yahoo.com/group/CoffeeMud/files/</p>
+      <p>Yes, CoffeeMud supports a turn-based combat system, though it
+could use some feedback. &nbsp;The way it work is that every player or
+mob that is in combat must wait their turn before they can perform
+actions. &nbsp;During their turn, any ticking effects (such as poisons
+or temporary shields) will resume ticking. &nbsp;Each player or mob can
+only perform as many actions as they have action points, which is as
+normal, though more painfully obvious when using the turn-based system.</p>
       <h3><a name="q06" id="q06">What databases can
 CoffeeMud work with?</a></h3>
       <p>Anything JDBC or ODBC
@@ -190,31 +257,47 @@ called FakeDB so you don't have to setup a database if you want.
 However, products like MySQL and HSQLDB make the system run much faster.</p>
       <h3><a name="q07" id="q07">How do Clans work?</a></h3>
       <p>First, you need to use
-the clancreate command to create a new
-clan. You have to get at least MINCLANMEMBERS amount of new members
-before it will activate you (Set in the INI file). Activation means you
+the '<span style="font-weight: bold;">clancreate</span>' command to
+create a new
+clan, during which you can give your clan a name, and decide how the
+officers will be structured (tyrannically all the way to
+democratically). You have to get at least MINCLANMEMBERS amount of new
+members
+before it will activate you (set in the INI file). Activation means you
 will be visible in the listing, can buy land for the clan, can have
 clan bank accounts, and can hire mobs, as well as have politics with
 others.</p>
       <p>Once you've made your
-clan, people can 'clanapply' to the
-clan. Of course, the person has to be at least level MINCLANLEVEL (Set
-in the INI file). 'clanapply' can be done even if you're the only one
+clan, people can '<span style="font-weight: bold;">clanapply</span>' to
+the
+clan. Of course, the person has to be at least level MINCLANLEVEL (set
+in the INI file). '<span style="font-weight: bold;">clanapply</span>'
+can be done even if you're the only one
 online. Clan bosses can set qualifications to the clan with the
-'clanqual' command and both bosses and lieutentants will see new
+'<span style="font-weight: bold;">clanqual</span>' command and both
+bosses and lieutenants will see new
 applicants
-in their 'clandetails' screen, at which point, they can 'clanaccept' or
-'clanreject' the player (regardless of online status). Clan bosses can
-also 'clanassign' people roles, such as treasurer, lieutentant, or even
-boss. Clan bosses and lieutentants may, at any time, 'clanexile' a
+in their '<span style="font-weight: bold;">clandetails</span>' screen,
+at which point, they can '<span style="font-weight: bold;">clanaccept</span>'
+or
+'<span style="font-weight: bold;">clanreject</span>' the player
+(regardless of online status). Clan bosses can
+also '<span style="font-weight: bold;">clanassign</span>' people roles,
+such as treasurer, lieutenant, or even
+boss. Clan bosses and lieutentants may, at any time, '<span
+ style="font-weight: bold;">clanexile</span>' a
 member -
-as well as members can 'clanresign'</p>
+as well as members can '<span style="font-weight: bold;">clanresign</span>'</p>
       <p>Once you're accepted into
 a clan, you can use the clantalk
 channel to talk to your clan, as well as use the 'Clan Home' and 'Clan
-Donate' spells. The 'clanhome' location and the 'clandonate' location
-can be set by bosses using the 'clanhomeset' and 'clandonateset'
-commands. Clan morgues can be designated with the 'clanmorgueset'
+Donate' spells. The '<span style="font-weight: bold;">clanhome</span>'
+location and the '<span style="font-weight: bold;">clandonate</span>'
+location
+can be set by bosses using the '<span style="font-weight: bold;">clanhomeset</span>'
+and '<span style="font-weight: bold;">clandonateset</span>'
+commands. Clan morgues can be designated with the '<span
+ style="font-weight: bold;">clanmorgueset</span>'
 command. Bosses and treasurers may deal with any Clan bankers and Clan
 Postmen in your game. If MINCLANMEMBERS don't at least login in
 DAYSCLANDEATH days, then the clan will be purged automatically.</p>
@@ -284,7 +367,8 @@ Common Skills can use?</a></h3>
       <p>Make sure you create a
 GenResource, GenLiquidResource, or
 GenFoodResource item. Only items of this sort will be recognized as raw
-materials by the common skills.</p>
+materials by the common skills. &nbsp;This can be more easily be done
+by entering CREATE 100 CORN, etc..</p>
       <h3><a name="q15" id="q15">Why don't my aggressive
 mobs attack me?</a></h3>
       <p>Aggressive mobs don't
@@ -376,7 +460,31 @@ also be designated as being "raceless" through either coding custom
 classes , or through the GenCharClass creation process. See
 StdCharClass.java for how to code the raceless() flag in java. See the
 section on GenCharClasses above for information on how to do it through
-that interface.</p>
+that interface.<br />
+      <br />
+      </p>
+      <h3><a name="stddelete" id="q23">How do delete all the stock
+class or races and make my own?</a></h3>
+      <p>The CoffeeMud.ini file
+has a parameter called DISABLE. If
+STDRACES and/or STDCLASSES is added to the disable parameter, then
+CoffeeMud will not allow players to create characters using any of the
+Java-coded races and/or classes. You can also just go into the
+com/planet_ink/coffee_mud/CharClasses or
+com/planet_ink/coffee_mud/Races directory and delete the Fighter.*
+files or Dwarf.* files as well. Whichever way you choose to go, you'll
+need some races and/or classes to replace the ones you are leaving out.
+&nbsp;You can do this through the MUDGrinder or the command line.
+&nbsp;Check the Builders Guide for information on generic Classes, and
+the Archon's Guide for information on generic Races. &nbsp;If you use
+the DISABLE flag route, remember that it will also keep players from
+choosing any of your own Java-coded classes or races as well. &nbsp;If
+you need to add races back in, consider converting them to "generic"
+versions from the MUDGrinder or command line.&nbsp;<br />
+      <br />
+Another way to make a standard race or class unavailable for players to
+choose is by converting the race to generic, and then changing the
+Availability to either "Unavailable" or "Skill Only".</p>
       <h3><a name="q24" id="q24">How do I make an item that
 never loses
 Condition?</a></h3>
@@ -409,11 +517,11 @@ each other in engine-moderated contests. The Hero game will feature
 super heroes and villains.</p>
       <h3><a name="q27" id="q27">Whats with the Space Ship
 Stuff?</a></h3>
-See the answer to the next question.<br />
+See the answer to the previous question.<br />
       <h3><a name="q28" id="q28">Whats with the Heroics and
 Technical
 settings on Areas, Classes, and Races?</a></h3>
-See the answer to the next question.
+See the answer to the previous question.
       <h3><a name="q29" id="q29">Whats with the Electronics
 stuff?</a></h3>
       <p>See the previous question
@@ -430,20 +538,18 @@ make this permanent across engine reboots.</p>
       <h3><a name="q31" id="q31">Does CoffeeMud have an
 Overland Map
 ability?</a></h3>
-      <p>Yes, check out the
+      <p>Yes, there are two ways. The easiest is to set AWARERANGE in
+coffeemud.ini to something higher than 0. The other way is to check out
+the
 Regional Awareness skill. It is restricted
 in the base distribution, but can easily be made generally available to
 all players.&nbsp;</p>
       <p>If you want to do this
 programmatically, just open up the file
-com/planet_ink/coffee_mud/CharClasses/StdCharClass.java amd find the
-method called "public StdCharClass()" and add the following line to the
-list therein:</p>
-      <pre>CMLib.ableMapper().addCharAbilityMapping("All",1,"Skill_RegionalAwareness",false);<br /></pre>
-      <p>After doing the above,
-you'll need to recompile
-StdCharClass.java before rebooting your mud. See the Programmer's Guide
-for more information on rebuilding CoffeeMud.</p>
+resources/skills/allqualifylist.txt
+and add a line like:</p>
+list therein:
+      <pre>1 Skill_RegionalAwareness<br /></pre>
       <p>If you want to do this
 through the MUDGrinder, you'll have to modify each and every one of
 your character classes, and qualify them all for
@@ -476,18 +582,35 @@ should have the appropriate behaviors and skills to make them a healer
 property. That last will make it so that the player is forced to pay
 the mob for his services, and makes sure that the mob is saved at the
 players home.</p>
-      <h3><a name="q35" id="q35">
-How can my players
+      <h3><a name="q35" id="q35">How can my players
 sell their raw gathered resources?</a></h3>
-      <h3><a name="q36" id="q36">
-How
+      <p>Create a shopkeeper that sells hides, lumber, metal, rocks or
+some combination of those. Next, if you like, use Shop Item Pricing to
+make resources (-javaclass +GenResource +GenFoodResource
++GetLiquidResource) more valuable than normal.</p>
+      <h3><a name="q36" id="q36">How
 can I have a
 command like ROM's "SCAN" for seeing in
 multiple rooms?</a></h3>
-      <h3><a name="q37" id="q37">
-How can I make CoffeeMud
-support other human languages?</a></h3>
-      <p></p>
+      <p>Give every class the skill "Spell_Farsight" or
+"Skill_RegionalAwareness", depending on what you are after.
+&nbsp;Farsight lets them see into adjacent rooms. &nbsp;Regional
+Awareness lets them get see the gist of the entire outdoor area with
+little graphic characters.</p>
+      <h3><a name="q38" id="q36">How can I delete Player Classes I
+don't want?</a></h3>
+      <p>From the MUDGrinder or Command Line, you simply need to modify
+each class you don't want and convert them into a Generic Class
+(GenClass). &nbsp;This will allow you to alter their availability to
+Never be available.</p>
+      <h3><a name="q39" id="q37">How can I delete Player Races I don't
+want?</a></h3>
+      <p>From the MUDGrinder or Command Line, you simply need to modify
+each race you don't want and convert them into a Generic Race
+(GenRace).
+&nbsp;This will allow you to alter their availability to Never be
+available, or available only from skills.</p>
+      <br />
       </td>
     </tr>
   </tbody>

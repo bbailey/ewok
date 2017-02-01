@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Behaviors;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,6 +10,7 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -16,14 +18,14 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2003-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -31,12 +33,27 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
 public class PuddleMaker extends StdBehavior
 {
-	public String ID(){return "PuddleMaker";}
-	protected int canImproveCode(){return Behavior.CAN_ROOMS|Behavior.CAN_AREAS;}
-    protected int lastWeather=-1;
+	@Override
+	public String ID()
+	{
+		return "PuddleMaker";
+	}
+
+	@Override
+	protected int canImproveCode()
+	{
+		return Behavior.CAN_ROOMS | Behavior.CAN_AREAS;
+	}
+
+	protected int	lastWeather	= -1;
+
+	@Override
+	public String accountForYourself()
+	{
+		return "puddle making";
+	}
 
 	public boolean coldWetWeather(int weather)
 	{
@@ -50,19 +67,21 @@ public class PuddleMaker extends StdBehavior
 		}
 		return false;
 	}
-    public boolean coldWeather(int weather)
-    {
-        switch(weather)
-        {
-        case Climate.WEATHER_BLIZZARD:
-        case Climate.WEATHER_SLEET:
-        case Climate.WEATHER_SNOW:
-        case Climate.WEATHER_HAIL:
-        case Climate.WEATHER_WINTER_COLD:
-            return true;
-        }
-        return false;
-    }
+
+	public boolean coldWeather(int weather)
+	{
+		switch(weather)
+		{
+		case Climate.WEATHER_BLIZZARD:
+		case Climate.WEATHER_SLEET:
+		case Climate.WEATHER_SNOW:
+		case Climate.WEATHER_HAIL:
+		case Climate.WEATHER_WINTER_COLD:
+			return true;
+		}
+		return false;
+	}
+
 	public boolean dryWeather(int weather)
 	{
 		switch(weather)
@@ -74,6 +93,7 @@ public class PuddleMaker extends StdBehavior
 		}
 		return false;
 	}
+
 	public boolean justWetWeather(int weather)
 	{
 		switch(weather)
@@ -84,10 +104,12 @@ public class PuddleMaker extends StdBehavior
 		}
 		return false;
 	}
+
 	public boolean anyWetWeather(int weather)
 	{
 		return coldWetWeather(weather)||justWetWeather(weather);
 	}
+
 	public int pct()
 	{
 		int pct=50;
@@ -100,40 +122,39 @@ public class PuddleMaker extends StdBehavior
 	{
 		for(int i=0;i<R.numItems();i++)
 		{
-			Item I=R.fetchItem(i);
+			final Item I=R.getItem(i);
 			if((I instanceof Drink)
-			   &&(!CMLib.flags().isGettable(I))
-			   &&((I.name().toLowerCase().indexOf("puddle")>=0)
-				  ||(I.name().toLowerCase().indexOf("snow")>=0)))
-					return;
+			&&(!CMLib.flags().isGettable(I))
+			&&((I.name().toLowerCase().indexOf("puddle")>=0)
+				||(I.name().toLowerCase().indexOf("snow")>=0)))
+				return;
 		}
-		Item I=CMClass.getItem("GenLiquidResource");
+		final Item I=CMClass.getItem("GenLiquidResource");
 		CMLib.flags().setGettable(I,false);
 		((Drink)I).setLiquidHeld(100);
 		((Drink)I).setLiquidRemaining(100);
 		((Drink)I).setLiquidType(RawMaterial.RESOURCE_FRESHWATER);
 		I.setMaterial(RawMaterial.RESOURCE_FRESHWATER);
-        I.baseEnvStats().setDisposition(I.baseEnvStats().disposition()|EnvStats.IS_UNSAVABLE);
+		I.basePhyStats().setDisposition(I.basePhyStats().disposition()|PhyStats.IS_UNSAVABLE);
 		CMLib.materials().addEffectsToResource(I);
-        I.recoverEnvStats();
+		I.recoverPhyStats();
 		if(coldWetWeather(oldWeather))
 		{
-			I.setName("some snow");
-			I.setDisplayText("some snow rests on the ground here.");
-			I.setDescription("the snow is white and still quite cold!");
+			I.setName(L("some snow"));
+			I.setDisplayText(L("some snow rests on the ground here."));
+			I.setDescription(L("the snow is white and still quite cold!"));
 		}
 		else
 		{
-			I.setName("a puddle of water");
-			I.setDisplayText("a puddle of water has formed here.");
-			I.setDescription("It looks drinkable.");
+			I.setName(L("a puddle of water"));
+			I.setDisplayText(L("a puddle of water has formed here."));
+			I.setDescription(L("It looks drinkable."));
 		}
-		R.addItemRefuse(I,CMProps.getIntVar(CMProps.SYSTEMI_EXPIRE_MONSTER_EQ));
+		R.addItem(I,ItemPossessor.Expire.Monster_EQ);
 		R.recoverRoomStats();
 	}
 
-
-
+	@Override
 	public boolean tick(Tickable ticking, int tickID)
 	{
 		super.tick(ticking,tickID);
@@ -142,8 +163,8 @@ public class PuddleMaker extends StdBehavior
 		{
 			if(ticking instanceof Room)
 			{
-				Room R=(Room)ticking;
-				Area A=R.getArea();
+				final Room R=(Room)ticking;
+				final Area A=R.getArea();
 				if((!anyWetWeather(A.getClimateObj().weatherType(R)))
 				&&(!dryWeather(A.getClimateObj().weatherType(R)))
 				&&(CMLib.dice().rollPercentage()<pct()))
@@ -152,19 +173,20 @@ public class PuddleMaker extends StdBehavior
 			else
 			if(ticking instanceof Area)
 			{
-				Area A=(Area)ticking;
+				final Area A=(Area)ticking;
 				if((!anyWetWeather(A.getClimateObj().weatherType(null)))
 				&&(!dryWeather(A.getClimateObj().weatherType(null))))
-					for(Enumeration e=A.getProperMap();e.hasMoreElements();)
+				{
+					for(final Enumeration<Room> e=A.getProperMap();e.hasMoreElements();)
 					{
-						Room R=(Room)e.nextElement();
+						final Room R=e.nextElement();
 						if(((R.domainType()&Room.INDOORS)==0)
 						&&(R.domainType()!=Room.DOMAIN_OUTDOORS_AIR)
-						&&(R.domainType()!=Room.DOMAIN_OUTDOORS_UNDERWATER)
-						&&(R.domainType()!=Room.DOMAIN_OUTDOORS_WATERSURFACE)
+						&&(!CMLib.flags().isWateryRoom(R))
 						&&(CMLib.dice().rollPercentage()<pct()))
 							makePuddle(R,lastWeather,A.getClimateObj().weatherType(null));
 					}
+				}
 			}
 		}
 

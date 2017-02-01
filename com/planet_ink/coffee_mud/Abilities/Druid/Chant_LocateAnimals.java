@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Druid;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -14,18 +15,17 @@ import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
-
 import java.util.*;
 
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2002-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -34,20 +34,21 @@ import java.util.*;
    limitations under the License.
 */
 
-@SuppressWarnings("unchecked")
 public class Chant_LocateAnimals extends Chant
 {
-	public String ID() { return "Chant_LocateAnimals"; }
-	public String name(){ return "Locate Animals";}
-    public int classificationCode(){return Ability.ACODE_CHANT|Ability.DOMAIN_ANIMALAFFINITY;}
-	protected String displayText="(Locating Animals)";
-    public int abstractQuality(){return Ability.QUALITY_OK_SELF;}
-	public String displayText(){return displayText;}
+	@Override public String ID() { return "Chant_LocateAnimals"; }
+	private final static String localizedName = CMLib.lang().L("Locate Animals");
+	@Override public String name() { return localizedName; }
+	@Override public int classificationCode(){return Ability.ACODE_CHANT|Ability.DOMAIN_ANIMALAFFINITY;}
+	protected String displayText=L("(Locating Animals)");
+	@Override public int abstractQuality(){return Ability.QUALITY_OK_SELF;}
+	@Override public String displayText(){return displayText;}
 
-	protected Vector theTrail=null;
+	protected List<Room> theTrail=null;
 	public int nextDirection=-2;
-	public long flags(){return Ability.FLAG_TRACKING;}
+	@Override public long flags(){return Ability.FLAG_TRACKING;}
 
+	@Override
 	public boolean tick(Tickable ticking, int tickID)
 	{
 		if(!super.tick(ticking,tickID))
@@ -62,25 +63,25 @@ public class Chant_LocateAnimals extends Chant
 			||(!(affected instanceof MOB)))
 				return false;
 
-			MOB mob=(MOB)affected;
+			final MOB mob=(MOB)affected;
 
 			if(nextDirection==999)
 			{
-				mob.tell("The trail seems to pause here.");
+				mob.tell(L("The trail seems to pause here."));
 				nextDirection=-2;
 				unInvoke();
 			}
 			else
 			if(nextDirection==-1)
 			{
-				mob.tell("The trail dries up here.");
+				mob.tell(L("The trail dries up here."));
 				nextDirection=-999;
 				unInvoke();
 			}
 			else
 			if(nextDirection>=0)
 			{
-				mob.tell("The trail seems to continue "+Directions.getDirectionName(nextDirection)+".");
+				mob.tell(L("The trail seems to continue @x1.",CMLib.directions().getDirectionName(nextDirection)));
 				nextDirection=-2;
 			}
 
@@ -88,14 +89,15 @@ public class Chant_LocateAnimals extends Chant
 		return true;
 	}
 
-	public void executeMsg(Environmental myHost, CMMsg msg)
+	@Override
+	public void executeMsg(final Environmental myHost, final CMMsg msg)
 	{
 		super.executeMsg(myHost,msg);
 
-		if((affected==null)||(!(affected instanceof MOB)))
+		if(!(affected instanceof MOB))
 			return;
 
-		MOB mob=(MOB)affected;
+		final MOB mob=(MOB)affected;
 		if((msg.amISource(mob))
 		&&(msg.amITarget(mob.location()))
 		&&(CMLib.flags().canBeSeenBy(mob.location(),mob))
@@ -105,25 +107,34 @@ public class Chant_LocateAnimals extends Chant
 
 	public MOB animalHere(Room room)
 	{
-		if(room==null) return null;
+		if(room==null)
+			return null;
 		for(int i=0;i<room.numInhabitants();i++)
 		{
-			MOB mob=room.fetchInhabitant(i);
+			final MOB mob=room.fetchInhabitant(i);
 			if(CMLib.flags().isAnimalIntelligence(mob))
 				return mob;
 		}
 		return null;
 	}
 
-	public boolean invoke(MOB mob, Vector commands, Environmental givenTarget, boolean auto, int asLevel)
+	@Override
+	public void affectPhyStats(Physical affectedEnv, PhyStats affectableStats)
+	{
+		affectableStats.setSensesMask(affectableStats.sensesMask()|PhyStats.CAN_NOT_TRACK);
+		super.affectPhyStats(affectedEnv, affectableStats);
+	}
+
+	@Override
+	public boolean invoke(MOB mob, List<String> commands, Physical givenTarget, boolean auto, int asLevel)
 	{
 		if(mob.fetchEffect(this.ID())!=null)
 		{
-			mob.tell("You are already trying to locate animals.");
+			mob.tell(L("You are already trying to locate animals."));
 			return false;
 		}
-		Vector V=CMLib.flags().flaggedAffects(mob,Ability.FLAG_TRACKING);
-		for(int v=0;v<V.size();v++)	((Ability)V.elementAt(v)).unInvoke();
+		final List<Ability> V=CMLib.flags().flaggedAffects(mob,Ability.FLAG_TRACKING);
+		for(final Ability A : V) A.unInvoke();
 
 		theTrail=null;
 		nextDirection=-2;
@@ -133,54 +144,51 @@ public class Chant_LocateAnimals extends Chant
 
 		if(animalHere(mob.location())!=null)
 		{
-			mob.tell("Try 'look'.");
+			mob.tell(L("Try 'look'."));
 			return false;
 		}
 
-		boolean success=proficiencyCheck(mob,0,auto);
+		final boolean success=proficiencyCheck(mob,0,auto);
 
-		Vector rooms=new Vector();
-		TrackingLibrary.TrackingFlags flags=new TrackingLibrary.TrackingFlags();
-		Vector checkSet=CMLib.tracking().getRadiantRooms(mob.location(),flags,20);
-		for(Enumeration r=checkSet.elements();r.hasMoreElements();)
+		final Vector<Room> rooms=new Vector<Room>();
+		final TrackingLibrary.TrackingFlags flags=CMLib.tracking().newFlags();
+		int range=20 + super.getXLEVELLevel(mob) + (2*super.getXMAXRANGELevel(mob));
+		final List<Room> checkSet=CMLib.tracking().getRadiantRooms(mob.location(),flags,range);
+		for (final Room room : checkSet)
 		{
-			Room R=CMLib.map().getRoom((Room)r.nextElement());
+			final Room R=CMLib.map().getRoom(room);
 			if(animalHere(R)!=null)
 				rooms.addElement(R);
 		}
 
 		while(rooms.size()>10)
-		    rooms.removeElementAt(CMLib.dice().roll(1,rooms.size(),-1));
+			rooms.removeElementAt(CMLib.dice().roll(1,rooms.size(),-1));
 
 		if(rooms.size()>0)
-			theTrail=CMLib.tracking().findBastardTheBestWay(mob.location(),rooms,flags,50);
+			theTrail=CMLib.tracking().findTrailToAnyRoom(mob.location(),rooms,flags,range);
 
 		MOB target=null;
 		if((theTrail!=null)&&(theTrail.size()>0))
-			target=animalHere((Room)theTrail.firstElement());
+			target=animalHere(theTrail.get(0));
 
 		if((success)&&(theTrail!=null)&&(target!=null))
 		{
-			theTrail.addElement(mob.location());
-			// it worked, so build a copy of this ability,
-			// and add it to the affects list of the
-			// affected MOB.  Then tell everyone else
-			// what happened.
-			CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),"^S<S-NAME> chant(s) for the animals.^?");
+			theTrail.add(mob.location());
+			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),L("^S<S-NAME> chant(s) for the animals.^?"));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);
 				invoker=mob;
-				displayText="(seeking "+target.name()+")";
-				Chant_LocateAnimals newOne=(Chant_LocateAnimals)this.copyOf();
+				displayText=L("(seeking @x1)",target.name());
+				final Chant_LocateAnimals newOne=(Chant_LocateAnimals)this.copyOf();
 				if(mob.fetchEffect(newOne.ID())==null)
 					mob.addEffect(newOne);
-				mob.recoverEnvStats();
+				mob.recoverPhyStats();
 				newOne.nextDirection=CMLib.tracking().trackNextDirectionFromHere(newOne.theTrail,mob.location(),false);
 			}
 		}
 		else
-			return beneficialVisualFizzle(mob,null,"<S-NAME> chant(s) for the animals, but nothing happens.");
+			return beneficialVisualFizzle(mob,null,L("<S-NAME> chant(s) for the animals, but nothing happens."));
 
 
 		// return whether it worked

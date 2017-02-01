@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Commands;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,20 +10,21 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2004-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -30,71 +32,74 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
+
 public class Formation extends StdCommand
 {
 	public Formation(){}
 
-	private String[] access={"FORMATION"};
-	public String[] getAccessWords(){return access;}
-	
-	public boolean execute(MOB mob, Vector commands, int metaFlags)
+	private final String[] access=I(new String[]{"FORMATION"});
+	@Override public String[] getAccessWords(){return access;}
+
+	@Override
+	public boolean execute(MOB mob, List<String> commands, int metaFlags)
 		throws java.io.IOException
 	{
-		commands.removeElementAt(0);
-	    MOB leader=CMLib.combat().getFollowedLeader(mob);
-		Vector[] done=CMLib.combat().getFormation(mob);
+		Vector<String> origCmds=new XVector<String>(commands);
+		commands.remove(0);
+		final MOB leader=CMLib.combat().getFollowedLeader(mob);
+		final List<MOB>[] done=CMLib.combat().getFormation(mob);
 		if(commands.size()==0)
 		{
-			StringBuffer str=new StringBuffer("");
+			final StringBuffer str=new StringBuffer("");
 			for(int i=0;i<done.length;i++)
 				if(done[i]!=null)
 				{
 					if(i==0)
-						str.append("^xfront  - ^.^?");
+						str.append(L("^xfront  - ^.^?"));
 					else
-						str.append("^xrow +"+i+" - ^.^?");
+						str.append(L("^xrow +@x1 - ^.^?",""+i));
 					for(int i2=0;i2<done[i].size();i2++)
-						str.append(((i2>0)?", ":"")+((MOB)done[i].elementAt(i2)).name());
+						str.append(((i2>0)?", ":"")+done[i].get(i2).name());
 					str.append("\n\r");
 				}
 			mob.session().colorOnlyPrintln(str.toString());
 		}
 		else
 		if(commands.size()==1)
-			mob.tell("Put whom in what row?");
+			CMLib.commands().doCommandFail(mob,origCmds,L("Put whom in what row?"));
 		else
 		if(mob.numFollowers()==0)
-			mob.tell("Noone is following you!");
+			CMLib.commands().doCommandFail(mob,origCmds,L("Noone is following you!"));
 		else
 		{
-			String row=(String)commands.lastElement();
+			String row=commands.get(commands.size()-1);
 			if("FRONT".startsWith(row.toUpperCase()))
 				row="0";
-			commands.removeElementAt(commands.size()-1);
-			String name=CMParms.combine(commands,0);
+			commands.remove(commands.size()-1);
+			final String name=CMParms.combine(commands,0);
 			MOB who=null;
 			if(CMLib.english().containsString(mob.name(),name)
 			   ||CMLib.english().containsString(mob.Name(),name))
 			{
-				mob.tell("You can not move your own position.  You are always the leader of your party.");
+				CMLib.commands().doCommandFail(mob,origCmds,L("You can not move your own position.  You are always the leader of your party."));
 				return false;
 			}
 			for(int f=0;f<mob.numFollowers();f++)
 			{
-				MOB M=mob.fetchFollower(f);
-				if(M==null) continue;
+				final MOB M=mob.fetchFollower(f);
+				if(M==null)
+					continue;
 				if(CMLib.english().containsString(M.name(),name)
 				   ||CMLib.english().containsString(M.Name(),name))
 				{who=M; break;}
 			}
 			if(who==null)
 			{
-				mob.tell("There is noone following you called "+name+".");
+				CMLib.commands().doCommandFail(mob,origCmds,L("There is noone following you called @x1.",name));
 				return false;
 			}
 			if((!CMath.isNumber(row))||(CMath.s_int(row)<0))
-				mob.tell("'"+row+"' is not a valid row in which to put "+who.name()+".  Try number greater than 0.");
+				CMLib.commands().doCommandFail(mob,origCmds,L("'@x1' is not a valid row in which to put @x2.  Try number greater than 0.",row,who.name()));
 			else
 			{
 				int leaderRow=-1;
@@ -105,20 +110,20 @@ public class Formation extends StdCommand
 						break;
 					}
 				if(leaderRow<0)
-					mob.tell("You do not exist.");
+					CMLib.commands().doCommandFail(mob,origCmds,L("You do not exist."));
 				else
 				if(CMath.s_int(row)<leaderRow)
-					mob.tell("You can not place "+who.name()+" behind your own position, which is "+leaderRow+".");
+					CMLib.commands().doCommandFail(mob,origCmds,L("You can not place @x1 behind your own position, which is @x2.",who.name(),""+leaderRow));
 				else
 				{
 					mob.addFollower(who,CMath.s_int(row)-leaderRow);
-					mob.tell("You have positioned "+who.name()+" to row "+CMath.s_int(row));
+					mob.tell(L("You have positioned @x1 to row @x2",who.name(),""+CMath.s_int(row)));
 				}
 			}
 		}
 		return false;
 	}
-	
-	public boolean canBeOrdered(){return true;}
-	
+
+	@Override public boolean canBeOrdered(){return true;}
+
 }

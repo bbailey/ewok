@@ -1,6 +1,9 @@
 package com.planet_ink.coffee_mud.WebMacros;
+
+import com.planet_ink.coffee_web.interfaces.*;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -13,16 +16,17 @@ import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
+
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2003-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -30,100 +34,139 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
 public class JournalFunction extends StdWebMacro
 {
-	public String name()	{return this.getClass().getName().substring(this.getClass().getName().lastIndexOf('.')+1);}
-	
-	public String runMacro(ExternalHTTPRequests httpReq, String parm)
+	@Override public String name() { return "JournalFunction"; }
+
+	@Override
+	public String runMacro(HTTPRequest httpReq, String parm, HTTPResponse httpResp)
 	{
-		Hashtable parms=parseParms(parm);
-		String journalName=httpReq.getRequestParameter("JOURNAL");
-		if(journalName==null) return "Function not performed -- no Journal specified.";
-		
-		JournalsLibrary.ForumJournal forum = CMLib.journals().getForumJournal(journalName);
-		MOB M = Authenticate.getAuthenticatedMob(httpReq);
+		if(!CMProps.getBoolVar(CMProps.Bool.MUDSTARTED))
+			return CMProps.getVar(CMProps.Str.MUDSTATUS);
+
+		final java.util.Map<String,String> parms=parseParms(parm);
+		final String journalName=httpReq.getUrlParameter("JOURNAL");
+		if(journalName==null)
+			return "Function not performed -- no Journal specified.";
+
+		final Clan setClan=CMLib.clans().getClan(httpReq.getUrlParameter("CLAN"));
+		final JournalsLibrary.ForumJournal forum=CMLib.journals().getForumJournal(journalName,setClan);
+		final MOB M = Authenticate.getAuthenticatedMob(httpReq);
 		if(CMLib.journals().isArchonJournalName(journalName))
 		{
 			if((M==null)||(!CMSecurity.isASysOp(M)))
-			    return " @break@";
+				return " @break@";
+		}
+		if(parms.containsKey("DESTROYFOREVER"))
+		{
+			if((forum!=null)&&(!forum.authorizationCheck(M, ForumJournalFlags.ADMIN)))
+				return "Destruction cancelled -- You are not authorized to delete this forum.";
+			if(!CMSecurity.isAllowedEverywhere(M,CMSecurity.SecFlag.JOURNALS))
+				return "Destruction cancelled -- You are not authorized.";
+			CMLib.database().DBDeleteJournal(journalName, null);
+			return "Journal "+journalName+" deleted.";
+		}
+		if(parms.containsKey("SUBSCRIBE"))
+		{
+			if(forum==null)
+				return "Subscription cancelled -- no forum.";
+			if(CMLib.journals().subscribeToJournal(journalName, M.Name(), true))
+			{
+				return "Now subscribed to "+journalName+".";
+			}
+			return "New subscribtion to "+journalName+" failed.";
+		}
+		if(parms.containsKey("UNSUBSCRIBE"))
+		{
+			if(forum==null)
+				return "UnSubscription cancelled -- no forum.";
+			if(CMLib.journals().unsubscribeFromJournal(journalName, M.Name(), true))
+			{
+				return "Now unsubscribed from "+journalName+".";
+			}
+			return "Unsubscription from "+journalName+" failed -- were you ever subscribed?";
 		}
 		String from="Anonymous";
-		if(M!=null) from=M.Name();
+		if(M!=null)
+			from=M.Name();
 		if(parms.containsKey("NEWPOST"))
 		{
 			if((forum!=null)&&(!forum.authorizationCheck(M, ForumJournalFlags.POST)))
 				return "Post not submitted -- Unauthorized.";
-			String to=httpReq.getRequestParameter("TO");
-			if((to==null)||(M==null)||(to.equalsIgnoreCase("all"))) to="ALL";
+			String to=httpReq.getUrlParameter("TO");
+			if((to==null)||(M==null)||(to.equalsIgnoreCase("all")))
+				to="ALL";
 			if((!to.equals("ALL"))&&(!to.toUpperCase().trim().startsWith("MASK=")))
 			{
-				if(!CMLib.players().playerExists(to))
+				if(!CMLib.players().playerExists(to) && (!CMLib.players().accountExists(to)))
 					return "Post not submitted -- TO user does not exist.  Try 'All'.";
 				to=CMStrings.capitalizeAndLower(to);
 			}
-            else
-            if(journalName.equalsIgnoreCase(CMProps.getVar(CMProps.SYSTEM_MAILBOX))
-            &&(!CMSecurity.isAllowedEverywhere(M,"JOURNALS")))
-                return "Post not submitted -- You are not authorized to send email to ALL.";
-			String subject=httpReq.getRequestParameter("SUBJECT");
-			if(subject==null) subject="";
-			String parent=httpReq.getRequestParameter("PARENT");
+			else
+			if(journalName.equalsIgnoreCase(CMProps.getVar(CMProps.Str.MAILBOX))
+			&&(!CMSecurity.isAllowedEverywhere(M,CMSecurity.SecFlag.JOURNALS)))
+				return "Post not submitted -- You are not authorized to send email to ALL.";
+			String subject=httpReq.getUrlParameter("SUBJECT");
+			if(subject==null)
+				subject="";
+			final String parent=httpReq.getUrlParameter("PARENT");
 			if((subject.length()==0)&&(parent==null))
 				return "Post not submitted -- No subject!";
 			if((parent!=null)&&(parent.length()>0)&&(subject.length()==0))
 			{
-				JournalsLibrary.JournalEntry parentEntry = null;
+				JournalEntry parentEntry = null;
 				parentEntry=CMLib.database().DBReadJournalEntry(journalName, parent);
 				if(parentEntry!=null)
-					subject="RE: "+parentEntry.subj;
+					subject="RE: "+parentEntry.subj();
 			}
-			String date=httpReq.getRequestParameter("DATE");
-			String icon=httpReq.getRequestParameter("MSGICON");
-			Vector<String> flags=CMParms.parseCommas(httpReq.getRequestParameter("FLAGS"), true);
+			final String date=httpReq.getUrlParameter("DATE");
+			final String icon=httpReq.getUrlParameter("MSGICON");
+			final List<String> flags=CMParms.parseCommas(httpReq.getUrlParameter("FLAGS"), true);
 			if((flags.size()>0)&&(forum!=null)&&(!forum.authorizationCheck(M, ForumJournalFlags.ADMIN)))
 				return "Post not submitted -- Unauthorized flags.";
-			String text=httpReq.getRequestParameter("NEWTEXT");
+			final String text=httpReq.getUrlParameter("NEWTEXT");
 			if((text==null)||(text.length()==0))
 				return "Post not submitted -- No text!";
-            if(journalName.equalsIgnoreCase(CMProps.getVar(CMProps.SYSTEM_MAILBOX))
-            &&(CMProps.getIntVar(CMProps.SYSTEMI_MAXMAILBOX)>0)
-            &&(!to.equalsIgnoreCase("ALL")))
-            {
-                int count=CMLib.database().DBCountJournal(journalName,null,to);
-                if(count>=CMProps.getIntVar(CMProps.SYSTEMI_MAXMAILBOX))
-                    return "Post not submitted -- Mailbox is full!";
-            }
-            JournalsLibrary.JournalEntry msg = new JournalsLibrary.JournalEntry();
-            msg.from=from;
-            msg.subj=clearWebMacros(subject);
-            msg.msg=clearWebMacros(text);
-            if((date!=null) && (CMath.isLong(date)))
-            	msg.date = CMath.s_long(date);
-            else
-	            msg.date=System.currentTimeMillis();
-            msg.update=System.currentTimeMillis();
-            msg.parent=(parent==null)?"":parent;
-            msg.msgIcon=(icon==null)?"":icon;
-            if(flags.contains("STUCKY"))
-	            msg.attributes|=JournalsLibrary.JournalEntry.ATTRIBUTE_STUCKY;
-            if(flags.contains("PROTECTED"))
-	            msg.attributes|=JournalsLibrary.JournalEntry.ATTRIBUTE_PROTECTED;
-            msg.data="";
-            msg.to=to;
-            // check for dups
-            Vector<JournalsLibrary.JournalEntry> chckEntries = CMLib.database().DBReadJournalMsgsNewerThan(journalName, to, msg.date-1);
-            for(JournalsLibrary.JournalEntry entry : chckEntries)
-            	if((entry.date == msg.date)
-            	&&(entry.from.equals(msg.from))
-            	&&(entry.subj.equals(msg.subj))
-            	&&(entry.parent.equals(msg.parent)))
-            		return "";
+			if(journalName.equalsIgnoreCase(CMProps.getVar(CMProps.Str.MAILBOX))
+			&&(CMProps.getIntVar(CMProps.Int.MAXMAILBOX)>0)
+			&&(!to.equalsIgnoreCase("ALL")))
+			{
+				final int count=CMLib.database().DBCountJournal(journalName,null,to);
+				if(count>=CMProps.getIntVar(CMProps.Int.MAXMAILBOX))
+					return "Post not submitted -- Mailbox is full!";
+			}
+			final JournalEntry msg = (JournalEntry)CMClass.getCommon("DefaultJournalEntry");
+			msg.from(from);
+			msg.subj(clearWebMacros(subject));
+			msg.msg(clearWebMacros(text));
+			if((date!=null) && (CMath.isLong(date)))
+				msg.date(CMath.s_long(date));
+			else
+				msg.date(System.currentTimeMillis());
+			msg.update(System.currentTimeMillis());
+			msg.parent((parent==null)?"":parent);
+			msg.msgIcon((icon==null)?"":icon);
+			if(flags.contains("STUCKY"))
+				msg.attributes(msg.attributes()|JournalEntry.ATTRIBUTE_STUCKY);
+			if(flags.contains("PROTECTED"))
+				msg.attributes(msg.attributes()|JournalEntry.ATTRIBUTE_PROTECTED);
+			msg.data("");
+			msg.to(to);
+			// check for dups
+			final List<JournalEntry> chckEntries = CMLib.database().DBReadJournalMsgsNewerThan(journalName, to, msg.date()-1);
+			for(final JournalEntry entry : chckEntries)
+			{
+				if((entry.date() == msg.date())
+				&&(entry.from().equals(msg.from()))
+				&&(entry.subj().equals(msg.subj()))
+				&&(entry.parent().equals(msg.parent())))
+					return "";
+			}
 			CMLib.database().DBWriteJournal(journalName,msg);
 			JournalInfo.clearJournalCache(httpReq, journalName);
 			if(parent!=null)
 				CMLib.database().DBTouchJournalMessage(parent);
-			CMLib.journals().clearJournalSummaryStats(journalName);
+			CMLib.journals().clearJournalSummaryStats(forum);
 			return "Post submitted.";
 		}
 		else
@@ -134,43 +177,47 @@ public class JournalFunction extends StdWebMacro
 			else
 			if(!forum.authorizationCheck(M, ForumJournalFlags.ADMIN))
 				return "Changes not submitted -- Unauthorized.";
-			String longDesc=httpReq.getRequestParameter("LONGDESC");
-			String shortDesc=httpReq.getRequestParameter("SHORTDESC");
-			String imgPath=httpReq.getRequestParameter("IMGPATH");
-			JournalsLibrary.JournalSummaryStats stats = CMLib.journals().getJournalStats(journalName);
-			if(stats == null)
+			final String longDesc=fixForumString(httpReq.getUrlParameter("LONGDESC"));
+			final String shortDesc=fixForumString(httpReq.getUrlParameter("SHORTDESC"));
+			final String imgPath=httpReq.getUrlParameter("IMGPATH");
+			final JournalsLibrary.JournalMetaData metaData = CMLib.journals().getJournalStats(forum);
+			if(metaData == null)
 				return "Changes not submitted -- No Stats!";
 			if(longDesc!=null)
-				stats.longIntro=clearWebMacros(longDesc);
+				metaData.longIntro(clearWebMacros(longDesc));
 			if(shortDesc!=null)
-				stats.shortIntro=clearWebMacros(shortDesc);
+				metaData.shortIntro(clearWebMacros(shortDesc));
 			if(imgPath!=null)
-				stats.imagePath=clearWebMacros(imgPath);
-			CMLib.database().DBUpdateJournalStats(journalName, stats);
-			CMLib.journals().clearJournalSummaryStats(journalName);
+				metaData.imagePath(clearWebMacros(imgPath));
+			CMLib.database().DBUpdateJournalMetaData(journalName, metaData);
+			CMLib.journals().clearJournalSummaryStats(forum);
 			return "Changed applied.";
 		}
-		String parent=httpReq.getRequestParameter("JOURNALPARENT");
-		if(parent==null) parent="";
-		String dbsearch=httpReq.getRequestParameter("DBSEARCH");
-		if(dbsearch==null) dbsearch="";
-		List<JournalsLibrary.JournalEntry> msgs=JournalInfo.getMessages(httpReq, journalName);
-		String msgKey=httpReq.getRequestParameter("JOURNALMESSAGE");
-		int cardinalNumber = CMath.s_int(httpReq.getRequestParameter("JOURNALCARDINAL"));
-        String srch=httpReq.getRequestParameter("JOURNALMESSAGESEARCH");
-        if(srch!=null) 
-        	srch=srch.toLowerCase();
-		boolean doThemAll=parms.containsKey("EVERYTHING");
+		String parent=httpReq.getUrlParameter("JOURNALPARENT");
+		if(parent==null)
+			parent="";
+		String dbsearch=httpReq.getUrlParameter("DBSEARCH");
+		if(dbsearch==null)
+			dbsearch="";
+		final String page=httpReq.getUrlParameter("JOURNALPAGE");
+		final String mpage=httpReq.getUrlParameter("MESSAGEPAGE");
+		final List<JournalEntry> msgs=JournalInfo.getMessages(journalName,forum,page,mpage,parent,dbsearch,httpReq.getRequestObjects());
+		String msgKey=httpReq.getUrlParameter("JOURNALMESSAGE");
+		int cardinalNumber = CMath.s_int(httpReq.getUrlParameter("JOURNALCARDINAL"));
+		String srch=httpReq.getUrlParameter("JOURNALMESSAGESEARCH");
+		if(srch!=null)
+			srch=srch.toLowerCase();
+		final boolean doThemAll=parms.containsKey("EVERYTHING");
 		if(doThemAll)
 		{
-			JournalsLibrary.JournalEntry entry = JournalInfo.getNextEntry(msgs, null);
+			final JournalEntry entry = JournalInfo.getNextEntry(msgs, null);
 			if(entry==null)
 				msgKey="";
 			else
-				msgKey=entry.key;
+				msgKey=entry.key();
 			cardinalNumber=1;
 		}
-		StringBuffer messages=new StringBuffer("");
+		final StringBuffer messages=new StringBuffer("");
 		boolean keepProcessing=((msgKey!=null)&&(msgKey.length()>0));
 		String fieldSuffix="";
 		while(keepProcessing)
@@ -179,130 +226,124 @@ public class JournalFunction extends StdWebMacro
 			{
 				parms.clear();
 				parms.put("EVERYTHING","EVERYTHING");
-				String fate=httpReq.getRequestParameter("FATE"+msgKey);
-				String replyemail=httpReq.getRequestParameter("REPLYEMAIL"+msgKey);
-				cardinalNumber = CMath.s_int(httpReq.getRequestParameter("CARDINAL"+msgKey));
+				final String fate=httpReq.getUrlParameter("FATE"+msgKey);
+				final String replyemail=httpReq.getUrlParameter("REPLYEMAIL"+msgKey);
+				cardinalNumber = CMath.s_int(httpReq.getUrlParameter("CARDINAL"+msgKey));
 				if((fate!=null)&&(fate.length()>0)&&(CMStrings.isUpperCase(fate)))
 					parms.put(fate,fate);
 				if((replyemail!=null)&&(replyemail.length()>0)&&(CMStrings.isUpperCase(replyemail)))
 					parms.put(replyemail,replyemail);
 				if(parms.size()==1)
 				{
-					JournalsLibrary.JournalEntry entry = JournalInfo.getNextEntry(msgs, msgKey);
-					while((entry!=null) && (!CMLib.journals().canReadMessage(entry,srch,M,parms.contains("NOPRIV"))))
-						entry = JournalInfo.getNextEntry(msgs, entry.key);
+					JournalEntry entry = JournalInfo.getNextEntry(msgs, msgKey);
+					while((entry!=null) && (!CMLib.journals().canReadMessage(entry,srch,M,parms.containsKey("NOPRIV"))))
+						entry = JournalInfo.getNextEntry(msgs, entry.key());
 
 					if(entry==null)
 						keepProcessing=false;
 					else
-						msgKey=entry.key;
+						msgKey=entry.key();
 					continue;
 				}
 				fieldSuffix=msgKey;
 			}
-			else 
+			else
 				keepProcessing=false;
-			JournalsLibrary.JournalEntry entry = JournalInfo.getEntry(msgs, msgKey);
+			JournalEntry entry = JournalInfo.getEntry(msgs, msgKey);
 			if((entry==null)&&parms.containsKey("DELETEREPLY"))
 				entry=CMLib.database().DBReadJournalEntry(journalName, msgKey);
 			if(entry == null)
 				return "Function not performed -- illegal journal message specified.<BR>";
 			if(!doThemAll)
-				entry.cardinal=cardinalNumber;
-			String to=entry.to;
+				entry.cardinal(cardinalNumber);
+			final String to=entry.to();
 			if((M!=null)
-			&&(CMSecurity.isAllowedAnywhere(M,"JOURNALS")||(to.equalsIgnoreCase(M.Name())))
+			&&(CMSecurity.isAllowedAnywhere(M,CMSecurity.SecFlag.JOURNALS)||(to.equalsIgnoreCase(M.Name())))
 			&&((forum==null)||(forum.authorizationCheck(M, ForumJournalFlags.READ))))
 			{
 				if(parms.containsKey("REPLY"))
 				{
 					if((forum!=null)&&(!forum.authorizationCheck(M, ForumJournalFlags.REPLY)))
 						return "Reply not submitted -- Unauthorized.";
-					String text=httpReq.getRequestParameter("NEWTEXT"+fieldSuffix);
+					final String text=httpReq.getUrlParameter("NEWTEXT"+fieldSuffix);
 					if((text==null)||(text.length()==0))
 						messages.append("Reply to #"+cardinalNumber+" not submitted -- No text!<BR>");
 					else
 					{
-						CMLib.database().DBWriteJournalReply(journalName,entry.key,from,"","",clearWebMacros(text));
-						CMLib.journals().clearJournalSummaryStats(journalName);
+						CMLib.database().DBWriteJournalReply(journalName,entry.key(),from,"","",clearWebMacros(text));
+						CMLib.journals().clearJournalSummaryStats(forum);
 						JournalInfo.clearJournalCache(httpReq, journalName);
 						messages.append("Reply to #"+cardinalNumber+" submitted<BR>");
 					}
 				}
-	            else
-	            if(parms.containsKey("EMAIL"))
-	            {
+				else
+				if(parms.containsKey("EMAIL"))
+				{
 					if((forum!=null)&&(!forum.authorizationCheck(M, ForumJournalFlags.REPLY)))
 						return "Email not submitted -- Unauthorized.";
-	                String replyMsg=httpReq.getRequestParameter("NEWTEXT"+fieldSuffix);
-	                if(replyMsg.length()==0)
+					final String replyMsg=httpReq.getUrlParameter("NEWTEXT"+fieldSuffix);
+					if(replyMsg.length()==0)
 						messages.append("Email to #"+cardinalNumber+" not submitted -- No text!<BR>");
-	                else
-	                {
-		                String toName=entry.from;
-		                MOB toM=CMLib.players().getLoadPlayer(toName);
-		                if((toM==null)||(toM.playerStats()==null)||(toM.playerStats().getEmail().indexOf("@")<0))
-							messages.append("Player '"+toName+"' does not exist, or has no email address.<BR>");
-		                else
-		                {
-			                CMLib.database().DBWriteJournal(CMProps.getVar(CMProps.SYSTEM_MAILBOX),
-			                                                  M.Name(),
-			                                                  toM.Name(),
-			                                                  "RE: "+entry.subj,
-			                                                  clearWebMacros(replyMsg));
-			    			JournalInfo.clearJournalCache(httpReq, journalName);
-							messages.append("Email to #"+cardinalNumber+" queued<BR>");
-		                }
-	                }
-	            }
-				if(parms.containsKey("DELETE")||parms.containsKey("DELETEREPLY"))
-				{
-					if(M==null)	
-						messages.append("Can not delete #"+cardinalNumber+"-- required logged in user.<BR>");
 					else
 					{
-						if((forum!=null)&&(!forum.authorizationCheck(M, ForumJournalFlags.ADMIN)))
-							return "Delete not authorized.";
-						CMLib.database().DBDeleteJournal(journalName,entry.key);
-						if(parms.containsKey("DELETEREPLY")&&(entry.parent!=null)&&(entry.parent.length()>0))
-						{
-							// this constitutes a threaded reply -- update the counter
-							JournalsLibrary.JournalEntry parentEntry=CMLib.database().DBReadJournalEntry(journalName, entry.parent);
-							if(parentEntry!=null)
-								CMLib.database().DBUpdateMessageReplies(parentEntry.key,parentEntry.replies-1);
-							JournalInfo.clearJournalCache(httpReq, journalName);
-							httpReq.addRequestParameters("JOURNALMESSAGE",entry.parent);
-							httpReq.addRequestParameters("JOURNALPARENT","");
-							if(cardinalNumber==0) cardinalNumber=entry.cardinal;
-							if(cardinalNumber==0)
-								messages.append("Reply deleted.<BR>");
-							else
-								messages.append("Reply #"+cardinalNumber+" deleted.<BR>");
-						}
+						final String toName=entry.from();
+						final MOB toM=CMLib.players().getLoadPlayer(toName);
+						if((toM==null)||(toM.playerStats()==null)||(toM.playerStats().getEmail().indexOf('@')<0))
+							messages.append("Player '"+toName+"' does not exist, or has no email address.<BR>");
 						else
 						{
-							if(cardinalNumber==0) cardinalNumber=entry.cardinal;
-							if(cardinalNumber==0)
-								messages.append("Message deleted.<BR>");
-							else
-								messages.append("Message #"+cardinalNumber+" deleted.<BR>");
+							CMLib.database().DBWriteJournal(CMProps.getVar(CMProps.Str.MAILBOX),
+															  M.Name(),
+															  toM.Name(),
+															  "RE: "+entry.subj(),
+															  clearWebMacros(replyMsg));
 							JournalInfo.clearJournalCache(httpReq, journalName);
-							httpReq.addRequestParameters("JOURNALMESSAGE","");
+							messages.append("Email to #"+cardinalNumber+" queued<BR>");
 						}
-						CMLib.journals().clearJournalSummaryStats(journalName);
 					}
+				}
+				if(parms.containsKey("DELETE")||parms.containsKey("DELETEREPLY"))
+				{
+					if((forum!=null)&&(!forum.authorizationCheck(M, ForumJournalFlags.ADMIN)))
+						return "Delete not authorized.";
+					CMLib.database().DBDeleteJournal(journalName,entry.key());
+					if(parms.containsKey("DELETEREPLY")&&(entry.parent()!=null)&&(entry.parent().length()>0))
+					{
+						// this constitutes a threaded reply -- update the counter
+						final JournalEntry parentEntry=CMLib.database().DBReadJournalEntry(journalName, entry.parent());
+						if(parentEntry!=null)
+							CMLib.database().DBUpdateMessageReplies(parentEntry.key(),parentEntry.replies()-1);
+						JournalInfo.clearJournalCache(httpReq, journalName);
+						httpReq.addFakeUrlParameter("JOURNALMESSAGE",entry.parent());
+						httpReq.addFakeUrlParameter("JOURNALPARENT","");
+						if(cardinalNumber==0)
+							cardinalNumber=entry.cardinal();
+						if(cardinalNumber==0)
+							messages.append("Reply deleted.<BR>");
+						else
+							messages.append("Reply #"+cardinalNumber+" deleted.<BR>");
+					}
+					else
+					{
+						if(cardinalNumber==0)
+							cardinalNumber=entry.cardinal();
+						if(cardinalNumber==0)
+							messages.append("Message deleted.<BR>");
+						else
+							messages.append("Message #"+cardinalNumber+" deleted.<BR>");
+						JournalInfo.clearJournalCache(httpReq, journalName);
+						httpReq.addFakeUrlParameter("JOURNALMESSAGE","");
+					}
+					CMLib.journals().clearJournalSummaryStats(forum);
 				}
 				else
 				if(parms.containsKey("EDIT"))
 				{
-					if(M==null)	
-						messages.append("Can not edit #"+cardinalNumber+"-- required logged in user.<BR>");
-					else
-					if((entry.to.equals(M.Name()))
+					if((entry.to().equals(M.Name()))
 					||((forum!=null)&&(!forum.authorizationCheck(M, ForumJournalFlags.ADMIN)))
-					||CMSecurity.isAllowedAnywhere(M,"JOURNALS"))
+					||CMSecurity.isAllowedAnywhere(M,CMSecurity.SecFlag.JOURNALS))
 					{
-						String text=httpReq.getRequestParameter("NEWTEXT"+fieldSuffix);
+						final String text=httpReq.getUrlParameter("NEWTEXT"+fieldSuffix);
 						if((text==null)||(text.length()==0))
 							messages.append("Edit to #"+cardinalNumber+" not submitted -- No text!<BR>");
 						else
@@ -310,88 +351,106 @@ public class JournalFunction extends StdWebMacro
 							long attributes=0;
 							if((forum!=null)&&(forum.authorizationCheck(M, ForumJournalFlags.ADMIN)))
 							{
-								String ISSTUCKY=httpReq.getRequestParameter("ISSTICKY"+fieldSuffix);
-								if(ISSTUCKY==null) ISSTUCKY=httpReq.getRequestParameter("ISSTUCKY"+fieldSuffix);
+								String ISSTUCKY=httpReq.getUrlParameter("ISSTICKY"+fieldSuffix);
+								if(ISSTUCKY==null)
+									ISSTUCKY=httpReq.getUrlParameter("ISSTUCKY"+fieldSuffix);
 								if((ISSTUCKY!=null)&&(ISSTUCKY.equalsIgnoreCase("on")))
-									attributes|=JournalsLibrary.JournalEntry.ATTRIBUTE_STUCKY;
-								String ISPROTECTED=httpReq.getRequestParameter("ISPROTECTED"+fieldSuffix);
+									attributes|=JournalEntry.ATTRIBUTE_STUCKY;
+								final String ISPROTECTED=httpReq.getUrlParameter("ISPROTECTED"+fieldSuffix);
 								if((ISPROTECTED!=null)&&(ISPROTECTED.equalsIgnoreCase("on")))
-									attributes|=JournalsLibrary.JournalEntry.ATTRIBUTE_PROTECTED;
+									attributes|=JournalEntry.ATTRIBUTE_PROTECTED;
 							}
-							CMLib.database().DBUpdateJournal(entry.key, entry.subj, clearWebMacros(text), attributes);
-							if(cardinalNumber==0) cardinalNumber=entry.cardinal;
+							CMLib.database().DBUpdateJournal(entry.key(), entry.subj(), clearWebMacros(text), attributes);
+							if(cardinalNumber==0)
+								cardinalNumber=entry.cardinal();
 							if(cardinalNumber==0)
 								messages.append("Message modified.<BR>");
 							else
 								messages.append("Message #"+cardinalNumber+" modified.<BR>");
-            				JournalInfo.clearJournalCache(httpReq, journalName);
-							if((entry.parent!=null)&&(entry.parent.length()>0))
+							JournalInfo.clearJournalCache(httpReq, journalName);
+							if((entry.parent()!=null)&&(entry.parent().length()>0))
 							{
-								httpReq.addRequestParameters("JOURNALMESSAGE",entry.parent);
-								httpReq.addRequestParameters("JOURNALPARENT","");
+								httpReq.addFakeUrlParameter("JOURNALMESSAGE",entry.parent());
+								httpReq.addFakeUrlParameter("JOURNALPARENT","");
 							}
-            				CMLib.journals().clearJournalSummaryStats(journalName);
+							CMLib.journals().clearJournalSummaryStats(forum);
 						}
 					}
 					else
 						return "Delete not authorized.";
 				}
 				else
-	            if(CMSecurity.isAllowedAnywhere(M,"JOURNALS"))
-	            {
-	                if(parms.containsKey("TRANSFER"))
-	                {
+				if(CMSecurity.isAllowedAnywhere(M,CMSecurity.SecFlag.JOURNALS))
+				{
+					if(parms.containsKey("TRANSFER"))
+					{
 						if((forum!=null)&&(!forum.authorizationCheck(M, ForumJournalFlags.ADMIN)))
 							return "Email not submitted -- Unauthorized.";
-	                    String journal=httpReq.getRequestParameter("NEWJOURNAL"+fieldSuffix);
-	                    if((journal==null) || (journal.length()==0))
-	    					messages.append("Transfer #"+cardinalNumber+" not completed -- No journal!<BR>");
-	                    String realName=null;
-	                    if(journal!=null)
-		                    for(Enumeration<JournalsLibrary.CommandJournal> e=CMLib.journals().commandJournals();e.hasMoreElements();)
-		                    {
-		                    	JournalsLibrary.CommandJournal CMJ=e.nextElement();
-		                        if(journal.equalsIgnoreCase(CMJ.NAME())
-		                        ||journal.equalsIgnoreCase(CMJ.NAME()+"s")
-		                        ||journal.equalsIgnoreCase(CMJ.JOURNAL_NAME()))
-		                        {
-		                            realName=CMJ.JOURNAL_NAME();
-		                            break;
-		                        }
-		                    }
-	                    if(realName==null)
-	                        realName=CMLib.database().DBGetRealJournalName(journal);
-	                    if((realName==null)&&(journal!=null))
-	                        realName=CMLib.database().DBGetRealJournalName(journal.toUpperCase());
-	                    if(realName==null)
-	    					messages.append("The journal '"+journal+"' does not presently exist.  Aborted.<BR>");
-	                    else
-	                    {
-            				CMLib.journals().clearJournalSummaryStats(journalName);
-		                    CMLib.database().DBDeleteJournal(journalName,entry.key);
-		                    CMLib.database().DBWriteJournal(realName,entry);
-	        				CMLib.journals().clearJournalSummaryStats(realName);
-		        			JournalInfo.clearJournalCache(httpReq, journalName);
-		                    httpReq.addRequestParameters("JOURNALMESSAGE","");
+						final String journal=httpReq.getUrlParameter("NEWJOURNAL"+fieldSuffix);
+						if((journal==null) || (journal.length()==0))
+							messages.append("Transfer #"+cardinalNumber+" not completed -- No journal!<BR>");
+						String realName=null;
+						if(journal!=null)
+							for(final Enumeration<JournalsLibrary.CommandJournal> e=CMLib.journals().commandJournals();e.hasMoreElements();)
+							{
+								final JournalsLibrary.CommandJournal CMJ=e.nextElement();
+								if(journal.equalsIgnoreCase(CMJ.NAME())
+								||journal.equalsIgnoreCase(CMJ.NAME()+"s")
+								||journal.equalsIgnoreCase(CMJ.JOURNAL_NAME()))
+								{
+									realName=CMJ.JOURNAL_NAME();
+									break;
+								}
+							}
+						if(realName==null)
+							realName=CMLib.database().DBGetRealJournalName(journal);
+						if((realName==null)&&(journal!=null))
+							realName=CMLib.database().DBGetRealJournalName(journal.toUpperCase());
+						if(realName==null)
+							messages.append("The journal '"+journal+"' does not presently exist.  Aborted.<BR>");
+						else
+						{
+							CMLib.journals().clearJournalSummaryStats(forum);
+							CMLib.database().DBDeleteJournal(journalName,entry.key());
+							if(journalName.toUpperCase().startsWith("SYSTEM_"))
+								entry.update(System.currentTimeMillis());
+							CMLib.database().DBWriteJournal(realName,entry);
+							CMLib.journals().clearJournalSummaryStats(forum);
+							JournalInfo.clearJournalCache(httpReq, journalName);
+							httpReq.addFakeUrlParameter("JOURNALMESSAGE","");
 							messages.append("Message #"+cardinalNumber+" transferred<BR>");
-	                    }
-	                }
-	            }
-	            else
+						}
+					}
+				}
+				else
 					messages.append("You are not allowed to perform this function on message #"+cardinalNumber+".<BR>");
 			}
 			if(keepProcessing)
 			{
 				cardinalNumber++;
 				entry = JournalInfo.getNextEntry(msgs, msgKey);
-				while((entry!=null) && (!CMLib.journals().canReadMessage(entry,srch,M,parms.contains("NOPRIV"))))
-					entry = JournalInfo.getNextEntry(msgs, entry.key);
+				while((entry!=null) && (!CMLib.journals().canReadMessage(entry,srch,M,parms.containsKey("NOPRIV"))))
+					entry = JournalInfo.getNextEntry(msgs, entry.key());
 				if(entry==null)
 					keepProcessing=false;
 				else
-					msgKey=entry.key;
+					msgKey=entry.key();
 			}
 		}
-        return messages.toString();
+		return messages.toString();
 	}
+
+	public String fixForumString(String s)
+	{
+		if(s==null)
+			return "";
+		final int x=s.toUpperCase().indexOf("<P>");
+		final int y=s.toUpperCase().lastIndexOf("</P>");
+		if((x>=0)&&(y>x))
+		{
+			return s.substring(0,x)+s.substring(x+3,y)+s.substring(y+4);
+		}
+		return s;
+	}
+
 }

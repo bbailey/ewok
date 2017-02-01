@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Druid;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,21 +10,21 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
-
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2004-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,18 +33,20 @@ import java.util.*;
    limitations under the License.
 */
 
-@SuppressWarnings("unchecked")
+
 public class Chant_SummonPool extends Chant
 {
-	public String ID() { return "Chant_SummonPool"; }
-	public String name(){ return "Summon Pool";}
-	protected int canAffectCode(){return Ability.CAN_ITEMS;}
-	protected int canTargetCode(){return 0;}
-    public int classificationCode(){return Ability.ACODE_CHANT|Ability.DOMAIN_WEATHER_MASTERY;}
-    public int abstractQuality(){return Ability.QUALITY_INDIFFERENT;}
+	@Override public String ID() { return "Chant_SummonPool"; }
+	private final static String localizedName = CMLib.lang().L("Summon Pool");
+	@Override public String name() { return localizedName; }
+	@Override protected int canAffectCode(){return Ability.CAN_ITEMS;}
+	@Override protected int canTargetCode(){return 0;}
+	@Override public int classificationCode(){return Ability.ACODE_CHANT|Ability.DOMAIN_WEATHER_MASTERY;}
+	@Override public int abstractQuality(){return Ability.QUALITY_INDIFFERENT;}
 	protected Room SpringLocation=null;
 	protected Item littleSpring=null;
 
+	@Override
 	public void unInvoke()
 	{
 		if(SpringLocation==null)
@@ -51,11 +54,11 @@ public class Chant_SummonPool extends Chant
 		if(littleSpring==null)
 			return;
 		if(canBeUninvoked())
-			SpringLocation.showHappens(CMMsg.MSG_OK_VISUAL,"The little pool dries up.");
+			SpringLocation.showHappens(CMMsg.MSG_OK_VISUAL,L("The little pool dries up."));
 		super.unInvoke();
 		if(canBeUninvoked())
 		{
-			Item spring=littleSpring; // protects against uninvoke loops!
+			final Item spring=littleSpring; // protects against uninvoke loops!
 			littleSpring=null;
 			spring.destroy();
 			SpringLocation.recoverRoomStats();
@@ -63,11 +66,13 @@ public class Chant_SummonPool extends Chant
 		}
 	}
 
-	public boolean invoke(MOB mob, Vector commands, Environmental givenTarget, boolean auto, int asLevel)
+	@Override
+	public boolean invoke(MOB mob, List<String> commands, Physical givenTarget, boolean auto, int asLevel)
 	{
-		if(mob.location().domainType()!=Room.DOMAIN_INDOORS_CAVE)
+		if((mob.location().domainType()!=Room.DOMAIN_INDOORS_CAVE)
+		&&((mob.location().getAtmosphere()&RawMaterial.MATERIAL_ROCK)==0))
 		{
-			mob.tell("This magic only works in caves.");
+			mob.tell(L("This magic only works in caves."));
 			return false;
 		}
 
@@ -75,35 +80,35 @@ public class Chant_SummonPool extends Chant
 			return false;
 
 		// now see if it worked
-		boolean success=proficiencyCheck(mob,0,auto);
+		final boolean success=proficiencyCheck(mob,0,auto);
 		if(success)
 		{
-			CMMsg msg=CMClass.getMsg(mob,null,this,verbalCastCode(mob,null,auto),auto?"":"^S<S-NAME> chant(s) for a pool.^?");
+			final CMMsg msg=CMClass.getMsg(mob,null,this,verbalCastCode(mob,null,auto),auto?"":L("^S<S-NAME> chant(s) for a pool.^?"));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);
-				String itemID = "Spring";
+				final String itemID = "Spring";
 
-				Item newItem=CMClass.getItem(itemID);
+				final Item newItem=CMClass.getItem(itemID);
 				if(newItem==null)
 				{
-					mob.tell("There's no such thing as a '"+itemID+"'.\n\r");
+					mob.tell(L("There's no such thing as a '@x1'.\n\r",itemID));
 					return false;
 				}
-				newItem.setName("a magical pool");
-				newItem.setDisplayText("a little magical pool flows here.");
-				newItem.setDescription("The pool is coming magically from the ground.  The water looks pure and clean.");
+				newItem.setName(L("a magical pool"));
+				newItem.setDisplayText(L("a little magical pool flows here."));
+				newItem.setDescription(L("The pool is coming magically from the ground.  The water looks pure and clean."));
 
 				mob.location().addItem(newItem);
-				mob.location().showHappens(CMMsg.MSG_OK_ACTION,"Suddenly, "+newItem.name()+" starts flowing here.");
+				mob.location().showHappens(CMMsg.MSG_OK_ACTION,L("Suddenly, @x1 starts flowing here.",newItem.name()));
 				SpringLocation=mob.location();
 				littleSpring=newItem;
 				beneficialAffect(mob,newItem,asLevel,0);
-				mob.location().recoverEnvStats();
+				mob.location().recoverPhyStats();
 			}
 		}
 		else
-			return beneficialWordsFizzle(mob,null,"<S-NAME> chant(s) for a pool, but nothing happens.");
+			return beneficialWordsFizzle(mob,null,L("<S-NAME> chant(s) for a pool, but nothing happens."));
 
 		// return whether it worked
 		return success;

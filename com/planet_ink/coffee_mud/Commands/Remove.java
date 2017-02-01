@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Commands;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,21 +10,21 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
-
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2004-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -31,54 +32,85 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
+
 public class Remove extends StdCommand
 {
-	public Remove(){}
+	public Remove()
+	{
+	}
 
-	private String[] access={"REMOVE","REM"};
-	public String[] getAccessWords(){return access;}
+	private final String[]	access	= I(new String[] { "REMOVE", "REM" });
 
+	@Override
+	public String[] getAccessWords()
+	{
+		return access;
+	}
 
+	@SuppressWarnings("rawtypes")
+	private final static Class[][] internalParameters=new Class[][]{{Item.class},{Item.class,Boolean.class}};
 
-	public boolean execute(MOB mob, Vector commands, int metaFlags)
+	@Override
+	public boolean execute(MOB mob, List<String> commands, int metaFlags)
 		throws java.io.IOException
 	{
+		Vector<String> origCmds=new XVector<String>(commands);
 		if(commands.size()<2)
 		{
-			mob.tell("Remove what?");
+			CMLib.commands().doCommandFail(mob,origCmds,L("Remove what?"));
 			return false;
 		}
-		commands.removeElementAt(0);
-		if(commands.firstElement() instanceof Item)
-		{
-			boolean quiet=((commands.size()>1)&&(commands.lastElement() instanceof String)&&(((String)commands.lastElement()).equalsIgnoreCase("QUIETLY")));
-			Item item=(Item)commands.firstElement();
-			CMMsg newMsg=CMClass.getMsg(mob,item,null,CMMsg.MSG_REMOVE,quiet?null:"<S-NAME> remove(s) <T-NAME>.");
-			if(mob.location().okMessage(mob,newMsg))
-			{
-				mob.location().send(mob,newMsg);
-				return true;
-			}
-			return false;
-		}
-
-		Vector items=CMLib.english().fetchItemList(mob,mob,null,commands,Wearable.FILTER_WORNONLY,false);
+		commands.remove(0);
+		final List<Item> items=CMLib.english().fetchItemList(mob,mob,null,commands,Wearable.FILTER_WORNONLY,false);
 		if(items.size()==0)
-			mob.tell("You don't seem to be wearing that.");
+			CMLib.commands().doCommandFail(mob,origCmds,L("You don't seem to be wearing that."));
 		else
 		for(int i=0;i<items.size();i++)
 		{
-			Item item=(Item)items.elementAt(i);
-			CMMsg newMsg=CMClass.getMsg(mob,item,null,CMMsg.MSG_REMOVE,"<S-NAME> remove(s) <T-NAME>.");
+			final Item item=items.get(i);
+			final CMMsg newMsg=CMClass.getMsg(mob,item,null,CMMsg.MSG_REMOVE,L("<S-NAME> remove(s) <T-NAME>."));
 			if(mob.location().okMessage(mob,newMsg))
 				mob.location().send(mob,newMsg);
 		}
 		return false;
 	}
-    public double combatActionsCost(MOB mob, Vector cmds){return CMath.div(CMProps.getIntVar(CMProps.SYSTEMI_DEFCOMCMDTIME),100.0);}
-    public double actionsCost(MOB mob, Vector cmds){return CMath.div(CMProps.getIntVar(CMProps.SYSTEMI_DEFCMDTIME),100.0);}
-	public boolean canBeOrdered(){return true;}
-
 	
+	@Override
+	public Object executeInternal(MOB mob, int metaFlags, Object... args) throws java.io.IOException
+	{
+		if(!super.checkArguments(internalParameters, args))
+			return Boolean.FALSE;
+		if(args[0] instanceof Item)
+		{
+			final Item item=(Item)args[0];
+			final boolean quiet=((args.length>1) && (args[1] instanceof Boolean)) ? ((Boolean)args[1]).booleanValue() : false;
+			final CMMsg newMsg=CMClass.getMsg(mob,item,null,CMMsg.MSG_REMOVE,quiet?null:L("<S-NAME> remove(s) <T-NAME>."));
+			if(mob.location().okMessage(mob,newMsg))
+			{
+				mob.location().send(mob,newMsg);
+				return Boolean.TRUE;
+			}
+			return Boolean.FALSE;
+		}
+		return Boolean.FALSE;
+	}
+	
+	@Override
+	public double combatActionsCost(final MOB mob, final List<String> cmds)
+	{
+		return CMProps.getCommandCombatActionCost(ID());
+	}
+
+	@Override
+	public double actionsCost(final MOB mob, final List<String> cmds)
+	{
+		return CMProps.getCommandActionCost(ID());
+	}
+
+	@Override
+	public boolean canBeOrdered()
+	{
+		return true;
+	}
+
 }

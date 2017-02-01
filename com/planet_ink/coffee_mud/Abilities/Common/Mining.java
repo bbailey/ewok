@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Common;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,20 +10,21 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2002-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -31,42 +33,87 @@ import java.util.*;
    limitations under the License.
 */
 
-@SuppressWarnings("unchecked")
+
 public class Mining extends GatheringSkill
 {
-	public String ID() { return "Mining"; }
-	public String name(){ return "Mining";}
-	private static final String[] triggerStrings = {"MINE","MINING"};
-	public String[] triggerStrings(){return triggerStrings;}
-	public int classificationCode(){return Ability.ACODE_COMMON_SKILL|Ability.DOMAIN_GATHERINGSKILL;}
-	protected boolean allowedWhileMounted(){return false;}
-	public String supportedResourceString(){return "GLASS|PRECIOUS|SAND|ROCK|METAL|MITHRIL";}
+	@Override
+	public String ID()
+	{
+		return "Mining";
+	}
 
-	protected Item found=null;
-	protected String foundShortName="";
+	private final static String	localizedName	= CMLib.lang().L("Mining");
+
+	@Override
+	public String name()
+	{
+		return localizedName;
+	}
+
+	private static final String[]	triggerStrings	= I(new String[] { "MINE", "MINING" });
+
+	@Override
+	public String[] triggerStrings()
+	{
+		return triggerStrings;
+	}
+
+	@Override
+	public int classificationCode()
+	{
+		return Ability.ACODE_COMMON_SKILL | Ability.DOMAIN_GATHERINGSKILL;
+	}
+
+	@Override
+	protected boolean allowedWhileMounted()
+	{
+		return false;
+	}
+
+	@Override
+	public String supportedResourceString()
+	{
+		return "GLASS|PRECIOUS|SAND|ROCK|METAL|MITHRIL";
+	}
+
+	protected Item		found			= null;
+	protected String	foundShortName	= "";
+
 	public Mining()
 	{
 		super();
-		displayText="You are mining...";
-		verb="mining";
+		displayText=L("You are mining...");
+		verb=L("mining");
 	}
 
+	protected int getDuration(MOB mob, int level)
+	{
+		return getDuration(50,mob,level,15);
+	}
+
+	@Override
+	protected int baseYield()
+	{
+		return 1;
+	}
+
+	@Override
 	public boolean tick(Tickable ticking, int tickID)
 	{
 		if((affected!=null)&&(affected instanceof MOB)&&(tickID==Tickable.TICKID_MOB))
 		{
-			MOB mob=(MOB)affected;
+			final MOB mob=(MOB)affected;
 			if(tickUp==6)
 			{
 				if(found!=null)
 				{
-					commonTell(mob,"You have found a vein of "+foundShortName+"!");
-					displayText="You are mining "+foundShortName;
-					verb="mining "+foundShortName;
+					commonTell(mob,L("You have found a vein of @x1!",foundShortName));
+					displayText=L("You are mining @x1",foundShortName);
+					verb=L("mining @x1",foundShortName);
 				}
 				else
 				{
-					StringBuffer str=new StringBuffer("You can't seem to find anything worth mining here.\n\r");
+					final StringBuffer str=new StringBuffer(L("You can't seem to find anything worth mining here.\n\r"));
 					commonTell(mob,str.toString());
 					unInvoke();
 				}
@@ -76,28 +123,40 @@ public class Mining extends GatheringSkill
 		return super.tick(ticking,tickID);
 	}
 
+	@Override
 	public void unInvoke()
 	{
 		if(canBeUninvoked())
 		{
-			if((affected!=null)&&(affected instanceof MOB))
+			if(affected instanceof MOB)
 			{
-				MOB mob=(MOB)affected;
+				final MOB mob=(MOB)affected;
 				if((found!=null)&&(!aborted))
 				{
-					int amount=CMLib.dice().roll(1,10,0);
+					int amount;
+					if(RawMaterial.CODES.VALUE(found.material())>=50)
+						amount=CMLib.dice().roll(1,4,0);
+					else
+						amount=CMLib.dice().roll(1,6,0);
 					if(((found.material()&RawMaterial.MATERIAL_MASK)==RawMaterial.MATERIAL_ROCK)
 					&&(found.material()!=RawMaterial.RESOURCE_COAL))
-						amount=CMLib.dice().roll(1,85,0);
-					amount=amount*abilityCode();
-					String s="s";
-					if(amount==1) s="";
-					mob.location().show(mob,null,CMMsg.MSG_NOISYMOVEMENT,"<S-NAME> manage(s) to mine "+amount+" pound"+s+" of "+foundShortName+".");
-					for(int i=0;i<amount;i++)
+						amount=CMLib.dice().roll(1,25,0);
+					amount=amount*(baseYield()+abilityCode());
+					final CMMsg msg=CMClass.getMsg(mob,found,this,getCompletedActivityMessageType(),null);
+					msg.setValue(amount);
+					if(mob.location().okMessage(mob, msg))
 					{
-						Item newFound=(Item)found.copyOf();
-						mob.location().addItemRefuse(newFound,CMProps.getIntVar(CMProps.SYSTEMI_EXPIRE_RESOURCE));
-						//CMLib.commands().postGet(mob,null,newFound,true);
+						String s="s";
+						if(msg.value()==1)
+							s="";
+						msg.modify(L("<S-NAME> manage(s) to mine @x1 pound@x2 of @x3.",""+msg.value(),s,foundShortName));
+						mob.location().send(mob, msg);
+						for(int i=0;i<msg.value();i++)
+						{
+							final Item newFound=(Item)found.copyOf();
+							if(!dropAWinner(mob,newFound))
+								break;
+						}
 					}
 				}
 			}
@@ -106,20 +165,23 @@ public class Mining extends GatheringSkill
 	}
 
 
-	public boolean invoke(MOB mob, Vector commands, Environmental givenTarget, boolean auto, int asLevel)
+	@Override
+	public boolean invoke(MOB mob, List<String> commands, Physical givenTarget, boolean auto, int asLevel)
 	{
-        bundling=false;
+		if(super.checkStop(mob, commands))
+			return true;
+		bundling=false;
 		if((!auto)
 		&&(commands.size()>0)
-		&&(((String)commands.firstElement()).equalsIgnoreCase("bundle")))
+		&&((commands.get(0)).equalsIgnoreCase("bundle")))
 		{
-            bundling=true;
+			bundling=true;
 			if(super.invoke(mob,commands,givenTarget,auto,asLevel))
-			    return super.bundle(mob,commands);
-		    return false;
+				return super.bundle(mob,commands);
+			return false;
 		}
-		verb="mining";
-        playSound="dig.wav";
+		verb=L("mining");
+		playSound="dig.wav";
 		found=null;
 		if((!confirmPossibleMaterialLocation(RawMaterial.MATERIAL_PRECIOUS,mob.location()))
 		&&(!confirmPossibleMaterialLocation(RawMaterial.MATERIAL_GLASS,mob.location()))
@@ -128,12 +190,12 @@ public class Mining extends GatheringSkill
 		&&(!confirmPossibleMaterialLocation(RawMaterial.MATERIAL_METAL,mob.location()))
 		&&(!confirmPossibleMaterialLocation(RawMaterial.MATERIAL_MITHRIL,mob.location())))
 		{
-			commonTell(mob,"You don't think this is a good place to mine.");
+			commonTell(mob,L("You don't think this is a good place to mine."));
 			return false;
 		}
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
 			return false;
-		int resourceType=mob.location().myResource();
+		final int resourceType=mob.location().myResource();
 		if((proficiencyCheck(mob,0,auto))
 		   &&((resourceType&RawMaterial.MATERIAL_MASK)!=RawMaterial.MATERIAL_PRECIOUS)
 		   &&((resourceType&RawMaterial.MATERIAL_MASK)!=RawMaterial.MATERIAL_GLASS)
@@ -147,8 +209,8 @@ public class Mining extends GatheringSkill
 			if(found!=null)
 				foundShortName=RawMaterial.CODES.NAME(found.material()).toLowerCase();
 		}
-		int duration=getDuration(50,mob,1,15);
-		CMMsg msg=CMClass.getMsg(mob,found,this,CMMsg.MSG_NOISYMOVEMENT,"<S-NAME> start(s) mining.");
+		final int duration=getDuration(mob,1);
+		final CMMsg msg=CMClass.getMsg(mob,found,this,getActivityMessageType(),L("<S-NAME> start(s) mining."));
 		if(mob.location().okMessage(mob,msg))
 		{
 			mob.location().send(mob,msg);

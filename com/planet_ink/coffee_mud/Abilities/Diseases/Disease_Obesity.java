@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Diseases;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,21 +10,23 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
-import java.util.Vector;
+
+import java.util.List;
 
 
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2004-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,117 +35,141 @@ import java.util.Vector;
    limitations under the License.
 */
 
-@SuppressWarnings("unchecked")
+
 public class Disease_Obesity extends Disease
 {
-	public String ID() { return "Disease_Obesity"; }
-	public String name(){ return "Obesity";}
+	@Override public String ID() { return "Disease_Obesity"; }
+	private final static String localizedName = CMLib.lang().L("Obesity");
+	@Override public String name() { return localizedName; }
+	@Override
 	public String displayText()
 	{
-	    int amount=amountOfFat();
-	    if(amount<20)
-		    return "(Chubby)";
-	    else
-	    if(amount<60)
-		    return "(Fat)";
-	    else
-	    if(amount<120)
-		    return "(Obese)";
-	    else
-		    return "(Morbid obesity)";
+		final int amount=amountOfFat();
+		if(amount<20)
+			return "(Chubby)";
+		else
+		if(amount<60)
+			return "(Fat)";
+		else
+		if(amount<120)
+			return "(Obese)";
+		else
+			return "(Morbid obesity)";
 	}
-	protected int canAffectCode(){return CAN_MOBS;}
-	protected int canTargetCode(){return CAN_MOBS;}
-	public int abstractQuality(){return Ability.QUALITY_MALICIOUS;}
-	public boolean putInCommandlist(){return false;}
-	public int difficultyLevel(){return 10;}
+	@Override protected int canAffectCode(){return CAN_MOBS;}
+	@Override protected int canTargetCode(){return CAN_MOBS;}
+	@Override public int abstractQuality(){return Ability.QUALITY_MALICIOUS;}
+	@Override public boolean putInCommandlist(){return false;}
+	@Override public int difficultyLevel(){return 10;}
 
-	protected int DISEASE_TICKS(){return 999999;}
-	protected int DISEASE_DELAY(){return 50;}
-	protected String DISEASE_DONE(){return "You've become fit and trim!";}
-	protected String DISEASE_START(){return "^G<S-NAME> look(s) like <S-HE-SHE> <S-HAS-HAVE> been gaining some weight.^?";}
-	protected String DISEASE_AFFECT(){return "";}
-	public int abilityCode(){return 0;}
-	public boolean canBeUninvoked(){canBeUninvoked=!(amountOfFat()>0);return super.canBeUninvoked();}
-    protected long lastLoss=-1;
+	@Override protected int DISEASE_TICKS(){return 999999;}
+	@Override protected int DISEASE_DELAY(){return 50;}
+	@Override protected String DISEASE_DONE(){return L("You've become fit and trim!");}
+	@Override protected String DISEASE_START(){return L("^G<S-NAME> look(s) like <S-HE-SHE> <S-HAS-HAVE> been gaining some weight.^?");}
+	@Override protected String DISEASE_AFFECT(){return "";}
+	@Override public int abilityCode(){return 0;}
+	@Override public boolean canBeUninvoked(){canBeUninvoked=!(amountOfFat()>0);return super.canBeUninvoked();}
+	protected long lastLoss=-1;
 	protected int fatAmount=-1;
-	
+
 	protected int amountOfFat()
 	{
-	    if((fatAmount<0)&&(CMath.isNumber(text()))) 
-	        fatAmount=CMath.s_int(text());
-        if(fatAmount<0) fatAmount=0;
-	    if(fatAmount>=0) return fatAmount;
-	    return 1;
-	}
-	
-	public void setMiscText(String newText)
-	{
-	    super.setMiscText(newText);
-	    fatAmount=-1;
-	}
-	
-	private void setFatAmountChange(int change)
-	{
-        setMiscText(""+(amountOfFat()+change));
+		if((fatAmount<0)&&(CMath.isNumber(text())))
+			fatAmount=CMath.s_int(text());
+		if(fatAmount<0)
+			fatAmount=0;
+		if(fatAmount>=0)
+			return fatAmount;
+		return 1;
 	}
 
+	@Override
+	public void setMiscText(String newText)
+	{
+		super.setMiscText(newText);
+		fatAmount=-1;
+	}
+
+	private void setFatAmountChange(int change)
+	{
+		setMiscText(""+(amountOfFat()+change));
+	}
+
+	@Override
 	public void affectCharStats(MOB affectedMob, CharStats affectableStats)
 	{
 		super.affectCharStats(affectedMob, affectableStats);
-	    affectableStats.setStat(CharStats.STAT_WEIGHTADJ, 
-    		affectableStats.getStat(CharStats.STAT_WEIGHTADJ)
-    		+(int)Math.round(CMath.mul(affectedMob.baseEnvStats().weight(),CMath.div(CMath.s_int(text()),100.0))));
+		affectableStats.setStat(CharStats.STAT_WEIGHTADJ,
+			affectableStats.getStat(CharStats.STAT_WEIGHTADJ)
+			+(int)Math.round(CMath.mul(affectedMob.basePhyStats().weight(),CMath.div(CMath.s_int(text()),100.0))));
 	}
-	public void affectEnvStats(Environmental affected, EnvStats affectableStats)
+	@Override
+	public void affectPhyStats(Physical affected, PhyStats affectableStats)
 	{
-	    super.affectEnvStats(affected,affectableStats);
+		super.affectPhyStats(affected,affectableStats);
 	}
-	
+
+	@Override
 	public void affectCharState(MOB affected, CharState affectableState)
 	{
-	    super.affectCharState(affected,affectableState);
-	    int oldMovement=affectableState.getMovement();
-	    affectableState.setMovement(affectableState.getMovement()-(int)Math.round(CMath.mul(affectableState.getMovement(),CMath.div(CMath.s_int(text()),100.0))));
-	    if((affectableState.getMovement()<20)&&(oldMovement>20)) affectableState.setMovement(20);
+		super.affectCharState(affected,affectableState);
+		final int oldMovement=affectableState.getMovement();
+		affectableState.setMovement(affectableState.getMovement()-(int)Math.round(CMath.mul(affectableState.getMovement(),CMath.div(CMath.s_int(text()),100.0))));
+		if((affectableState.getMovement()<20)&&(oldMovement>20))
+			affectableState.setMovement(20);
 	}
-	
+
+	@Override
 	public boolean tick(Tickable ticking, int tickID)
 	{
-	    if((ticking==affected)&&(tickID==Tickable.TICKID_MOB)&&(affected instanceof MOB))
-	    {
-	        MOB mob=(MOB)affected;
-	        if((mob.curState().getMovement()<mob.maxState().getMovement()/10)
-	        &&((lastLoss<0)||((System.currentTimeMillis()-lastLoss)>10000)))
-	        {
-	            lastLoss=System.currentTimeMillis();
-	            int change=CMLib.dice().roll(1,10,0);
-	            int fat=amountOfFat();
-	            if(fat>=0)
-	            {
-		            if(fat<change)
-					    setFatAmountChange(-fat);
-		            else
-					    setFatAmountChange(-change);
-	            }
-	        }
-	        if(amountOfFat()<=0)
-	            unInvoke();
-	    }
-	    return super.tick(ticking,tickID);
+		if((ticking==affected)&&(tickID==Tickable.TICKID_MOB)&&(affected instanceof MOB))
+		{
+			final MOB mob=(MOB)affected;
+			if((mob.curState().getMovement()<mob.maxState().getMovement()/10)
+			&&((lastLoss<0)||((System.currentTimeMillis()-lastLoss)>10000)))
+			{
+				lastLoss=System.currentTimeMillis();
+				final int change=CMLib.dice().roll(1,10,0);
+				final int fat=amountOfFat();
+				if(fat>=0)
+				{
+					if(fat<change)
+						setFatAmountChange(-fat);
+					else
+						setFatAmountChange(-change);
+				}
+			}
+			if((mob.curState().adjTicksHungry(false) >= CMProps.getTicksPerMudHour())
+			&&((lastLoss<0)||((System.currentTimeMillis()-lastLoss)>10000)))
+			{
+				lastLoss=System.currentTimeMillis();
+				final int change=CMLib.dice().roll(1,3,0);
+				final int fat=amountOfFat();
+				if(fat>=0)
+				{
+					if(fat<change)
+						setFatAmountChange(-fat);
+					else
+						setFatAmountChange(-change);
+				}
+			}
+			if(amountOfFat()<=0)
+				unInvoke();
+		}
+		return super.tick(ticking,tickID);
 	}
-	
+
+	@Override
 	public void executeMsg(Environmental host, CMMsg msg)
 	{
 		if((msg.source()==affected)
 		&&(msg.targetMinor()==CMMsg.TYP_EAT)
-		&&(msg.target()!=null)
 		&&(msg.source().curState().getHunger()>=msg.source().maxState().maxHunger(msg.source().baseWeight())))
 		{
-		    setFatAmountChange(CMLib.dice().roll(1,5,0));
-		    msg.source().recoverEnvStats();
-		    msg.source().recoverCharStats();
-		    msg.source().recoverMaxState();
+			setFatAmountChange(CMLib.dice().roll(1,5,0));
+			msg.source().recoverPhyStats();
+			msg.source().recoverCharStats();
+			msg.source().recoverMaxState();
 		}
 		else
 		if((msg.target()==affected)
@@ -150,35 +177,38 @@ public class Disease_Obesity extends Disease
 		&&(CMLib.flags().canBeSeenBy(affected,msg.source()))
 		&&(affected instanceof MOB))
 		{
-		    int amount=amountOfFat();
-		    String str="";
-		    if(amount<20)
-			    str="a bit chubby";
-		    else
-		    if(amount<60)
-			    str="fat";
-		    else
-		    if(amount<120)
-			    str="obese";
-		    else
-			    str="morbidly obese";
+			final int amount=amountOfFat();
+			String str="";
+			if(amount<20)
+				str=L("a bit chubby");
+			else
+			if(amount<60)
+				str=L("fat");
+			else
+			if(amount<120)
+				str=L("obese");
+			else
+				str=L("morbidly obese");
 			msg.addTrailerMsg(CMClass.getMsg(msg.source(),null,null,
-										  CMMsg.MSG_OK_VISUAL,"\n\r"+affected.name()+" is "+str+".\n\r",
+										  CMMsg.MSG_OK_VISUAL,L("\n\r@x1 is @x2.\n\r",affected.name(),str),
 										  CMMsg.NO_EFFECT,null,
 										  CMMsg.NO_EFFECT,null));
 		}
 		super.executeMsg(host,msg);
 	}
-	
-	public boolean invoke(MOB mob, Vector commands, Environmental givenTarget, boolean auto, int asLevel)
+
+	@Override
+	public boolean invoke(MOB mob, List<String> commands, Physical givenTarget, boolean auto, int asLevel)
 	{
-		MOB target=this.getTarget(mob,commands,givenTarget);
-		if(target==null) return false;
+		final MOB target=this.getTarget(mob,commands,givenTarget);
+		if(target==null)
+			return false;
 
 		if(super.invoke(mob,commands,givenTarget,auto,asLevel))
 		{
-		    Ability A=target.fetchEffect(ID());
-		    if(A!=null) A.setMiscText(""+CMLib.dice().roll(1,5,0));
+			final Ability A=target.fetchEffect(ID());
+			if(A!=null)
+				A.setMiscText(""+CMLib.dice().roll(1,5,0));
 			return true;
 		}
 		return false;

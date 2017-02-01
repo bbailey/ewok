@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Commands;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,6 +10,7 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -16,13 +18,13 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2000-2010 Bo Zimmerman
+   Copyright 2004-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -30,123 +32,165 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
 public class After extends StdCommand implements Tickable
 {
-	public String name(){return "SysOpSkills";} // for tickables use
-	public long getTickStatus(){return Tickable.STATUS_NOT;}
+	@Override
+	public String name()
+	{
+		return "SysOpSkills";
+	} // for tickables use
 
-	public Vector afterCmds=new Vector();
+	@Override
+	public int getTickStatus()
+	{
+		return Tickable.STATUS_NOT;
+	}
 
-	public After(){}
+	public List<AfterCommand> afterCmds=new Vector<AfterCommand>();
 
-	private String[] access={"AFTER"};
-	public String[] getAccessWords(){return access;}
-	public boolean execute(MOB mob, Vector commands, int metaFlags)
+	public After()
+	{
+	}
+
+	private static class AfterCommand
+	{
+		long start=0;
+		long duration=0;
+		boolean every=false;
+		MOB M=null;
+		List<String> command=null;
+		int metaFlags=0;
+	}
+
+	private final String[]	access	= I(new String[] { "AFTER" });
+
+	@Override
+	public String[] getAccessWords()
+	{
+		return access;
+	}
+
+	@Override
+	public boolean execute(MOB mob, List<String> commands, int metaFlags)
 		throws java.io.IOException
 	{
 		boolean every=false;
-		commands.removeElementAt(0);
+		commands.remove(0);
 
-		String afterErr="format: after (every) [X] [TICKS/MINUTES/SECONDS/HOURS] [COMMAND]";
-		if(commands.size()==0){ mob.tell(afterErr); return false;}
-		if(((String)commands.elementAt(0)).equalsIgnoreCase("stop"))
+		final String afterErr="format: after (every) [X] [TICKS/MINUTES/SECONDS/HOURS] [COMMAND]";
+		if (commands.size() == 0)
+		{
+			mob.tell(afterErr);
+			return false;
+		}
+		if(commands.get(0).equalsIgnoreCase("stop"))
 		{
 			afterCmds.clear();
 			CMLib.threads().deleteTick(this,Tickable.TICKID_AREA);
-			mob.tell("Ok.");
+			mob.tell(L("Ok."));
 			return false;
 		}
-		if(((String)commands.elementAt(0)).equalsIgnoreCase("list"))
+		if(commands.get(0).equalsIgnoreCase("list"))
 		{
 			//afterCmds.clear();
 			int s=0;
-			StringBuffer str=new StringBuffer("^xCurrently scheduled AFTERs: ^?^.^?\n\r");
-			str.append(CMStrings.padRight("Next run",20)+" "+CMStrings.padRight(" Interval",20)+" "+CMStrings.padRight("Who",10)+" Command\n\r");
+			final StringBuffer str=new StringBuffer(L("^xCurrently scheduled AFTERs: ^?^.^?\n\r"));
+			str.append(L("@x1 @x2 @x3 Command\n\r",CMStrings.padRight(L("Next run"),20),CMStrings.padRight(L(" Interval"),20),CMStrings.padRight(L("Who"),10)));
 			while(s<afterCmds.size())
 			{
-				Vector V=(Vector)afterCmds.elementAt(s);
-				long start=((Long)V.elementAt(0)).longValue();
-				long duration=((Long)V.elementAt(1)).longValue();
-				every=((Boolean)V.elementAt(2)).booleanValue();
-				MOB M=((MOB)V.elementAt(3));
-				Vector command=(Vector)V.elementAt(4);
-				str.append(CMStrings.padRight(CMLib.time().date2String(start+duration),20)+" ");
-				str.append((every?"*":" ")+CMStrings.padRight(CMLib.english().returnTime(duration,0),20)+" ");
-				str.append(CMStrings.padRight(M.Name(),10)+" ");
-				str.append(CMStrings.limit(CMParms.combine(command,0),25)+"\n\r");
+				final AfterCommand V=afterCmds.get(s);
+				every=V.every;
+				str.append(CMStrings.padRight(CMLib.time().date2String(V.start+V.duration),20)+" ");
+				str.append((every?"*":" ")+CMStrings.padRight(CMLib.english().returnTime(V.duration,0),20)+" ");
+				str.append(CMStrings.padRight(V.M.Name(),10)+" ");
+				str.append(CMStrings.limit(CMParms.combine(V.command,0),25)+"\n\r");
 				s++;
 			}
 			mob.tell(str.toString());
 			return false;
 		}
-		if(((String)commands.elementAt(0)).equalsIgnoreCase("every"))
-		{ every=true; commands.removeElementAt(0);}
-		if(commands.size()==0){ mob.tell(afterErr); return false;}
-		long time=CMath.s_long((String)commands.elementAt(0));
-		if(time==0) { mob.tell("Time may not be 0."+afterErr); return false;}
-		commands.removeElementAt(0);
-		if(commands.size()==0){ mob.tell(afterErr); return false;}
-		String s=(String)commands.elementAt(0);
-		if("ticks".startsWith(s.toLowerCase()))
-			time=time*Tickable.TIME_TICK;
-		else
-        if("seconds".startsWith(s.toLowerCase()))
-			time=time*1000;
-		else
-        if("minutes".startsWith(s.toLowerCase()))
-			time=time*1000*60;
-		else
-        if("hours".startsWith(s.toLowerCase()))
-			time=time*1000*60*60;
-		else
+		if(commands.get(0).equalsIgnoreCase("every"))
 		{
-			mob.tell("'"+s+" Time may not be 0. "+afterErr);
+			every = true;
+			commands.remove(0);
+		}
+		if (commands.size() == 0)
+		{
+			mob.tell(afterErr);
 			return false;
 		}
-		commands.removeElementAt(0);
-		if(commands.size()==0){ mob.tell(afterErr); return false;}
-		Vector V=new Vector();
-		V.addElement(Long.valueOf(System.currentTimeMillis()));
-		V.addElement(Long.valueOf(time));
-		V.addElement(Boolean.valueOf(every));
-		V.addElement(mob);
-		V.addElement(commands);
-		V.addElement(Integer.valueOf(metaFlags));
-		afterCmds.addElement(V);
+		long time=CMath.s_long(commands.get(0));
+		if (time == 0)
+		{
+			mob.tell(L("Time may not be 0.@x1", afterErr));
+			return false;
+		}
+		commands.remove(0);
+		if (commands.size() == 0)
+		{
+			mob.tell(afterErr);
+			return false;
+		}
+		final String s=commands.get(0);
+		final long multiplier=CMLib.english().getMillisMultiplierByName(s);
+		if(multiplier<0)
+		{
+			mob.tell(L("'@x1 Time may not be 0. @x2",s,afterErr));
+			return false;
+		}
+		else
+			time=time*multiplier;
+		commands.remove(0);
+		if (commands.size() == 0)
+		{
+			mob.tell(afterErr);
+			return false;
+		}
+		final AfterCommand V=new AfterCommand();
+		V.start=System.currentTimeMillis();
+		V.duration=time;
+		V.every=every;
+		V.M=mob;
+		V.command=new XVector<String>(CMParms.toStringArray(commands));
+		V.metaFlags=metaFlags;
+		afterCmds.add(V);
 		CMLib.threads().startTickDown(this,Tickable.TICKID_AREA,1);
-		mob.tell("Ok.");
+		mob.tell(L("Ok."));
 		return false;
 	}
 
-	public boolean canBeOrdered(){return true;}
-	public boolean securityCheck(MOB mob){return CMSecurity.isAllowed(mob,mob.location(),"AFTER");}
+	@Override
+	public boolean canBeOrdered()
+	{
+		return false;
+	}
 
+	@Override
+	public boolean securityCheck(MOB mob)
+	{
+		return CMSecurity.isAllowed(mob, mob.location(), CMSecurity.SecFlag.AFTER);
+	}
 
-
+	@Override
 	public boolean tick(Tickable ticking, int tickID)
 	{
-		if(afterCmds.size()==0) return false;
+		if(afterCmds.size()==0)
+			return false;
 		int s=0;
 		while(s<afterCmds.size())
 		{
-			Vector V=(Vector)afterCmds.elementAt(s);
-			long start=((Long)V.elementAt(0)).longValue();
-			long duration=((Long)V.elementAt(1)).longValue();
-			if(System.currentTimeMillis()>(start+duration))
+			final AfterCommand cmd=afterCmds.get(s);
+			if(System.currentTimeMillis()>(cmd.start+cmd.duration))
 			{
-				boolean every=((Boolean)V.elementAt(2)).booleanValue();
-				MOB mob=((MOB)V.elementAt(3));
-				Vector command=(Vector)V.elementAt(4);
-				Integer metaFlag=(Integer)V.elementAt(5);
+				final boolean every=cmd.every;
 				if(every)
 				{
-					V.setElementAt(Long.valueOf(System.currentTimeMillis()),0);
+					cmd.start=System.currentTimeMillis();
 					s++;
 				}
 				else
-					afterCmds.removeElementAt(s);
-				mob.doCommand((Vector)command.clone(),metaFlag.intValue());
+					afterCmds.remove(s);
+				cmd.M.doCommand(new XVector<String>(cmd.command),cmd.metaFlags);
 			}
 			else
 				s++;

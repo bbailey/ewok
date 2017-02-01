@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.MOBS;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,20 +10,21 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2001-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,16 +34,21 @@ import java.util.*;
 */
 public class HillGiant extends StdMOB
 {
-	public String ID(){return "HillGiant";}
+	@Override
+	public String ID()
+	{
+		return "HillGiant";
+	}
+
 	public HillGiant()
 	{
 		super();
-		Username="a Hill Giant";
+		username="a Hill Giant";
 		setDescription("A tall humanoid standing about 16 feet tall and very smelly.");
 		setDisplayText("A Hill Giant glares at you.");
-		CMLib.factions().setAlignment(this,Faction.ALIGN_EVIL);
+		CMLib.factions().setAlignment(this,Faction.Align.EVIL);
 		setMoney(0);
-		baseEnvStats.setWeight(3500 + CMLib.dice().roll(1, 1000, 0));
+		basePhyStats.setWeight(3500 + CMLib.dice().roll(1, 1000, 0));
 
 
 		baseCharStats().setStat(CharStats.STAT_INTELLIGENCE,6 + CMLib.dice().roll(1, 2, 0));
@@ -50,19 +57,19 @@ public class HillGiant extends StdMOB
 		baseCharStats().setMyRace(CMClass.getRace("Giant"));
 		baseCharStats().getMyRace().startRacing(this,false);
 
-		baseEnvStats().setDamage(19);
-		baseEnvStats().setSpeed(1.0);
-		baseEnvStats().setAbility(0);
-		baseEnvStats().setLevel(12);
-		baseEnvStats().setArmor(0);
+		basePhyStats().setDamage(19);
+		basePhyStats().setSpeed(1.0);
+		basePhyStats().setAbility(0);
+		basePhyStats().setLevel(12);
+		basePhyStats().setArmor(0);
 
-		baseState.setHitPoints(CMLib.dice().roll(baseEnvStats().level(),20,baseEnvStats().level()));
+		baseState.setHitPoints(CMLib.dice().roll(basePhyStats().level(),20,basePhyStats().level()));
 
 		addBehavior(CMClass.getBehavior("Aggressive"));
 
 		recoverMaxState();
 		resetToMaxState();
-		recoverEnvStats();
+		recoverPhyStats();
 		recoverCharStats();
 	}
 

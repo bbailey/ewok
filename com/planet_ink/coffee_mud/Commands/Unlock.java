@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Commands;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,20 +10,21 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2004-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -30,24 +32,27 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
+
 public class Unlock extends StdCommand
 {
 	public Unlock(){}
 
-	private String[] access={"UNLOCK","UNL","UN"};
-	public String[] getAccessWords(){return access;}
-	public boolean execute(MOB mob, Vector commands, int metaFlags)
+	private final String[] access=I(new String[]{"UNLOCK","UNL","UN"});
+	@Override public String[] getAccessWords(){return access;}
+
+	@Override
+	public boolean execute(MOB mob, List<String> commands, int metaFlags)
 		throws java.io.IOException
 	{
-		String whatTounlock=CMParms.combine(commands,1);
+		Vector<String> origCmds=new XVector<String>(commands);
+		final String whatTounlock=CMParms.combine(commands,1);
 		if(whatTounlock.length()==0)
 		{
-			mob.tell("Unlock what?");
+			CMLib.commands().doCommandFail(mob,origCmds,L("Unlock what?"));
 			return false;
 		}
 		Environmental unlockThis=null;
-		int dirCode=Directions.getGoodDirectionCode(whatTounlock);
+		int dirCode=CMLib.directions().getGoodDirectionCode(whatTounlock);
 		if(dirCode>=0)
 			unlockThis=mob.location().getExitInDir(dirCode);
 		if(unlockThis==null)
@@ -55,13 +60,14 @@ public class Unlock extends StdCommand
 
 		if((unlockThis==null)||(!CMLib.flags().canBeSeenBy(unlockThis,mob)))
 		{
-			mob.tell("You don't see '"+whatTounlock+"' here.");
+			CMLib.commands().doCommandFail(mob,origCmds,L("You don't see '@x1' here.",whatTounlock));
 			return false;
 		}
-		CMMsg msg=CMClass.getMsg(mob,unlockThis,null,CMMsg.MSG_UNLOCK,"<S-NAME> unlock(s) <T-NAMESELF>."+CMProps.msp("doorunlock.wav",10));
+		final String unlockMsg="<S-NAME> unlock(s) <T-NAMESELF>."+CMLib.protocol().msp("doorunlock.wav",10);
+		final CMMsg msg=CMClass.getMsg(mob,unlockThis,null,CMMsg.MSG_UNLOCK,unlockMsg,whatTounlock,unlockMsg);
 		if(unlockThis instanceof Exit)
 		{
-			boolean locked=((Exit)unlockThis).isLocked();
+			final boolean locked=((Exit)unlockThis).isLocked();
 			if((mob.location().okMessage(msg.source(),msg))
 			&&(locked))
 			{
@@ -73,18 +79,22 @@ public class Unlock extends StdCommand
 
 				if((dirCode>=0)&&(mob.location().getRoomInDir(dirCode)!=null))
 				{
-					Room opR=mob.location().getRoomInDir(dirCode);
-					Exit opE=mob.location().getPairedExit(dirCode);
+					final Room opR=mob.location().getRoomInDir(dirCode);
+					final Exit opE=mob.location().getPairedExit(dirCode);
 					if(opE!=null)
 					{
-						CMMsg altMsg=CMClass.getMsg(msg.source(),opE,msg.tool(),msg.sourceCode(),null,msg.targetCode(),null,msg.othersCode(),null);
+						final CMMsg altMsg=CMClass.getMsg(msg.source(),opE,msg.tool(),msg.sourceCode(),null,msg.targetCode(),null,msg.othersCode(),null);
 						opE.executeMsg(msg.source(),altMsg);
 					}
-					int opCode=Directions.getOpDirectionCode(dirCode);
+					final int opCode=Directions.getOpDirectionCode(dirCode);
 					if((opE!=null)
 					&&(!opE.isLocked())
 					&&(!((Exit)unlockThis).isLocked()))
-					   opR.showHappens(CMMsg.MSG_OK_ACTION,opE.name()+" "+Directions.getInDirectionName(opCode)+" is unlocked from the other side.");
+					{
+						final boolean useShipDirs=(opR instanceof BoardableShip)||(opR.getArea() instanceof BoardableShip);
+						final String inDirName=useShipDirs?CMLib.directions().getShipInDirectionName(opCode):CMLib.directions().getInDirectionName(opCode);
+						opR.showHappens(CMMsg.MSG_OK_ACTION,L("@x1 @x2 is unlocked from the other side.",opE.name(),inDirName));
+					}
 				}
 			}
 		}
@@ -93,9 +103,9 @@ public class Unlock extends StdCommand
 			mob.location().send(mob,msg);
 		return false;
 	}
-    public double combatActionsCost(MOB mob, Vector cmds){return CMath.div(CMProps.getIntVar(CMProps.SYSTEMI_DEFCOMCMDTIME),100.0);}
-    public double actionsCost(MOB mob, Vector cmds){return CMath.div(CMProps.getIntVar(CMProps.SYSTEMI_DEFCMDTIME),100.0);}
-	public boolean canBeOrdered(){return true;}
+	@Override public double combatActionsCost(final MOB mob, final List<String> cmds){return CMProps.getCommandCombatActionCost(ID());}
+	@Override public double actionsCost(final MOB mob, final List<String> cmds){return CMProps.getCommandActionCost(ID());}
+	@Override public boolean canBeOrdered(){return true;}
 
-	
+
 }

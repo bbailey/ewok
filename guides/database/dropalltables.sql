@@ -1,5 +1,6 @@
 drop table cmvfs;
 drop table cmchab;
+drop table cmchcl;
 drop table cmstat;
 drop table cmpoll;
 drop table cmchar;
@@ -18,3 +19,5 @@ drop table cmgrac;
 drop table cmccac;
 drop table cmgaac;
 drop table cmacct;
+drop table cmbklg;
+drop table cmclit;

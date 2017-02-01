@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Items.Basic;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,20 +10,21 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 
 import java.util.*;
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2001-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,11 +34,16 @@ import java.util.*;
 */
 public class LightSource extends StdItem implements Light
 {
-	public String ID(){	return "LightSource";}
-	protected boolean lit=false;
-	protected int durationTicks=200;
-	protected boolean destroyedWhenBurnedOut=true;
-	protected boolean goesOutInTheRain=true;
+	@Override
+	public String ID()
+	{
+		return "LightSource";
+	}
+
+	protected boolean	lit						= false;
+	protected int		durationTicks			= 200;
+	protected boolean	destroyedWhenBurnedOut	= true;
+	protected boolean	goesOutInTheRain		= true;
 
 	public LightSource()
 	{
@@ -49,22 +56,55 @@ public class LightSource extends StdItem implements Light
 		setMaterial(RawMaterial.RESOURCE_OAK);
 		wornLogicalAnd=false;
 		baseGoldValue=5;
-		recoverEnvStats();
+		recoverPhyStats();
 	}
 
-	public void setDuration(int duration){durationTicks=duration;}
-	public int getDuration(){return durationTicks;}
-	public boolean destroyedWhenBurnedOut(){return destroyedWhenBurnedOut;}
-	public void setDestroyedWhenBurntOut(boolean truefalse){destroyedWhenBurnedOut=truefalse;}
-	public boolean goesOutInTheRain(){return this.goesOutInTheRain;}
-	public boolean isLit(){return lit;}
-	public void light(boolean isLit){lit=isLit;}
-
-
-
-	public boolean okMessage(Environmental myHost, CMMsg msg)
+	@Override
+	public void setDuration(int duration)
 	{
-		MOB mob=msg.source();
+		durationTicks = duration;
+	}
+
+	@Override
+	public int getDuration()
+	{
+		return durationTicks;
+	}
+
+	@Override
+	public boolean destroyedWhenBurnedOut()
+	{
+		return destroyedWhenBurnedOut;
+	}
+
+	@Override
+	public void setDestroyedWhenBurntOut(boolean truefalse)
+	{
+		destroyedWhenBurnedOut = truefalse;
+	}
+
+	@Override
+	public boolean goesOutInTheRain()
+	{
+		return this.goesOutInTheRain;
+	}
+
+	@Override
+	public boolean isLit()
+	{
+		return lit;
+	}
+
+	@Override
+	public void light(boolean isLit)
+	{
+		lit = isLit;
+	}
+
+	@Override
+	public boolean okMessage(final Environmental myHost, final CMMsg msg)
+	{
+		final MOB mob=msg.source();
 		if(!msg.amITarget(this))
 			return super.okMessage(myHost,msg);
 		switch(msg.targetMinor())
@@ -72,10 +112,10 @@ public class LightSource extends StdItem implements Light
 		case CMMsg.TYP_HOLD:
 			if(getDuration()==0)
 			{
-				mob.tell(name()+" looks used up.");
+				mob.tell(L("@x1 looks used up.",name()));
 				return false;
 			}
-			Room room=mob.location();
+			final Room room=mob.location();
 			if(room!=null)
 			{
 				if(((LightSource.inTheRain(room)&&(goesOutInTheRain()))
@@ -83,7 +123,7 @@ public class LightSource extends StdItem implements Light
 				   &&(getDuration()>0)
 				   &&(mob.isMine(this)))
 				{
-					mob.tell("It's too wet to light "+name()+" here.");
+					mob.tell(L("It's too wet to light @x1 here.",name()));
 					return false;
 				}
 			}
@@ -91,7 +131,7 @@ public class LightSource extends StdItem implements Light
 		case CMMsg.TYP_EXTINGUISH:
 			if((getDuration()==0)||(!isLit()))
 			{
-				mob.tell(name()+" is not lit!");
+				mob.tell(L("@x1 is not lit!",name()));
 				return false;
 			}
 			return true;
@@ -99,16 +139,18 @@ public class LightSource extends StdItem implements Light
 		return super.okMessage(myHost,msg);
 	}
 
-	public void recoverEnvStats()
+	@Override
+	public void recoverPhyStats()
 	{
 		if((getDuration()>0)&&(isLit()))
-			baseEnvStats().setDisposition(baseEnvStats().disposition()|EnvStats.IS_LIGHTSOURCE);
+			basePhyStats().setDisposition(basePhyStats().disposition()|PhyStats.IS_LIGHTSOURCE);
 		else
-		if((baseEnvStats().disposition()&EnvStats.IS_LIGHTSOURCE)==EnvStats.IS_LIGHTSOURCE)
-			baseEnvStats().setDisposition(baseEnvStats().disposition()-EnvStats.IS_LIGHTSOURCE);
-		super.recoverEnvStats();
+		if((basePhyStats().disposition()&PhyStats.IS_LIGHTSOURCE)==PhyStats.IS_LIGHTSOURCE)
+			basePhyStats().setDisposition(basePhyStats().disposition()-PhyStats.IS_LIGHTSOURCE);
+		super.recoverPhyStats();
 	}
 
+	@Override
 	public boolean tick(Tickable ticking, int tickID)
 	{
 		if(tickID==Tickable.TICKID_LIGHT_FLICKERS)
@@ -119,9 +161,9 @@ public class LightSource extends StdItem implements Light
 			{
 				if(owner() instanceof Room)
 				{
-                    Room R=(Room)owner();
+					final Room R=(Room)owner();
 					if(R.numInhabitants()>0)
-						R.showHappens(CMMsg.MSG_OK_VISUAL,name()+" flickers and burns out.");
+						R.showHappens(CMMsg.MSG_OK_VISUAL,L("@x1 flickers and burns out.",name()));
 					if(destroyedWhenBurnedOut())
 						destroy();
 					R.recoverRoomStats();
@@ -129,17 +171,17 @@ public class LightSource extends StdItem implements Light
 				else
 				if(owner() instanceof MOB)
 				{
-                    MOB M=(MOB)owner();
-					M.tell(M,null,this,"<O-NAME> flickers and burns out.");
+					final MOB M=(MOB)owner();
+					M.tell(M,null,this,L("<O-NAME> flickers and burns out."));
 					setDuration(0);
 					if(destroyedWhenBurnedOut())
 						destroy();
-					M.recoverEnvStats();
+					M.recoverPhyStats();
 					M.recoverCharStats();
 					M.recoverMaxState();
-					M.recoverEnvStats();
-                    if(M.location()!=null)
-    					M.location().recoverRoomStats();
+					M.recoverPhyStats();
+					if(M.location()!=null)
+						M.location().recoverRoomStats();
 				}
 			}
 			light(false);
@@ -152,33 +194,38 @@ public class LightSource extends StdItem implements Light
 
 	public static boolean inTheRain(Room room)
 	{
-		if(room==null) return false;
+		if((room==null)||(room.getArea()==null))
+			return false;
 		return (((room.domainType()&Room.INDOORS)==0)
 				&&((room.getArea().getClimateObj().weatherType(room)==Climate.WEATHER_RAIN)
 				   ||(room.getArea().getClimateObj().weatherType(room)==Climate.WEATHER_THUNDERSTORM)));
 	}
+
 	public static boolean inTheWater(MOB mob, Room room)
 	{
-		if((room==null)||(mob==null)) return false;
-		if((room.domainType()==Room.DOMAIN_OUTDOORS_UNDERWATER)
-	    ||(room.domainType()==Room.DOMAIN_INDOORS_UNDERWATER))
-            return true;
-        if((!CMLib.flags().isFlying(mob))
-        &&(mob.riding()==null)
-        &&(CMLib.flags().isSwimmingInWater(mob)))
-            return true;
-        return false;
+		if((room==null)||(mob==null))
+			return false;
+		if(CMLib.flags().isUnderWateryRoom(room))
+			return true;
+		if((!CMLib.flags().isFlying(mob))
+		&&(mob.riding()==null)
+		&&(CMLib.flags().isSwimmingInWater(mob)))
+			return true;
+		return false;
 	}
 
-	public void executeMsg(Environmental myHost, CMMsg msg)
+	@Override
+	public void executeMsg(final Environmental myHost, final CMMsg msg)
 	{
 		super.executeMsg(myHost,msg);
-		MOB mob=msg.source();
-		if(mob==null) return;
-		Room room=mob.location();
-		if(room==null) return;
+		final MOB mob=msg.source();
+		if(mob==null)
+			return;
+		final Room room=mob.location();
+		if(room==null)
+			return;
 		if(((LightSource.inTheRain(room)&&goesOutInTheRain())
-                   ||(LightSource.inTheWater(msg.source(),room)))
+				   ||(LightSource.inTheWater(msg.source(),room)))
 		&&(isLit())
 		&&(getDuration()>0)
 		&&(mob.isMine(this))
@@ -187,13 +234,15 @@ public class LightSource extends StdItem implements Light
 		   ||((room.domainType()!=Room.DOMAIN_OUTDOORS_WATERSURFACE)&&(room.domainType()!=Room.DOMAIN_INDOORS_WATERSURFACE))))
 		{
 			if(LightSource.inTheWater(msg.source(),room))
-				mob.tell("The water makes "+name()+" go out.");
+				mob.tell(L("The water makes @x1 go out.",name()));
 			else
-				mob.tell("The rain makes "+name()+" go out.");
+				mob.tell(L("The rain makes @x1 go out.",name()));
+			durationTicks=1;
 			tick(this,Tickable.TICKID_LIGHT_FLICKERS);
 		}
 
 		if(msg.amITarget(this))
+		{
 			switch(msg.targetMinor())
 			{
 			case CMMsg.TYP_EXTINGUISH:
@@ -201,7 +250,7 @@ public class LightSource extends StdItem implements Light
 				{
 					light(false);
 					CMLib.threads().deleteTick(this,Tickable.TICKID_LIGHT_FLICKERS);
-					recoverEnvStats();
+					recoverPhyStats();
 					room.recoverRoomStats();
 				}
 				break;
@@ -209,27 +258,26 @@ public class LightSource extends StdItem implements Light
 				if(getDuration()>0)
 				{
 					if(!isLit())
-						msg.addTrailerMsg(CMClass.getMsg(mob,null,CMMsg.MSG_OK_ACTION,"<S-NAME> light(s) up "+name()+"."));
+						msg.addTrailerMsg(CMClass.getMsg(mob,this,CMMsg.MASK_SOUND|CMMsg.MASK_HANDS|CMMsg.MASK_MOVE|CMMsg.TYP_FIRE,L("<S-NAME> light(s) up @x1.",name())));
 					else
-						mob.tell(name()+" is already lit.");
+						mob.tell(L("@x1 is already lit.",name()));
 					light(true);
 					CMLib.threads().startTickDown(this,Tickable.TICKID_LIGHT_FLICKERS,getDuration());
-					recoverEnvStats();
-					msg.source().recoverEnvStats();
+					recoverPhyStats();
+					msg.source().recoverPhyStats();
 					room.recoverRoomStats();
 				}
 				break;
 			}
 			if((msg.tool()==this)
-			&&(msg.sourceMinor()==CMMsg.TYP_THROW)
-			&&(msg.source()!=null))
+			&&(msg.sourceMinor()==CMMsg.TYP_THROW))
 			{
-				msg.source().recoverEnvStats();
-				if(!CMath.bset(msg.sourceCode(),CMMsg.MASK_OPTIMIZE))
+				msg.source().recoverPhyStats();
+				if(!CMath.bset(msg.sourceMajor(),CMMsg.MASK_OPTIMIZE))
 				{
 					if(msg.source().location()!=null)
 						msg.source().location().recoverRoomStats();
-					Room R=CMLib.map().roomLocation(msg.target());
+					final Room R=CMLib.map().roomLocation(msg.target());
 					if((R!=null)&&(R!=msg.source().location()))
 						R.recoverRoomStats();
 				}
@@ -241,21 +289,21 @@ public class LightSource extends StdItem implements Light
 				{
 				case CMMsg.TYP_DROP:
 				case CMMsg.TYP_GET:
+				case CMMsg.TYP_PUSH:
+				case CMMsg.TYP_PULL:
 				case CMMsg.TYP_REMOVE:
-					if(msg.source()!=null)
+					if(!CMath.bset(msg.targetMajor(),CMMsg.MASK_OPTIMIZE))
 					{
-						if(!CMath.bset(msg.targetCode(),CMMsg.MASK_OPTIMIZE))
-						{
-							msg.source().recoverEnvStats();
-							if(msg.source().location()!=null)
-								msg.source().location().recoverRoomStats();
-							Room R=CMLib.map().roomLocation(msg.tool());
-							if((R!=null)&&(R!=msg.source().location()))
-								R.recoverRoomStats();
-						}
+						msg.source().recoverPhyStats();
+						if(msg.source().location()!=null)
+							msg.source().location().recoverRoomStats();
+						final Room R=CMLib.map().roomLocation(msg.tool());
+						if((R!=null)&&(R!=msg.source().location()))
+							R.recoverRoomStats();
 					}
 					break;
 				}
 			}
 		}
+	}
 }

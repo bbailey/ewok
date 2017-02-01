@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.MOBS;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,20 +10,21 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2001-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,21 +34,26 @@ import java.util.*;
 */
 public class Jaguar extends StdMOB
 {
-	public String ID(){return "Jaguar";}
+	@Override
+	public String ID()
+	{
+		return "Jaguar";
+	}
+
 	public Jaguar()
 	{
 		super();
-		Random randomizer = new Random(System.currentTimeMillis());
+		final Random randomizer = new Random(System.currentTimeMillis());
 
-		Username="a jaguar";
+		username="a jaguar";
 		setDescription("A powerful cat with a deep chest and muscular limbs.  It\\`s covered in light yellow fur with black spots.");
 		setDisplayText("A jaguar prowls quietly.");
-		CMLib.factions().setAlignment(this,Faction.ALIGN_NEUTRAL);
+		CMLib.factions().setAlignment(this,Faction.Align.NEUTRAL);
 		setMoney(0);
-		baseEnvStats.setWeight(20 + Math.abs(randomizer.nextInt() % 45));
+		basePhyStats.setWeight(20 + Math.abs(randomizer.nextInt() % 45));
 		setWimpHitPoint(2);
 
-		baseEnvStats.setWeight(200 + Math.abs(randomizer.nextInt() % 55));
+		basePhyStats.setWeight(200 + Math.abs(randomizer.nextInt() % 55));
 
 
 		baseCharStats().setStat(CharStats.STAT_INTELLIGENCE,1);
@@ -55,17 +62,17 @@ public class Jaguar extends StdMOB
 		baseCharStats().setMyRace(CMClass.getRace("GreatCat"));
 		baseCharStats().getMyRace().startRacing(this,false);
 
-		baseEnvStats().setDamage(8);
-		baseEnvStats().setSpeed(2.0);
-		baseEnvStats().setAbility(0);
-		baseEnvStats().setLevel(4);
-		baseEnvStats().setArmor(60);
+		basePhyStats().setDamage(8);
+		basePhyStats().setSpeed(2.0);
+		basePhyStats().setAbility(0);
+		basePhyStats().setLevel(4);
+		basePhyStats().setArmor(80);
 
-		baseState.setHitPoints(CMLib.dice().roll(baseEnvStats().level(),20,baseEnvStats().level()));
+		baseState.setHitPoints(CMLib.dice().roll(basePhyStats().level(),20,basePhyStats().level()));
 
 		recoverMaxState();
 		resetToMaxState();
-		recoverEnvStats();
+		recoverPhyStats();
 		recoverCharStats();
 	}
 

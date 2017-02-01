@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Properties;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,21 +10,21 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
-
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2003-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -31,28 +32,37 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
-public class Prop_ReqEntry extends Property
+@SuppressWarnings({"unchecked","rawtypes"})
+public class Prop_ReqEntry extends Property implements TriggeredAffect
 {
-	public String ID() { return "Prop_ReqEntry"; }
-	public String name(){ return "All Room/Exit Limitations";}
-	protected int canAffectCode(){return Ability.CAN_ROOMS|Ability.CAN_AREAS|Ability.CAN_EXITS;}
+	@Override public String ID() { return "Prop_ReqEntry"; }
+	@Override public String name(){ return "All Room/Exit Limitations";}
+	@Override protected int canAffectCode(){return Ability.CAN_ROOMS|Ability.CAN_AREAS|Ability.CAN_EXITS;}
 	private boolean noFollow=false;
 	private boolean noSneak=false;
 	private String maskS="";
 	private String message="";
-	
+
+	@Override public long flags(){return Ability.FLAG_ZAPPER;}
+
+	@Override
+	public int triggerMask()
+	{
+		return TriggeredAffect.TRIGGER_ENTER;
+	}
+
+	@Override
 	public void setMiscText(String txt)
 	{
 		noFollow=false;
 		noSneak=false;
 		maskS=txt;
 		message="";
-		Vector parms=CMParms.parse(txt);
+		final Vector<String> parms=CMParms.parse(txt);
 		String s;
-		for(Enumeration p=parms.elements();p.hasMoreElements();)
+		for(final Enumeration<String> p=parms.elements();p.hasMoreElements();)
 		{
-			s=(String)p.nextElement();
+			s=p.nextElement();
 			if("NOFOLLOW".startsWith(s.toUpperCase()))
 			{
 				maskS=CMStrings.replaceFirst(maskS, s, "");
@@ -74,7 +84,8 @@ public class Prop_ReqEntry extends Property
 		}
 		super.setMiscText(txt);
 	}
-	
+
+	@Override
 	public String accountForYourself()
 	{
 		return "Entry restricted as follows: "+CMLib.masking().maskDesc(maskS);
@@ -82,36 +93,38 @@ public class Prop_ReqEntry extends Property
 
 	public boolean passesMuster(MOB mob)
 	{
-		if(mob==null) return false;
+		if(mob==null)
+			return false;
 		if(CMLib.flags().isATrackingMonster(mob))
 			return true;
 		if(CMLib.flags().isSneaking(mob)&&(!noSneak))
 			return true;
 		return CMLib.masking().maskCheck(maskS,mob,false);
 	}
-	public boolean okMessage(Environmental myHost, CMMsg msg)
+	@Override
+	public boolean okMessage(final Environmental myHost, final CMMsg msg)
 	{
-		if((affected!=null)&&(msg.target()!=null))
+		if(affected!=null)
 		{
 			if((msg.target() instanceof Room)
 			&&(msg.targetMinor()==CMMsg.TYP_ENTER)
 			&&(!CMLib.flags().isFalling(msg.source()))
 			&&((msg.amITarget(affected))||(msg.tool()==affected)||(affected instanceof Area)))
 			{
-				HashSet H=new HashSet();
+				final HashSet<MOB> H=new HashSet<MOB>();
 				if(noFollow)
 					H.add(msg.source());
 				else
 				{
 					msg.source().getGroupMembers(H);
-					HashSet H2=(HashSet)H.clone();
-					for(Iterator e=H2.iterator();e.hasNext();)
+					final HashSet<MOB> H2=(HashSet)H.clone();
+					for(final Iterator e=H2.iterator();e.hasNext();)
 						((MOB)e.next()).getRideBuddies(H);
 				}
-				for(Iterator e=H.iterator();e.hasNext();)
+				for(final Iterator e=H.iterator();e.hasNext();)
 					if(passesMuster((MOB)e.next()))
 						return super.okMessage(myHost,msg);
-				msg.source().tell((message.length()==0)?"You can not go that way.":message);
+				msg.source().tell((message.length()==0)?L("You can not go that way."):message);
 				return false;
 			}
 			else
@@ -125,25 +138,24 @@ public class Prop_ReqEntry extends Property
 				case CMMsg.TYP_SLEEP:
 				case CMMsg.TYP_MOUNT:
 					{
-						HashSet H=new HashSet();
+						HashSet<MOB> H=new HashSet<MOB>();
 						if(noFollow)
 							H.add(msg.source());
 						else
 						{
 							msg.source().getGroupMembers(H);
-							HashSet H2=(HashSet)H.clone();
-							for(Iterator e=H.iterator();e.hasNext();)
-								((MOB)e.next()).getRideBuddies(H2);
+							final HashSet<MOB> H2=new XHashSet<MOB>(H);
+							for(final Iterator<MOB> e=H.iterator();e.hasNext();)
+								e.next().getRideBuddies(H2);
 							H=H2;
 						}
-						for(Iterator e=H.iterator();e.hasNext();)
+						for(final Iterator<MOB> e=H.iterator();e.hasNext();)
 						{
-						    Environmental E=(Environmental)e.next();
-						    if((E instanceof MOB)
-							&&(passesMuster((MOB)E)))
+							final MOB E=e.next();
+							if(passesMuster(E))
 								return super.okMessage(myHost,msg);
 						}
-						msg.source().tell((message.length()==0)?"You are not permitted in there.":message);
+						msg.source().tell((message.length()==0)?L("You are not permitted in there."):message);
 						return false;
 					}
 				default:

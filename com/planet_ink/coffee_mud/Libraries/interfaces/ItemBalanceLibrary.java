@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Libraries.interfaces;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -16,14 +17,14 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.*;
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2008-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -31,7 +32,6 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
 public interface ItemBalanceLibrary extends CMLibrary
 {
 	public int timsLevelCalculator(Item I);
@@ -39,8 +39,7 @@ public interface ItemBalanceLibrary extends CMLibrary
 	public boolean fixRejuvItem(Item I);
 	public void toneDownWeapon(Weapon W, Ability ADJ);
 	public void toneDownArmor(Armor A, Ability ADJ);
-	public void toneDownAdjuster(Item I, Ability ADJ);
-    public boolean toneDownValue(Item I);
+	public boolean toneDownValue(Item I);
 	public int timsBaseLevel(Item I);
 	public void balanceItemByLevel(Item I);
 	public int levelsFromCaster(Item savedI, Ability CAST);
@@ -48,12 +47,12 @@ public interface ItemBalanceLibrary extends CMLibrary
 	public boolean itemFix(Item I, int lvlOr0, StringBuffer changes);
 	public Ability[] getTimsAdjResCast(Item I, int[] castMul);
 	public Item enchant(Item I, int pct);
-    public int levelsFromAbility(Item savedI);
-    public Hashtable timsItemAdjustments(Item I,
-							             int level,
-							             int material,
-							             int hands,
-							             int wclass,
-							             int reach,
-							             long worndata);
+	public int levelsFromAbility(Item savedI);
+	public Map<String, String> timsItemAdjustments(Item I,
+										 int level,
+										 int material,
+										 int hands,
+										 int wclass,
+										 int reach,
+										 long worndata);
 }

@@ -23,7 +23,7 @@
                 return;
             if(autotitleid.indexOf(' ')>=0)
             {
-                window.alert('No spaces are allowed in your ID!');
+                if(window.alert) window.alert('No spaces are allowed in your ID!');
                 return;
             }
             document.RESOURCES.NEWAUTOTITLEID.value=autotitleid;
@@ -87,7 +87,7 @@
     </script>
 </head>
 <body BGCOLOR=BLACK>
-<FORM NAME=RESOURCES TARGET=_top METHOD=POST ACTION="autotitle.cmvp">
+<FORM  ACCEPT-CHARSET="UTF-8" NAME=RESOURCES TARGET=_top METHOD=POST ACTION="autotitle.cmvp">
 <INPUT TYPE=HIDDEN NAME=AUTH VALUE="@Authenticate?AUTH@">
 <INPUT TYPE=HIDDEN NAME=NEWAUTOTITLEID VALUE="">
 <INPUT TYPE=HIDDEN NAME=REPLACE VALUE="">

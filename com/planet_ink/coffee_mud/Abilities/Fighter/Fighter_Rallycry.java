@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Fighter;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,20 +10,21 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2003-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -31,28 +33,33 @@ import java.util.*;
    limitations under the License.
 */
 
-@SuppressWarnings("unchecked")
+
 public class Fighter_Rallycry extends FighterSkill
 {
-	public String ID() { return "Fighter_Rallycry"; }
-	public String name(){ return "Rally Cry";}
-	public String displayText(){return "(Rally Cry)";}
-	public int abstractQuality(){ return Ability.QUALITY_BENEFICIAL_OTHERS;}
-	private static final String[] triggerStrings = {"RALLYCRY"};
-	public String[] triggerStrings(){return triggerStrings;}
-	protected int canAffectCode(){return 0;}
-	protected int canTargetCode(){return Ability.CAN_MOBS;}
-	public int classificationCode(){return Ability.ACODE_SKILL|Ability.DOMAIN_SINGING;}
+	@Override public String ID() { return "Fighter_Rallycry"; }
+	private final static String localizedName = CMLib.lang().L("Rally Cry");
+	@Override public String name() { return localizedName; }
+	private final static String localizedStaticDisplay = CMLib.lang().L("(Rally Cry)");
+	@Override public String displayText() { return localizedStaticDisplay; }
+	@Override public int abstractQuality(){ return Ability.QUALITY_BENEFICIAL_OTHERS;}
+	private static final String[] triggerStrings =I(new String[] {"RALLYCRY"});
+	@Override public String[] triggerStrings(){return triggerStrings;}
+	@Override protected int canAffectCode(){return 0;}
+	@Override protected int canTargetCode(){return Ability.CAN_MOBS;}
+	@Override public int classificationCode(){return Ability.ACODE_SKILL|Ability.DOMAIN_SINGING;}
 	protected int timesTicking=0;
 	protected int hpUp=0;
 
+	@Override
 	public void affectCharState(MOB affected, CharState affectableStats)
 	{
 		super.affectCharState(affected,affectableStats);
-		if(invoker==null) return;
+		if(invoker==null)
+			return;
 		affectableStats.setHitPoints(affectableStats.getHitPoints()+hpUp);
 	}
 
+	@Override
 	public boolean tick(Tickable ticking, int tickID)
 	{
 		if(!super.tick(ticking,tickID))
@@ -64,44 +71,47 @@ public class Fighter_Rallycry extends FighterSkill
 		return true;
 	}
 
+	@Override
 	public void unInvoke()
 	{
 		// undo the affects of this spell
-		if((affected==null)||(!(affected instanceof MOB)))
+		if(!(affected instanceof MOB))
 			return;
-		MOB mob=(MOB)affected;
+		final MOB mob=(MOB)affected;
 
 		super.unInvoke();
 
 		if(canBeUninvoked())
 		{
-			mob.tell("You feel less rallied.");
+			mob.tell(L("You feel less rallied."));
 			mob.recoverMaxState();
 			if(mob.curState().getHitPoints()>mob.maxState().getHitPoints())
 				mob.curState().setHitPoints(mob.maxState().getHitPoints());
 		}
 	}
 
-	public boolean invoke(MOB mob, Vector commands, Environmental givenTarget, boolean auto, int asLevel)
+	@Override
+	public boolean invoke(MOB mob, List<String> commands, Physical givenTarget, boolean auto, int asLevel)
 	{
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
 			return false;
 
-		boolean success=proficiencyCheck(mob,0,auto);
+		final boolean success=proficiencyCheck(mob,0,auto);
 		if(success)
 		{
-			CMMsg msg=CMClass.getMsg(mob,null,this,CMMsg.MSG_SPEAK,auto?"":"^S<S-NAME> scream(s) a mighty RALLYING CRY!!^?");
+			final CMMsg msg=CMClass.getMsg(mob,null,this,CMMsg.MSG_SPEAK,auto?"":L("^S<S-NAME> scream(s) a mighty RALLYING CRY!!^?"));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);
-				HashSet h=properTargets(mob,givenTarget,auto);
-				if(h==null) return false;
-				for(Iterator e=h.iterator();e.hasNext();)
+				final Set<MOB> h=properTargets(mob,givenTarget,auto);
+				if(h==null)
+					return false;
+				for (final Object element : h)
 				{
-					MOB target=(MOB)e.next();
-					target.location().show(target,null,CMMsg.MSG_OK_VISUAL,"<S-NAME> seem(s) rallied!");
+					final MOB target=(MOB)element;
+					target.location().show(target,null,CMMsg.MSG_OK_VISUAL,L("<S-NAME> seem(s) rallied!"));
 					timesTicking=0;
-					hpUp=mob.envStats().level()+(2*getXLEVELLevel(mob));
+					hpUp=mob.phyStats().level()+(2*getXLEVELLevel(mob));
 					beneficialAffect(mob,target,asLevel,0);
 					target.recoverMaxState();
 					if(target.fetchEffect(ID())!=null)
@@ -110,7 +120,7 @@ public class Fighter_Rallycry extends FighterSkill
 			}
 		}
 		else
-			beneficialWordsFizzle(mob,null,auto?"":"<S-NAME> mumble(s) a weak rally cry.");
+			beneficialWordsFizzle(mob,null,auto?"":L("<S-NAME> mumble(s) a weak rally cry."));
 
 		// return whether it worked
 		return success;

@@ -25,12 +25,13 @@ Players currently online: <FONT COLOR=RED><b>@NUMPLAYERS@</B></FONT>
 </B></FONT></TD></TR>
 <TR><TD WIDTH=100%>
 <BR>
-<LI><a href="siplet/index.html"><FONT COLOR=GREEN><B>Play NOW</B></FONT></a><FONT COLOR=GREEN>&nbsp;(IE/NS7/FF)!</B></FONT>&nbsp;&nbsp;<a href="telnet:@MudInfo?DOMAIN@"><FONT SIZE=-2 COLOR=GREEN><I>(Others)</I></FONT></a>
+<LI><a href="sipletws/index.html"><FONT COLOR=GREEN><B>Play NOW</B></FONT></a><FONT COLOR=GREEN>&nbsp;(IE/CH/FF)!</B></FONT>&nbsp;&nbsp;<a href="telnet:@MudInfo?DOMAIN@"><FONT SIZE=-2 COLOR=GREEN><I>(Others)</I></FONT></a>
 <NOSCRIPT>
 <LI><a href="telnet:@MudInfo?DOMAIN@"><FONT COLOR=GREEN><B>Play NOW!</B></FONT></a>
 </NOSCRIPT>
 <LI><a href="access.cmvp"><FONT COLOR=GREEN><B>Player Access</B></FONT></a>
 <LI><a href="forums.cmvp"><FONT COLOR=GREEN><B>Public Forums</B></FONT></a>
+<LI><a href="topplayers.cmvp"><FONT COLOR=GREEN><B>Top Players</B></FONT></a>
 <LI><a href="helps.cmvp?FIRSTLETTER=A"><FONT COLOR=GREEN><B>Help Topics</B></FONT></a>
 <LI><a href="socials.cmvp"><FONT COLOR=GREEN><B>Socials List</B></FONT></a>
 <LI><a href="areas.cmvp"><FONT COLOR=GREEN><B>Installed Areas Information</B></FONT></a>
@@ -58,7 +59,7 @@ Players currently online: <FONT COLOR=RED><b>@NUMPLAYERS@</B></FONT>
 @BaseCharClassNext?RESET@
 @loop@
 @BaseCharClassNext@
-<LI><B>@BaseCharClassName@s: </B>
+<LI><B>@BaseCharClassName?PLURAL@: </B>
 	@CharClassNext?RESET@
 	@loop@
 		@CharClassNext@

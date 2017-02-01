@@ -1,6 +1,9 @@
 package com.planet_ink.coffee_mud.Libraries;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.CMClass.CMObjectType;
+import com.planet_ink.coffee_mud.core.collections.*;
+import com.planet_ink.coffee_mud.core.exceptions.CMException;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,25 +12,28 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Items.interfaces.TechComponent.ShipDir;
+import com.planet_ink.coffee_mud.Items.interfaces.Technical.TechType;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
-
 import java.io.IOException;
 import java.util.*;
+import java.util.Map.Entry;
 
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
-import com.planet_ink.coffee_mud.Libraries.interfaces.XMLLibrary.XMLpiece;
+import com.planet_ink.coffee_mud.Libraries.interfaces.CatalogLibrary.CataData;
+import com.planet_ink.coffee_mud.Libraries.interfaces.XMLLibrary.XMLTag;
 
 /*
-   Copyright 2000-2010 Bo Zimmerman
+   Copyright 2004-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -35,26 +41,24 @@ import com.planet_ink.coffee_mud.Libraries.interfaces.XMLLibrary.XMLpiece;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
 public class CoffeeMaker extends StdLibrary implements GenericBuilder
 {
-    public String ID(){return "CoffeeMaker";}
-    public Hashtable GENMOBCODESHASH=new Hashtable();
-    public Hashtable GENITEMCODESHASH=new Hashtable();
-
-	public boolean get(int x, int m)
+	@Override
+	public String ID()
 	{
-		return (x&m)==m;
+		return "CoffeeMaker";
 	}
-
+	
+	@Override
 	public String getGenMOBTextUnpacked(MOB mob, String newText)
 	{
 		if((newText!=null)&&((newText.length()>10)||newText.startsWith("%DBID>")))
 		{
 			if(newText.startsWith("%DBID>"))
 			{
-				String dbstr=CMLib.database().DBReadRoomMOBData(newText.substring(6,newText.indexOf("@")),
-																  ((Object)mob).getClass().getName()+newText.substring(newText.indexOf("@")).trim());
+				int x=newText.indexOf('@');
+				final String dbstr=CMLib.database().DBReadRoomMOBMiscText(newText.substring(6,x),
+																  ((Object)mob).getClass().getName()+newText.substring(x).trim());
 				if(dbstr!=null)
 					return dbstr;
 				Log.errOut("Unable to re-read mob data: "+newText);
@@ -65,109 +69,112 @@ public class CoffeeMaker extends StdLibrary implements GenericBuilder
 		return null;
 	}
 
+	@Override
 	public void resetGenMOB(MOB mob, String newText)
 	{
 		newText=getGenMOBTextUnpacked(mob,newText);
 		if(newText!=null)
 			setPropertiesStr(mob,newText,false);
 
-		mob.recoverEnvStats();
+		mob.recoverPhyStats();
 		mob.recoverCharStats();
-		mob.baseState().setHitPoints(CMLib.dice().rollHP(mob.baseEnvStats().level(),mob.baseEnvStats().ability()));
+		mob.baseState().setHitPoints(CMLib.dice().rollHP(mob.basePhyStats().level(),mob.basePhyStats().ability()));
 		mob.baseState().setMana(CMLib.leveler().getLevelMana(mob));
 		mob.baseState().setMovement(CMLib.leveler().getLevelMove(mob));
 		mob.recoverMaxState();
 		mob.resetToMaxState();
 		if(mob.getWimpHitPoint()>0)
 			mob.setWimpHitPoint((int)Math.round(CMath.mul(mob.curState().getHitPoints(),.10)));
-		mob.setExperience(CMLib.leveler().getLevelExperience(mob.envStats().level()-1)+500);
+		mob.setExperience(CMLib.leveler().getLevelExperience(mob.phyStats().level()-1)+500);
 	}
 
+	@Override
 	public int envFlags(Environmental E)
 	{
 		int f=0;
 		if(E instanceof Item)
 		{
-			Item item=(Item)E;
-			if(!CMath.bset(item.baseEnvStats().sensesMask(),EnvStats.SENSE_ITEMNODROP))
+			final Item item=(Item)E;
+			if(!CMath.bset(item.basePhyStats().sensesMask(),PhyStats.SENSE_ITEMNODROP))
 				f=f|1;
-			if(!CMath.bset(item.baseEnvStats().sensesMask(),EnvStats.SENSE_ITEMNOTGET))
+			if(!CMath.bset(item.basePhyStats().sensesMask(),PhyStats.SENSE_ITEMNOTGET))
 				f=f|2;
-			if(CMath.bset(item.baseEnvStats().sensesMask(),EnvStats.SENSE_ITEMREADABLE))
+			if(CMath.bset(item.basePhyStats().sensesMask(),PhyStats.SENSE_ITEMREADABLE))
 				f=f|4;
-			if(!CMath.bset(item.baseEnvStats().sensesMask(),EnvStats.SENSE_ITEMNOREMOVE))
+			if(!CMath.bset(item.basePhyStats().sensesMask(),PhyStats.SENSE_ITEMNOREMOVE))
 				f=f|8;
-		}
-		if(E instanceof Container)
-		{
-			Container container=(Container)E;
-
-			if(container.hasALid())
-				f=f|32;
-			if(container.hasALock())
-				f=f|64;
-			// defaultsclosed 128
-			// defaultslocked 256
 		}
 		else
 		if(E instanceof Exit)
 		{
-			Exit exit=(Exit)E;
+			final Exit exit=(Exit)E;
 			if(exit.isReadable())
 				f=f|4;
-			//if(exit.isTrapped())
-			//	f=f|16;
-			if(exit.hasADoor())
+		}
+		if(E instanceof CloseableLockable)
+		{
+			f = f | 16; // new style flag
+			final CloseableLockable container=(CloseableLockable)E;
+			if(container.hasADoor())
 				f=f|32;
-			if(exit.hasALock())
+			if(container.hasALock())
 				f=f|64;
-			if(exit.defaultsClosed())
+			if(container.defaultsClosed())
 				f=f|128;
-			if(exit.defaultsLocked())
+			if(container.defaultsLocked())
 				f=f|256;
-			//if(exit.levelRestricted())
-			//	f=f|512;
-			//if(exit.classRestricted())
-			//	f=f|1024;
-			//if(exit.alignmentRestricted())
-			//	f=f|2048;
 		}
 		return f;
 	}
 
+	@Override
 	public void setEnvFlags(Environmental E, int f)
 	{
 		if(E instanceof Item)
 		{
-			Item item=(Item)E;
+			final Item item=(Item)E;
 			// deprecated, but unfortunately, its here to stay.
-			CMLib.flags().setDroppable(item,get(f,1));
-			CMLib.flags().setGettable(item,get(f,2));
-			CMLib.flags().setReadable(item,get(f,4));
-			CMLib.flags().setRemovable(item,get(f,8));
-		}
-		if(E instanceof Container)
-		{
-			Container container=(Container)E;
-			container.setLidsNLocks(get(f,32),!get(f,32),get(f,64),get(f,64));
+			CMLib.flags().setDroppable(item,CMath.bset(f,1));
+			CMLib.flags().setGettable(item,CMath.bset(f,2));
+			CMLib.flags().setReadable(item,CMath.bset(f,4));
+			CMLib.flags().setRemovable(item,CMath.bset(f,8));
 		}
 		else
 		if(E instanceof Exit)
 		{
-			Exit exit=(Exit)E;
-			exit.setReadable(get(f,4));
-			if(get(f,16)) Log.errOut("CoffeeMaker","Exit "+identifier(E,null)+" has deprecated trap flag set!");
-			boolean HasDoor=get(f,32);
-			boolean HasLock=get(f,64);
-			boolean DefaultsClosed=get(f,128);
-			boolean DefaultsLocked=get(f,256);
-			if(get(f,512)) Log.errOut("CoffeeMaker","Exit "+identifier(E,null)+" has deprecated level restriction flag set!");
-			if(get(f,1024)) Log.errOut("CoffeeMaker","Exit "+identifier(E,null)+" has deprecated class restriction flag set!");
-			if(get(f,2048)) Log.errOut("CoffeeMaker","Exit "+identifier(E,null)+" has deprecated alignment restriction flag set!");
-			exit.setDoorsNLocks(HasDoor,(!HasDoor)||(!DefaultsClosed),DefaultsClosed,HasLock,HasLock&&DefaultsLocked,DefaultsLocked);
+			final Exit exit=(Exit)E;
+			exit.setReadable(CMath.bset(f,4));
+		}
+		
+		if(E instanceof CloseableLockable)
+		{
+			final CloseableLockable container=(CloseableLockable)E;
+			if((CMath.bset(f, 16))||(E instanceof Exit)) // this will be a 'new method' flag
+			{
+				final boolean hasDoor=CMath.bset(f,32);
+				final boolean hasLock=CMath.bset(f,64);
+				final boolean defaultsClosed=CMath.bset(f,128);
+				final boolean defaultsLocked=CMath.bset(f,256);
+				container.setDoorsNLocks(hasDoor,(!hasDoor)||(!defaultsClosed),defaultsClosed,hasLock,hasLock&&defaultsLocked,defaultsLocked);
+			}
+			else
+			{
+				final boolean hasDoor=CMath.bset(f,32);
+				final boolean hasLock=CMath.bset(f,64);
+				container.setDoorsNLocks(hasDoor,!hasDoor,hasDoor,hasLock,hasLock,hasLock);
+			}
 		}
 	}
 
+	@Override
+	public String getGenAbilityXML(Ability A)
+	{
+		return new StringBuilder("<ABILITY ID=\"").append(A.ID()).append("\" TYPE=\"").append(CMClass.getSimpleClassName(A)).append("\">")
+		   .append(A.getStat("ALLXML"))
+		   .append("</ABILITY>").toString();
+	}
+
+	@Override
 	public String getPropertiesStr(Environmental E, boolean fromTop)
 	{
 		if(E==null)
@@ -175,99 +182,133 @@ public class CoffeeMaker extends StdLibrary implements GenericBuilder
 			Log.errOut("CoffeeMaker","getPropertiesStr: null 'E'");
 			return "";
 		}
-		return (E.isGeneric()?getGenPropertiesStr(E):"") + (fromTop?getOrdPropertiesStr(E):"");
+		if(E instanceof SpaceObject)
+		{
+			final StringBuilder str=new StringBuilder("");
+			str.append(CMLib.xml().convertXMLtoTag("SSRADIUS",((SpaceObject)E).radius()));
+			str.append(CMLib.xml().convertXMLtoTag("SSCOORDS",CMParms.toListString(((SpaceObject)E).coordinates())));
+			str.append(CMLib.xml().convertXMLtoTag("SSDIR",CMParms.toListString(((SpaceObject)E).direction())));
+			str.append(CMLib.xml().convertXMLtoTag("SSSPEED",Math.round(((SpaceObject)E).speed())));
+			return str.append((E.isGeneric()?getGenPropertiesStr(E):"") + (fromTop?getOrdPropertiesStr(E):"")).toString();
+		}
+		else
+			return (E.isGeneric()?getGenPropertiesStr(E):"") + (fromTop?getOrdPropertiesStr(E):"");
 	}
 
-	public String getOrdPropertiesStr(Environmental E)
+	@Override
+	public void doGenPropertiesCopy(Environmental fromE, Environmental toE)
 	{
+		final String xml = getGenPropertiesStr(fromE) + getOrdPropertiesStr(fromE);
+		final List<XMLLibrary.XMLTag> xmlV = CMLib.xml().parseAllXML(xml);
+		this.setGenPropertiesStr(toE, xmlV);
+		this.setOrdPropertiesStr(toE, xmlV);
+		if(toE instanceof Physical)
+			recoverPhysical((Physical)toE);
+	}
+	
+	protected String getOrdPropertiesStr(Environmental E)
+	{
+		final StringBuilder str=new StringBuilder("");
 		if(E instanceof Room)
 		{
+			str.append(CMLib.xml().convertXMLtoTag("RCLIM", ((Room)E).getClimateTypeCode()));
+			str.append(CMLib.xml().convertXMLtoTag("RATMO", ((Room)E).getAtmosphereCode()));
 			if(E instanceof GridLocale)
-				return CMLib.xml().convertXMLtoTag("XGRID",((GridLocale)E).xGridSize())
-					  +CMLib.xml().convertXMLtoTag("YGRID",((GridLocale)E).yGridSize())
-					  +getExtraEnvPropertiesStr(E)
-                      +getGenScripts(E,false);
-			return getExtraEnvPropertiesStr(E)+getGenScripts(E,false);
+			{
+				str.append(CMLib.xml().convertXMLtoTag("XGRID",((GridLocale)E).xGridSize()));
+				str.append(CMLib.xml().convertXMLtoTag("YGRID",((GridLocale)E).yGridSize()));
+			}
+			if(E instanceof LocationRoom)
+				str.append(CMLib.xml().convertXMLtoTag("COREDIR",CMParms.toListString(((LocationRoom)E).getDirectionFromCore())));
+			str.append(getExtraEnvPropertiesStr(E));
+			str.append(getGenScripts((Room)E,false));
 		}
 		else
 		if(E instanceof Area)
 		{
-            Area myArea=(Area)E;
-		    StringBuffer str = new StringBuffer();
-		    StringBuffer parentstr = new StringBuffer();
-		    StringBuffer childrenstr = new StringBuffer();
-		    str.append(CMLib.xml().convertXMLtoTag("ARCHP",myArea.getArchivePath()));
-		    for(Enumeration e=myArea.getParents(); e.hasMoreElements();)
+			final Area myArea=(Area)E;
+			final StringBuilder parentstr = new StringBuilder();
+			final StringBuilder childrenstr = new StringBuilder();
+			str.append(CMLib.xml().convertXMLtoTag("ARCHP",myArea.getArchivePath()));
+			final Area defaultParentArea=CMLib.map().getDefaultParentArea();
+			for(final Enumeration<Area> e=myArea.getParents(); e.hasMoreElements();)
 			{
-		        Area A=(Area)e.nextElement();
-		        parentstr.append("<PARENT>");
-		        parentstr.append(CMLib.xml().convertXMLtoTag("PARENTNAMED", A.name()));
-		        parentstr.append("</PARENT>");
-		    }
-		    str.append(CMLib.xml().convertXMLtoTag("PARENTS",parentstr.toString()));
-		    for(Enumeration e=myArea.getChildren(); e.hasMoreElements();)
+				final Area A=e.nextElement();
+				if((A!=defaultParentArea)||(A.getTimeObj()!=CMLib.time().globalClock()))
+				{
+					parentstr.append("<PARENT>");
+					parentstr.append(CMLib.xml().convertXMLtoTag("PARENTNAMED", A.name()));
+					parentstr.append("</PARENT>");
+				}
+			}
+			str.append(CMLib.xml().convertXMLtoTag("PARENTS",parentstr.toString()));
+			for(final Enumeration<Area> e=myArea.getChildren(); e.hasMoreElements();)
 			{
-		        Area A=(Area)e.nextElement();
-		        childrenstr.append("<CHILD>");
-		        childrenstr.append(CMLib.xml().convertXMLtoTag("CHILDNAMED", A.name()));
-		        childrenstr.append("</CHILD>");
-		    }
-		    str.append(CMLib.xml().convertXMLtoTag("CHILDREN",childrenstr.toString()));
-		    str.append(getExtraEnvPropertiesStr(E));
-            str.append(getGenScripts(E,false));
+				final Area A=e.nextElement();
+				childrenstr.append("<CHILD>");
+				childrenstr.append(CMLib.xml().convertXMLtoTag("CHILDNAMED", A.name()));
+				childrenstr.append("</CHILD>");
+			}
+			str.append(CMLib.xml().convertXMLtoTag("CHILDREN",childrenstr.toString()));
+			str.append(getExtraEnvPropertiesStr(E));
+			str.append(getGenScripts((Area)E,false));
 			str.append(CMLib.xml().convertXMLtoTag("AUTHOR",myArea.getAuthorID()));
 			str.append(CMLib.xml().convertXMLtoTag("CURRENCY",myArea.getCurrency()));
-            Vector V=new Vector();
-            String flag=null;
-            for(int i=0;i<myArea.numBlurbFlags();i++)
-            {
-                flag=myArea.getBlurbFlag(i);
-                V.addElement((flag+" "+myArea.getBlurbFlag(flag)).trim());
-            }
-            str.append(CMLib.xml().convertXMLtoTag("BLURBS",CMLib.xml().getXMLList(V)));
+			if(myArea instanceof BoardableShip)
+				str.append(CMLib.xml().convertXMLtoTag("DISP",CMLib.xml().parseOutAngleBrackets(myArea.displayText())));
+			final Vector<String> V=new Vector<String>();
+			String flag=null;
+			for(final Enumeration<String> f=myArea.areaBlurbFlags();f.hasMoreElements();)
+			{
+				flag=f.nextElement();
+				V.addElement((flag+" "+myArea.getBlurbFlag(flag)).trim());
+			}
+			str.append(CMLib.xml().convertXMLtoTag("BLURBS",CMLib.xml().getXMLList(V)));
+			str.append(CMLib.xml().convertXMLtoTag("AATMO",((Area)E).getAtmosphereCode()));
 			if(E instanceof GridZones)
-	            str.append(CMLib.xml().convertXMLtoTag("XGRID",((GridZones)E).xGridSize())
+				str.append(CMLib.xml().convertXMLtoTag("XGRID",((GridZones)E).xGridSize())
 						  +CMLib.xml().convertXMLtoTag("YGRID",((GridZones)E).yGridSize()));
-		    return str.toString();
+			if(E instanceof AutoGenArea)
+			{
+				str.append(CMLib.xml().convertXMLtoTag("AGXMLPATH",CMLib.xml().parseOutAngleBrackets(((AutoGenArea)E).getGeneratorXmlPath())));
+				str.append(CMLib.xml().convertXMLtoTag("AGAUTOVAR",CMLib.xml().parseOutAngleBrackets(CMParms.toEqListString(((AutoGenArea)E).getAutoGenVariables()))));
+			}
 		}
 		else
 		if(E instanceof Ability)
-			return CMLib.xml().convertXMLtoTag("AWRAP",E.text());
+			str.append(CMLib.xml().convertXMLtoTag("AWRAP",E.text()));
 		else
 		if(E instanceof Item)
 		{
-			Item item=(Item)E;
-			String xml=
-				(((item instanceof Container)&&(((Container)item).capacity()>0))
-				?CMLib.xml().convertXMLtoTag("IID",""+E):"")
-				+CMLib.xml().convertXMLtoTag("IWORN",""+item.rawWornCode())
-				+CMLib.xml().convertXMLtoTag("ILOC",""+((item.container()!=null)?(""+item.container()):""))
-				+CMLib.xml().convertXMLtoTag("IUSES",""+item.usesRemaining())
-				+CMLib.xml().convertXMLtoTag("ILEVL",""+E.baseEnvStats().level())
-				+CMLib.xml().convertXMLtoTag("IABLE",""+E.baseEnvStats().ability())
-				+((E.isGeneric()?"":CMLib.xml().convertXMLtoTag("ITEXT",""+E.text())));
-			return xml;
+			final Item I=(Item)E;
+			str.append((((I instanceof Container)&&(((Container)I).capacity()>0))
+				?CMLib.xml().convertXMLtoTag("IID",""+I):""));
+			str.append(CMLib.xml().convertXMLtoTag("IWORN",""+I.rawWornCode()));
+			str.append(CMLib.xml().convertXMLtoTag("ILOC",""+((I.container()!=null)?(""+I.container()):"")));
+			str.append(CMLib.xml().convertXMLtoTag("IUSES",""+I.usesRemaining()));
+			str.append(CMLib.xml().convertXMLtoTag("ILEVL",""+I.basePhyStats().level()));
+			str.append(CMLib.xml().convertXMLtoTag("IABLE",""+I.basePhyStats().ability()));
+			str.append((E.isGeneric()?"":CMLib.xml().convertXMLtoTag("ITEXT",""+I.text())));
 		}
 		else
 		if(E instanceof MOB)
 		{
-			String xml=
-				 CMLib.xml().convertXMLtoTag("MLEVL",""+E.baseEnvStats().level())
-				+CMLib.xml().convertXMLtoTag("MABLE",""+E.baseEnvStats().ability())
-				+CMLib.xml().convertXMLtoTag("MREJV",""+E.baseEnvStats().rejuv())
-				+((E.isGeneric()?"":CMLib.xml().convertXMLtoTag("ITEXT",""+E.text())));
-			return xml;
+			final MOB M=(MOB)E;
+			str.append(CMLib.xml().convertXMLtoTag("MLEVL",""+M.basePhyStats().level()));
+			str.append(CMLib.xml().convertXMLtoTag("MABLE",""+M.basePhyStats().ability()));
+			str.append(CMLib.xml().convertXMLtoTag("MREJV",""+M.basePhyStats().rejuv()));
+			str.append(((E.isGeneric()?"":CMLib.xml().convertXMLtoTag("MTEXT",""+M.text()))));
 		}
-		return "";
+		return str.toString();
 	}
 
-	public String getGenMobAbilities(MOB M)
+	protected String getGenMobAbilities(MOB M)
 	{
-		StringBuffer abilitystr=new StringBuffer("");
-		for(int b=0;b<M.numLearnedAbilities();b++)
+		final StringBuilder abilitystr=new StringBuilder("");
+		for(int b=0;b<M.numAbilities();b++)
 		{
-			Ability A=M.fetchAbility(b);
-			if((A!=null)&&(A.savable()))
+			final Ability A=M.fetchAbility(b);
+			if((A!=null)&&(A.isSavable()))
 			{
 				abilitystr.append("<ABLTY>");
 				abilitystr.append(CMLib.xml().convertXMLtoTag("ACLASS",CMClass.classID(A)));
@@ -279,35 +320,52 @@ public class CoffeeMaker extends StdLibrary implements GenericBuilder
 		return (CMLib.xml().convertXMLtoTag("ABLTYS",abilitystr.toString()));
 	}
 
-    public String getGenScripts(Environmental E, boolean includeVars)
-    {
-        StringBuffer scriptstr=new StringBuffer("");
-        for(int b=0;b<E.numScripts();b++)
-        {
-            ScriptingEngine S=E.fetchScript(b);
-            if((S!=null)&&(S.isSavable()))
-            {
-                scriptstr.append("<SCRPT>");
-                scriptstr.append(CMLib.xml().convertXMLtoTag("SCRIPT",CMLib.xml().parseOutAngleBrackets(S.getScript())));
-                scriptstr.append(CMLib.xml().convertXMLtoTag("SQN",""+S.defaultQuestName()));
-                scriptstr.append(CMLib.xml().convertXMLtoTag("SSCOP",S.getVarScope()));
-                if((includeVars)&&(S.getVarScope().equals("*")))
-                    scriptstr.append(CMLib.xml().convertXMLtoTag("SSVAR",S.getLocalVarXML()));
-                scriptstr.append("</SCRPT>");
-            }
-        }
-        if(scriptstr.length()>0)
-            return (CMLib.xml().convertXMLtoTag("SCRPTS",scriptstr.toString()));
-        return "";
-    }
+	@Override
+	public String getGenScripts(PhysicalAgent E, boolean includeVars)
+	{
+		final StringBuilder scriptstr=new StringBuilder("");
+		for(final Enumeration<ScriptingEngine> e=E.scripts();e.hasMoreElements();)
+		{
+			final ScriptingEngine SE=e.nextElement();
+			if((SE!=null)&&(SE.isSavable()))
+			{
+				scriptstr.append("<SCRPT>");
+				scriptstr.append(CMLib.xml().convertXMLtoTag("SCRIPT",CMLib.xml().parseOutAngleBrackets(SE.getScript())));
+				scriptstr.append(CMLib.xml().convertXMLtoTag("SQN",""+SE.defaultQuestName()));
+				scriptstr.append(CMLib.xml().convertXMLtoTag("SSCOP",SE.getVarScope()));
+				if((includeVars)&&(SE.getVarScope().equals("*")))
+					scriptstr.append(CMLib.xml().convertXMLtoTag("SSVAR",SE.getLocalVarXML()));
+				scriptstr.append("</SCRPT>");
+			}
+		}
+		if(scriptstr.length()>0)
+			return (CMLib.xml().convertXMLtoTag("SCRPTS",scriptstr.toString()));
+		return "";
+	}
 
+	protected void possibleAddElectronicsManufacturers(Item I, Set<CMObject> custom)
+	{
+		if((I instanceof Electronics)
+		&&(custom!=null)
+		&&(!((Electronics)I).getManufacturerName().equalsIgnoreCase("RANDOM"))
+		&&(!custom.contains(((Electronics)I).getFinalManufacturer())))
+			custom.add(((Electronics)I).getFinalManufacturer());
+	}
+
+	protected void possibleAddElectronicsManufacturers(MOB M, Set<CMObject> custom)
+	{
+		for(int i=0;i<M.numItems();i++)
+			possibleAddElectronicsManufacturers(M.getItem(i),custom);
+	}
+
+	@Override
 	public String getGenMobInventory(MOB M)
 	{
-		StringBuffer itemstr=new StringBuffer("");
-		for(int b=0;b<M.inventorySize();b++)
+		final StringBuilder itemstr=new StringBuilder("");
+		for(int b=0;b<M.numItems();b++)
 		{
-			Item I=M.fetchInventory(b);
-			if((I!=null)&&(I.savable()))
+			final Item I=M.getItem(b);
+			if((I!=null)&&(I.isSavable()))
 			{
 				itemstr.append("<ITEM>");
 				itemstr.append(CMLib.xml().convertXMLtoTag("ICLASS",CMClass.classID(I)));
@@ -318,16 +376,16 @@ public class CoffeeMaker extends StdLibrary implements GenericBuilder
 		return (CMLib.xml().convertXMLtoTag("INVEN",itemstr.toString()));
 	}
 
-	public String getGenPropertiesStr(Environmental E)
+	protected String getGenPropertiesStr(Environmental E)
 	{
-		StringBuffer text=new StringBuffer("");
+		final StringBuilder text=new StringBuilder("");
 		text.append(getEnvPropertiesStr(E));
 
 		text.append(CMLib.xml().convertXMLtoTag("FLAG",envFlags(E)));
 
 		if(E instanceof Exit)
 		{
-			Exit exit=(Exit)E;
+			final Exit exit=(Exit)E;
 			text.append(
 			 CMLib.xml().convertXMLtoTag("CLOSTX",exit.closedText())
 			+CMLib.xml().convertXMLtoTag("DOORNM",exit.doorName())
@@ -340,12 +398,12 @@ public class CoffeeMaker extends StdLibrary implements GenericBuilder
 		if(E instanceof ClanItem)
 		{
 			text.append(CMLib.xml().convertXMLtoTag("CLANID",""+((ClanItem)E).clanID()));
-			text.append(CMLib.xml().convertXMLtoTag("CITYPE",""+((ClanItem)E).ciType()));
+			text.append(CMLib.xml().convertXMLtoTag("CITYPE",""+((ClanItem)E).getClanItemType().ordinal()));
 		}
 
 		if(E instanceof Item)
 		{
-			Item item=(Item)E;
+			final Item item=(Item)E;
 			text.append(
 			 CMLib.xml().convertXMLtoTag("IDENT",item.rawSecretIdentity())
 			+CMLib.xml().convertXMLtoTag("VALUE",item.baseGoldValue())
@@ -358,37 +416,75 @@ public class CoffeeMaker extends StdLibrary implements GenericBuilder
 			{
 				text.append(CMLib.xml().convertXMLtoTag("CAPA",((Container)item).capacity()));
 				text.append(CMLib.xml().convertXMLtoTag("CONT",((Container)item).containTypes()));
+				text.append(CMLib.xml().convertXMLtoTag("OPENTK",((Container)item).openDelayTicks()));
 			}
-			if(E instanceof Weapon)
-				text.append(CMLib.xml().convertXMLtoTag("CAPA",((Weapon)item).ammunitionCapacity()));
+			if(E instanceof AmmunitionWeapon)
+				text.append(CMLib.xml().convertXMLtoTag("ACAPA",((AmmunitionWeapon)item).ammunitionCapacity()));
+
+			if(E instanceof BoardableShip)
+			{
+				text.append(CMLib.xml().convertXMLtoTag("SSAREA",CMLib.xml().parseOutAngleBrackets(getAreaObjectXML(((BoardableShip)item).getShipArea(), null, null, null, true).toString())));
+				text.append(CMLib.xml().convertXMLtoTag("PORTID",((BoardableShip)item).getHomePortID()));
+			}
+			if(E instanceof SpaceShip)
+			{
+				text.append(CMLib.xml().convertXMLtoTag("SSOML",((SpaceShip)item).getOMLCoeff()+""));
+				text.append(CMLib.xml().convertXMLtoTag("SSFACE", CMParms.toListString(((SpaceShip)item).facing())));
+			}
 		}
 
 		if(E instanceof Coins)
 		{
-		    text.append(CMLib.xml().convertXMLtoTag("CRNC",((Coins)E).getCurrency()));
-		    text.append(CMLib.xml().convertXMLtoTag("DENOM",""+((Coins)E).getDenomination()));
+			text.append(CMLib.xml().convertXMLtoTag("CRNC",((Coins)E).getCurrency()));
+			text.append(CMLib.xml().convertXMLtoTag("DENOM",""+((Coins)E).getDenomination()));
 		}
 		if(E instanceof Electronics)
 		{
-		    text.append(CMLib.xml().convertXMLtoTag("FUELT",((Electronics)E).fuelType()));
-		    text.append(CMLib.xml().convertXMLtoTag("POWC",""+((Electronics)E).powerCapacity()));
-		    text.append(CMLib.xml().convertXMLtoTag("POWR",""+((Electronics)E).powerRemaining()));
+			text.append(CMLib.xml().convertXMLtoTag("POWC",""+((Electronics)E).powerCapacity()));
+			text.append(CMLib.xml().convertXMLtoTag("POWR",""+((Electronics)E).powerRemaining()));
+			text.append(CMLib.xml().convertXMLtoTag("EACT", ""+((Electronics)E).activated()));
+			text.append(CMLib.xml().convertXMLtoTag("MANUFACT", ((Electronics)E).getManufacturerName()));
+
 		}
-	    if(E instanceof ShipComponent)
-	    {
-	        if(E instanceof ShipComponent.ShipPanel)
-	        {
-			    text.append(CMLib.xml().convertXMLtoTag("SSPANELT",""+((ShipComponent.ShipPanel)E).panelType()));
-	        }
-	        if(E instanceof ShipComponent.ShipEngine)
-	        {
-			    text.append(CMLib.xml().convertXMLtoTag("SSTHRUST",""+((ShipComponent.ShipEngine)E).getMaxThrust()));
-	        }
-	    }
+		if(E instanceof ElecPanel)
+		{
+			if(((ElecPanel)E).panelType()!=null)
+				text.append(CMLib.xml().convertXMLtoTag("SSPANELT",""+((ElecPanel)E).panelType().name()));
+		}
+		if(E instanceof TechComponent)
+		{
+			text.append(CMLib.xml().convertXMLtoTag("INSTF",""+((TechComponent)E).getInstalledFactor()));
+			text.append(CMLib.xml().convertXMLtoTag("RECHRATE",""+((TechComponent)E).getRechargeRate()));
+		}
+		if(E instanceof ShipEngine)
+		{
+			text.append(CMLib.xml().convertXMLtoTag("SSTHRUST",""+((ShipEngine)E).getMaxThrust()));
+			text.append(CMLib.xml().convertXMLtoTag("SSIMPL",""+((ShipEngine)E).getSpecificImpulse()));
+			text.append(CMLib.xml().convertXMLtoTag("SSFEFF",""+((ShipEngine)E).getFuelEfficiency()));
+			text.append(CMLib.xml().convertXMLtoTag("SSNTHRUST",""+((ShipEngine)E).getMinThrust()));
+			text.append(CMLib.xml().convertXMLtoTag("SSCONST",""+((ShipEngine)E).isConstantThruster()));
+			text.append(CMLib.xml().convertXMLtoTag("SSAPORTS",CMParms.toListString(((ShipEngine)E).getAvailPorts())));
+		}
+		if(E instanceof ShipWarComponent)
+		{
+			text.append(CMLib.xml().convertXMLtoTag("SSPDIRS",""+((ShipWarComponent)E).getPermittedNumDirections()));
+			text.append(CMLib.xml().convertXMLtoTag("SSAPORTS",""+CMParms.toListString(((ShipWarComponent)E).getPermittedDirections())));
+			text.append(CMLib.xml().convertXMLtoTag("SSMTYPES",""+CMParms.toListString(((ShipWarComponent)E).getDamageMsgTypes())));
+		}
+		if(E instanceof PowerGenerator)
+		{
+			text.append(CMLib.xml().convertXMLtoTag("EGENAMT",""+((PowerGenerator)E).getGeneratedAmountPerTick()));
+		}
+		if(E instanceof FuelConsumer)
+		{
+			text.append(CMLib.xml().convertXMLtoTag("ECONSTYP",CMParms.toListString(((FuelConsumer)E).getConsumedFuelTypes())));
+		}
 		if(E instanceof Recipe)
 		{
-		    text.append(CMLib.xml().convertXMLtoTag("SKILLID",((Recipe)E).getCommonSkillID()));
-		    text.append(CMLib.xml().convertXMLtoTag("RECIPE",""+((Recipe)E).getRecipeCodeLine()));
+			text.append(CMLib.xml().convertXMLtoTag("SKILLID",((Recipe)E).getCommonSkillID()));
+			final String[] recipes = ((Recipe)E).getRecipeCodeLines();
+			for(final String recipe : recipes)
+				text.append(CMLib.xml().convertXMLtoTag("RECIPE",recipe));
 		}
 
 		if(E instanceof Light)
@@ -401,6 +497,12 @@ public class CoffeeMaker extends StdLibrary implements GenericBuilder
 		{
 			text.append(CMLib.xml().convertXMLtoTag("RIDET",((Rideable)E).rideBasis()));
 			text.append(CMLib.xml().convertXMLtoTag("RIDEC",((Rideable)E).riderCapacity()));
+			if(E instanceof Exit) // it's a portal!
+			{
+				text.append(CMLib.xml().convertXMLtoTag("PUTSTR",E.getStat("PUTSTR")));
+				text.append(CMLib.xml().convertXMLtoTag("MOUNTSTR",E.getStat("MOUNTSTR")));
+				text.append(CMLib.xml().convertXMLtoTag("DISMOUNTSTR",E.getStat("DISMOUNTSTR")));
+			}
 		}
 
 		if(E instanceof RawMaterial)
@@ -409,18 +511,20 @@ public class CoffeeMaker extends StdLibrary implements GenericBuilder
 		if(E instanceof Food)
 		{
 			text.append(CMLib.xml().convertXMLtoTag("CAPA2",((Food)E).nourishment()));
-            text.append(CMLib.xml().convertXMLtoTag("BITE",((Food)E).bite()));
+			text.append(CMLib.xml().convertXMLtoTag("BITE",((Food)E).bite()));
 		}
 
 		if(E instanceof Drink)
 		{
 			text.append(CMLib.xml().convertXMLtoTag("CAPA2",((Drink)E).liquidHeld()));
+			text.append(CMLib.xml().convertXMLtoTag("REMAN",((Drink)E).liquidRemaining()));
+			text.append(CMLib.xml().convertXMLtoTag("LTYPE",((Drink)E).liquidType()));
 			text.append(CMLib.xml().convertXMLtoTag("DRINK",((Drink)E).thirstQuenched()));
 		}
 
 		if(E instanceof Weapon)
 		{
-			text.append(CMLib.xml().convertXMLtoTag("TYPE",((Weapon)E).weaponType()));
+			text.append(CMLib.xml().convertXMLtoTag("TYPE",((Weapon)E).weaponDamageType()));
 			text.append(CMLib.xml().convertXMLtoTag("CLASS",((Weapon)E).weaponClassification()));
 			text.append(CMLib.xml().convertXMLtoTag("MINR",((Weapon)E).minRange()));
 			text.append(CMLib.xml().convertXMLtoTag("MAXR",((Weapon)E).maxRange()));
@@ -434,6 +538,12 @@ public class CoffeeMaker extends StdLibrary implements GenericBuilder
 
 		if(E instanceof LandTitle)
 			text.append(CMLib.xml().convertXMLtoTag("LANDID",((LandTitle)E).landPropertyID()));
+		else
+		if(E instanceof PrivateProperty)
+		{
+			text.append(CMLib.xml().convertXMLtoTag("OWNERID",((PrivateProperty)E).getOwnerName()));
+			text.append(CMLib.xml().convertXMLtoTag("PRICE",((PrivateProperty)E).getPrice()));
+		}
 
 		if(E instanceof Perfume)
 			text.append(CMLib.xml().convertXMLtoTag("SMELLLST",((Perfume)E).getSmellList()));
@@ -444,23 +554,25 @@ public class CoffeeMaker extends StdLibrary implements GenericBuilder
 			{
 				text.append(CMLib.xml().convertXMLtoTag("GENDER",""+(char)((DeadBody)E).charStats().getStat(CharStats.STAT_GENDER)));
 				text.append(CMLib.xml().convertXMLtoTag("MRACE",""+((DeadBody)E).charStats().getMyRace().ID()));
-				text.append(CMLib.xml().convertXMLtoTag("MDNAME",""+((DeadBody)E).mobName()));
-				text.append(CMLib.xml().convertXMLtoTag("MDDESC",""+((DeadBody)E).mobDescription()));
-				text.append(CMLib.xml().convertXMLtoTag("MKNAME",""+((DeadBody)E).killerName()));
-				text.append(CMLib.xml().convertXMLtoTag("MTOD",""+((DeadBody)E).timeOfDeath()));
-				text.append(CMLib.xml().convertXMLtoTag("MKPLAY",""+((DeadBody)E).killerPlayer()));
-				text.append(CMLib.xml().convertXMLtoTag("MDLMSG",""+((DeadBody)E).lastMessage()));
-				text.append(CMLib.xml().convertXMLtoTag("MBREAL",""+((DeadBody)E).destroyAfterLooting()));
-				text.append(CMLib.xml().convertXMLtoTag("MPLAYR",""+((DeadBody)E).playerCorpse()));
-				text.append(CMLib.xml().convertXMLtoTag("MPKILL",""+((DeadBody)E).mobPKFlag()));
-                if(((DeadBody)E).savedMOB()!=null)
-                    text.append("<MOBS>"+getMobXML(((DeadBody)E).savedMOB())+"</MOBS>");
-				if(((DeadBody)E).killingTool()==null) text.append("<KLTOOL />");
+				text.append(CMLib.xml().convertXMLtoTag("MDNAME",""+((DeadBody)E).getMobName()));
+				text.append(CMLib.xml().convertXMLtoTag("MDDESC",""+((DeadBody)E).getMobDescription()));
+				text.append(CMLib.xml().convertXMLtoTag("MKNAME",""+((DeadBody)E).getKillerName()));
+				text.append(CMLib.xml().convertXMLtoTag("MTOD",""+((DeadBody)E).getTimeOfDeath()));
+				text.append(CMLib.xml().convertXMLtoTag("MKPLAY",""+((DeadBody)E).isKillerPlayer()));
+				text.append(CMLib.xml().convertXMLtoTag("MHASH",""+((DeadBody)E).getMobHash()));
+				text.append(CMLib.xml().convertXMLtoTag("MDLMSG",""+((DeadBody)E).getLastMessage()));
+				text.append(CMLib.xml().convertXMLtoTag("MBREAL",""+((DeadBody)E).isDestroyedAfterLooting()));
+				text.append(CMLib.xml().convertXMLtoTag("MPLAYR",""+((DeadBody)E).isPlayerCorpse()));
+				text.append(CMLib.xml().convertXMLtoTag("MPKILL",""+((DeadBody)E).getMobPKFlag()));
+				if(((DeadBody)E).getSavedMOB()!=null)
+					text.append("<MOBS>"+getMobXML(((DeadBody)E).getSavedMOB())+"</MOBS>");
+				if(((DeadBody)E).getKillerTool()==null) 
+					text.append("<KLTOOL />");
 				else
 				{
 					text.append("<KLTOOL>");
-					text.append(CMLib.xml().convertXMLtoTag("KLCLASS",CMClass.classID(((DeadBody)E).killingTool())));
-					text.append(CMLib.xml().convertXMLtoTag("KLDATA",getPropertiesStr(((DeadBody)E).killingTool(),true)));
+					text.append(CMLib.xml().convertXMLtoTag("KLCLASS",CMClass.classID(((DeadBody)E).getKillerTool())));
+					text.append(CMLib.xml().convertXMLtoTag("KLDATA",getPropertiesStr(((DeadBody)E).getKillerTool(),true)));
 					text.append("</KLTOOL>");
 				}
 			}
@@ -474,13 +586,16 @@ public class CoffeeMaker extends StdLibrary implements GenericBuilder
 
 		if(E instanceof MOB)
 		{
-			text.append(CMLib.xml().convertXMLtoTag("MONEY",CMLib.beanCounter().getMoney((MOB)E)));
-            text.append(CMLib.xml().convertXMLtoTag("VARMONEY",""+((MOB)E).getMoneyVariation()));
+			final int money = CMLib.beanCounter().getMoney((MOB)E);
+			text.append(CMLib.xml().convertXMLtoTag("MONEY",money));
+			text.append(CMLib.xml().convertXMLtoTag("VARMONEY",""+((MOB)E).getMoneyVariation()));
 			CMLib.beanCounter().clearInventoryMoney((MOB)E,null);
-			text.append(CMLib.xml().convertXMLtoTag("CLAN",((MOB)E).getClanID()));
+			((MOB)E).setMoney(money);
+			for(final Pair<Clan,Integer> p : ((MOB)E).clans())
+				text.append("<CLAN ROLE=").append(p.second.toString()).append(">").append(p.first.clanID()).append("</CLAN>");
 			text.append(CMLib.xml().convertXMLtoTag("GENDER",""+(char)((MOB)E).baseCharStats().getStat(CharStats.STAT_GENDER)));
 			text.append(CMLib.xml().convertXMLtoTag("MRACE",""+((MOB)E).baseCharStats().getMyRace().ID()));
-            text.append(getFactionXML((MOB)E));
+			text.append(getFactionXML((MOB)E));
 			text.append(getGenMobInventory((MOB)E));
 			text.append(getGenMobAbilities((MOB)E));
 
@@ -491,26 +606,26 @@ public class CoffeeMaker extends StdLibrary implements GenericBuilder
 				text.append(CMLib.xml().convertXMLtoTag("ITEMINT",""+((Banker)E).getItemInterest()));
 				text.append(CMLib.xml().convertXMLtoTag("LOANINT",""+((Banker)E).getLoanInterest()));
 			}
-            if(E instanceof PostOffice)
-            {
-                text.append(CMLib.xml().convertXMLtoTag("POSTCHAIN",""+((PostOffice)E).postalChain()));
-                text.append(CMLib.xml().convertXMLtoTag("POSTMIN",""+((PostOffice)E).minimumPostage()));
-                text.append(CMLib.xml().convertXMLtoTag("POSTLBS",""+((PostOffice)E).postagePerPound()));
-                text.append(CMLib.xml().convertXMLtoTag("POSTHOLD",""+((PostOffice)E).holdFeePerPound()));
-                text.append(CMLib.xml().convertXMLtoTag("POSTNEW",""+((PostOffice)E).feeForNewBox()));
-                text.append(CMLib.xml().convertXMLtoTag("POSTHELD",""+((PostOffice)E).maxMudMonthsHeld()));
-            }
-            if(E instanceof Auctioneer)
-            {
-                text.append(CMLib.xml().convertXMLtoTag("AUCHOUSE",""+((Auctioneer)E).auctionHouse()));
-                //text.append(CMLib.xml().convertXMLtoTag("LIVEPRICE",""+((Auctioneer)E).liveListingPrice()));
-                text.append(CMLib.xml().convertXMLtoTag("TIMEPRICE",""+((Auctioneer)E).timedListingPrice()));
-                text.append(CMLib.xml().convertXMLtoTag("TIMEPCT",""+((Auctioneer)E).timedListingPct()));
-                //text.append(CMLib.xml().convertXMLtoTag("LIVECUT",""+((Auctioneer)E).liveFinalCutPct()));
-                text.append(CMLib.xml().convertXMLtoTag("TIMECUT",""+((Auctioneer)E).timedFinalCutPct()));
-                text.append(CMLib.xml().convertXMLtoTag("MAXADAYS",""+((Auctioneer)E).maxTimedAuctionDays()));
-                text.append(CMLib.xml().convertXMLtoTag("MINADAYS",""+((Auctioneer)E).minTimedAuctionDays()));
-            }
+			if(E instanceof PostOffice)
+			{
+				text.append(CMLib.xml().convertXMLtoTag("POSTCHAIN",""+((PostOffice)E).postalChain()));
+				text.append(CMLib.xml().convertXMLtoTag("POSTMIN",""+((PostOffice)E).minimumPostage()));
+				text.append(CMLib.xml().convertXMLtoTag("POSTLBS",""+((PostOffice)E).postagePerPound()));
+				text.append(CMLib.xml().convertXMLtoTag("POSTHOLD",""+((PostOffice)E).holdFeePerPound()));
+				text.append(CMLib.xml().convertXMLtoTag("POSTNEW",""+((PostOffice)E).feeForNewBox()));
+				text.append(CMLib.xml().convertXMLtoTag("POSTHELD",""+((PostOffice)E).maxMudMonthsHeld()));
+			}
+			if(E instanceof Auctioneer)
+			{
+				text.append(CMLib.xml().convertXMLtoTag("AUCHOUSE",""+((Auctioneer)E).auctionHouse()));
+				//text.append(CMLib.xml().convertXMLtoTag("LIVEPRICE",""+((Auctioneer)E).liveListingPrice()));
+				text.append(CMLib.xml().convertXMLtoTag("TIMEPRICE",""+((Auctioneer)E).timedListingPrice()));
+				text.append(CMLib.xml().convertXMLtoTag("TIMEPCT",""+((Auctioneer)E).timedListingPct()));
+				//text.append(CMLib.xml().convertXMLtoTag("LIVECUT",""+((Auctioneer)E).liveFinalCutPct()));
+				text.append(CMLib.xml().convertXMLtoTag("TIMECUT",""+((Auctioneer)E).timedFinalCutPct()));
+				text.append(CMLib.xml().convertXMLtoTag("MAXADAYS",""+((Auctioneer)E).maxTimedAuctionDays()));
+				text.append(CMLib.xml().convertXMLtoTag("MINADAYS",""+((Auctioneer)E).minTimedAuctionDays()));
+			}
 			if(E instanceof Deity)
 			{
 				text.append(CMLib.xml().convertXMLtoTag("CLEREQ",((Deity)E).getClericRequirements()));
@@ -520,39 +635,42 @@ public class CoffeeMaker extends StdLibrary implements GenericBuilder
 				text.append(CMLib.xml().convertXMLtoTag("CLERSIT",((Deity)E).getClericSin()));
 				text.append(CMLib.xml().convertXMLtoTag("WORRSIT",((Deity)E).getWorshipSin()));
 				text.append(CMLib.xml().convertXMLtoTag("CLERPOW",((Deity)E).getClericPowerup()));
-                text.append(CMLib.xml().convertXMLtoTag("SVCRIT",((Deity)E).getServiceRitual()));
+				text.append(CMLib.xml().convertXMLtoTag("SVCRIT",((Deity)E).getServiceRitual()));
 
-				StringBuffer itemstr=new StringBuffer("");
+				StringBuilder itemstr=new StringBuilder("");
 				for(int b=0;b<((Deity)E).numBlessings();b++)
 				{
-					Ability A=((Deity)E).fetchBlessing(b);
-					if(A==null) continue;
+					final Ability A=((Deity)E).fetchBlessing(b);
+					if(A==null)
+						continue;
 					itemstr.append("<BLESS>");
 					itemstr.append(CMLib.xml().convertXMLtoTag("BLCLASS",CMClass.classID(A)));
-                    itemstr.append(CMLib.xml().convertXMLtoTag("BLONLY",""+((Deity)E).fetchBlessingCleric(b)));
+					itemstr.append(CMLib.xml().convertXMLtoTag("BLONLY",""+((Deity)E).fetchBlessingCleric(b)));
 					itemstr.append(CMLib.xml().convertXMLtoTag("BLDATA",getPropertiesStr(A,true)));
 					itemstr.append("</BLESS>");
 				}
 				text.append(CMLib.xml().convertXMLtoTag("BLESSINGS",itemstr.toString()));
 
-				itemstr=new StringBuffer("");
+				itemstr=new StringBuilder("");
 				for(int b=0;b<((Deity)E).numCurses();b++)
 				{
-					Ability A=((Deity)E).fetchCurse(b);
-					if(A==null) continue;
+					final Ability A=((Deity)E).fetchCurse(b);
+					if(A==null)
+						continue;
 					itemstr.append("<CURSE>");
 					itemstr.append(CMLib.xml().convertXMLtoTag("CUCLASS",CMClass.classID(A)));
-                    itemstr.append(CMLib.xml().convertXMLtoTag("CUONLY",""+((Deity)E).fetchCurseCleric(b)));
+					itemstr.append(CMLib.xml().convertXMLtoTag("CUONLY",""+((Deity)E).fetchCurseCleric(b)));
 					itemstr.append(CMLib.xml().convertXMLtoTag("CUDATA",getPropertiesStr(A,true)));
 					itemstr.append("</CURSE>");
 				}
 				text.append(CMLib.xml().convertXMLtoTag("CURSES",itemstr.toString()));
 
-				itemstr=new StringBuffer("");
+				itemstr=new StringBuilder("");
 				for(int b=0;b<((Deity)E).numPowers();b++)
 				{
-					Ability A=((Deity)E).fetchPower(b);
-					if(A==null) continue;
+					final Ability A=((Deity)E).fetchPower(b);
+					if(A==null)
+						continue;
 					itemstr.append("<POWER>");
 					itemstr.append(CMLib.xml().convertXMLtoTag("POCLASS",CMClass.classID(A)));
 					itemstr.append(CMLib.xml().convertXMLtoTag("PODATA",getPropertiesStr(A,true)));
@@ -563,110 +681,159 @@ public class CoffeeMaker extends StdLibrary implements GenericBuilder
 			if(E instanceof ShopKeeper)
 			{
 				text.append(CMLib.xml().convertXMLtoTag("SELLCD",((ShopKeeper)E).getWhatIsSoldMask()));
-				Vector V=((ShopKeeper)E).getShop().getStoreInventory();
-				StringBuffer itemstr=new StringBuffer("");
-				for(int b=0;b<V.size();b++)
+				final StringBuilder itemstr=new StringBuilder("");
+				for(final Iterator<Environmental> i=((ShopKeeper)E).getShop().getStoreInventory();i.hasNext();)
 				{
-					Environmental Env=(Environmental)V.elementAt(b);
+					final Environmental E2=i.next();
 					itemstr.append("<SHITEM>");
-					itemstr.append(CMLib.xml().convertXMLtoTag("SICLASS",CMClass.classID(Env)));
-					itemstr.append(CMLib.xml().convertXMLtoTag("SITYPE",CMClass.getType(Env)));
-					itemstr.append(CMLib.xml().convertXMLtoTag("SISTOCK",((ShopKeeper)E).getShop().numberInStock(Env)));
-					itemstr.append(CMLib.xml().convertXMLtoTag("SIPRICE",((ShopKeeper)E).getShop().stockPrice(Env)));
-					itemstr.append(CMLib.xml().convertXMLtoTag("SIDATA",getPropertiesStr(Env,true)));
+					itemstr.append(CMLib.xml().convertXMLtoTag("SICLASS",CMClass.classID(E2)));
+					itemstr.append(CMLib.xml().convertXMLtoTag("SITYPE",CMClass.getType(E2).toString()));
+					itemstr.append(CMLib.xml().convertXMLtoTag("SISTOCK",((ShopKeeper)E).getShop().numberInStock(E2)));
+					itemstr.append(CMLib.xml().convertXMLtoTag("SIPRICE",((ShopKeeper)E).getShop().stockPrice(E2)));
+					itemstr.append(CMLib.xml().convertXMLtoTag("SIDATA",getPropertiesStr(E2,true)));
 					itemstr.append("</SHITEM>");
 				}
 				text.append(CMLib.xml().convertXMLtoTag("STORE",itemstr.toString()));
 			}
-			if(((MOB)E).numTattoos()>0)
+			if(((MOB)E).tattoos().hasMoreElements())
 			{
 				text.append("<TATTS>");
-				for(int i=0;i<((MOB)E).numTattoos();i++)
-					text.append(((MOB)E).fetchTattoo(i)+";");
+				for(final Enumeration<Tattoo> e=((MOB)E).tattoos();e.hasMoreElements();)
+					text.append(e.nextElement().toString()+";");
 				text.append("</TATTS>");
 			}
-			if(((MOB)E).numExpertises()>0)
+			if(((MOB)E).expertises().hasMoreElements())
 			{
 				text.append("<EDUS>");
-				for(int i=0;i<((MOB)E).numExpertises();i++)
-					text.append(((MOB)E).fetchExpertise(i)+";");
+				for(final Enumeration<String> x=((MOB)E).expertises();x.hasMoreElements();)
+					text.append(x.nextElement()).append(';');
 				text.append("</EDUS>");
 			}
 		}
 		return text.toString();
 	}
 
-	public String unpackErr(String where, String msg)
+	protected String unpackErr(String where, String msg)
 	{
 		Log.errOut("CoffeeMaker","unpack"+where+"FromXML: "+msg);
 		return msg;
 	}
 
+	protected String unpackErr(String where, String msg, XMLTag piece)
+	{
+		if(piece == null)
+			return unpackErr(where, msg);
+		Log.errOut("CoffeeMaker","unpack"+where+"FromXML: "+msg+" in piece "+piece.toString());
+		return msg;
+	}
+
+	protected String unpackErr(String where, String msg, List<XMLLibrary.XMLTag> list)
+	{
+		if(list == null)
+			return unpackErr(where, msg);
+		if(list.size()>0)
+			return unpackErr(where, msg, list.get(0));
+		Log.errOut("CoffeeMaker","unpack"+where+"FromXML: "+msg+" in empty pieces list");
+		return msg;
+	}
+
+	@Override
 	public String unpackRoomFromXML(String buf, boolean andContent)
 	{
-		Vector xml=CMLib.xml().parseAllXML(buf);
-		if(xml==null) return unpackErr("Room","null 'xml'");
-		Vector roomData=CMLib.xml().getRealContentsFromPieces(xml,"AROOM");
-		if(roomData==null) return unpackErr("Room","null 'roomData'");
+		final List<XMLLibrary.XMLTag> xml=CMLib.xml().parseAllXML(buf);
+		if(xml==null)
+			return unpackErr("Room","null 'xml'");
+		final List<XMLLibrary.XMLTag> roomData=CMLib.xml().getContentsFromPieces(xml,"AROOM");
+		if(roomData==null)
+			return unpackErr("Room","null 'roomData'",xml);
 		return unpackRoomFromXML(roomData,andContent);
 	}
 
-	public String unpackRoomFromXML(Vector xml, boolean andContent)
+	@Override
+	public String unpackRoomFromXML(List<XMLTag> xml, boolean andContent)
 	{
-		Area myArea=CMLib.map().getArea(CMLib.xml().getValFromPieces(xml,"RAREA"));
-		if(myArea==null) return unpackErr("Room","null 'myArea'");
-		String roomClass=CMLib.xml().getValFromPieces(xml,"RCLAS");
-		Room newRoom=CMClass.getLocale(roomClass);
-		if(newRoom==null) return unpackErr("Room","null 'newRoom'");
+		return unpackRoomFromXML(null, xml, andContent, true);
+	}
+
+	protected String unpackRoomFromXML(Area forceArea, List<XMLTag> xml, boolean andContent, boolean andSave)
+	{
+		Area myArea;
+		String areaName;
+		if(forceArea!=null)
+		{
+			myArea=forceArea;
+			areaName = forceArea.Name();
+		}
+		else
+		{
+			areaName = CMLib.xml().getValFromPieces(xml,"RAREA");
+			myArea=CMLib.map().getArea(areaName);
+		}
+		if(myArea==null)
+			return unpackErr("Room","null RAREA '"+areaName+"'",xml);
+		final String roomClass=CMLib.xml().getValFromPieces(xml,"RCLAS");
+		final Room newRoom=CMClass.getLocale(roomClass);
+		if(newRoom==null)
+			return unpackErr("Room","null RCLAS '"+roomClass+"'",xml);
 		newRoom.setRoomID(CMLib.xml().getValFromPieces(xml,"ROOMID"));
-		if(newRoom.roomID().equals("NEW")) newRoom.setRoomID(myArea.getNewRoomID(newRoom,-1));
-		if(CMLib.map().getRoom(newRoom.roomID())!=null) return "Room Exists: "+newRoom.roomID();
+		if(newRoom.roomID().equals("NEW"))
+			newRoom.setRoomID(myArea.getNewRoomID(newRoom,-1));
+		if((forceArea==null) && CMLib.map().getRoom(newRoom.roomID())!=null)
+			return "Room Exists: "+newRoom.roomID();
 		newRoom.setArea(myArea);
-		CMLib.database().DBCreateRoom(newRoom);
+		if(andSave)
+			CMLib.database().DBCreateRoom(newRoom);
 		newRoom.setDisplayText(CMLib.xml().getValFromPieces(xml,"RDISP"));
 		newRoom.setDescription(CMLib.xml().getValFromPieces(xml,"RDESC"));
 		newRoom.setMiscText(CMLib.xml().restoreAngleBrackets(CMLib.xml().getValFromPieces(xml,"RTEXT")));
 
 		// now EXITS!
-		Vector xV=CMLib.xml().getRealContentsFromPieces(xml,"ROOMEXITS");
-		if(xV==null) return unpackErr("Room","null 'xV' in room "+newRoom.roomID());
+		final List<XMLLibrary.XMLTag> xV=CMLib.xml().getContentsFromPieces(xml,"ROOMEXITS");
+		if(xV==null)
+			return unpackErr("Room","null 'ROOMEXITS' in room "+newRoom.roomID(),xml);
 		for(int x=0;x<xV.size();x++)
 		{
-			XMLLibrary.XMLpiece xblk=(XMLLibrary.XMLpiece)xV.elementAt(x);
-			if((!xblk.tag.equalsIgnoreCase("REXIT"))||(xblk.contents==null))
-				return unpackErr("Room","??"+xblk.tag+" in room "+newRoom.roomID());
-			int dir=CMLib.xml().getIntFromPieces(xblk.contents,"XDIRE");
-			String doorID=CMLib.xml().getValFromPieces(xblk.contents,"XDOOR");
+			final XMLTag xblk=xV.get(x);
+			if((!xblk.tag().equalsIgnoreCase("REXIT"))||(xblk.contents()==null))
+				return unpackErr("Room","??"+xblk.tag()+" in room "+newRoom.roomID(),xblk);
+			final int dir=xblk.getIntFromPieces("XDIRE");
+			final String doorID=xblk.getValFromPieces("XDOOR");
 			if((dir<0)||(dir>=Directions.NUM_DIRECTIONS()))
 			{
 				if((dir>255)&&(!(newRoom instanceof GridLocale)))
-					return unpackErr("Room","Not GridLocale, tried "+dir+" exit for room '"+newRoom.roomID()+"'");
+					return unpackErr("Room","Not GridLocale, tried "+dir+" exit for room '"+newRoom.roomID()+"'",xblk);
 				else
 				if(dir>255)
 				{
-					String xdata=CMLib.xml().getValFromPieces(xblk.contents,"XDATA");
-					Vector CEs=CMParms.parseSemicolons(xdata.trim(),true);
+					final String xdata=xblk.getValFromPieces("XDATA");
+					final List<String> CEs=CMParms.parseSemicolons(xdata.trim(),true);
 					for(int ces=0;ces<CEs.size();ces++)
 					{
-						Vector SCE=CMParms.parse(((String)CEs.elementAt(ces)).trim());
-						WorldMap.CrossExit CE=new WorldMap.CrossExit();
-						if(SCE.size()<3) continue;
-						CE.x=CMath.s_int((String)SCE.elementAt(0));
-						CE.y=CMath.s_int((String)SCE.elementAt(1));
-						int codeddir=CMath.s_int((String)SCE.elementAt(2));
+						final Vector<String> SCE=CMParms.parse(CEs.get(ces).trim());
+						final GridLocale.CrossExit CE=new GridLocale.CrossExit();
+						if(SCE.size()<3)
+							continue;
+						CE.x=CMath.s_int(SCE.elementAt(0));
+						CE.y=CMath.s_int(SCE.elementAt(1));
+						final int codeddir=CMath.s_int(SCE.elementAt(2));
 						if(SCE.size()>=4)
-							CE.destRoomID=doorID+(String)SCE.elementAt(3);
+							CE.destRoomID=doorID+SCE.elementAt(3);
 						else
 							CE.destRoomID=doorID;
 						CE.out=(codeddir&256)==256;
 						CE.dir=codeddir&255;
 						((GridLocale)newRoom).addOuterExit(CE);
-						Room link=CMLib.map().getRoom(doorID);
-						if((!CE.out)&&(link!=null)&&(!(link instanceof GridLocale)))
+						Room linkRoom=null;
+						if(forceArea!=null)
+							linkRoom=forceArea.getRoom(doorID);
+						if(linkRoom==null)
+							linkRoom=CMLib.map().getRoom(doorID);
+						if((!CE.out)&&(linkRoom!=null)&&(!(linkRoom instanceof GridLocale)))
 						{
-						    link.rawDoors()[CE.dir]=newRoom;
-						    link.setRawExit(CE.dir,CMClass.getExit("Open"));
-							CMLib.database().DBUpdateExits(link);
+							linkRoom.rawDoors()[CE.dir]=newRoom;
+							linkRoom.setRawExit(CE.dir,CMClass.getExit("Open"));
+							if(andSave)
+								CMLib.database().DBUpdateExits(linkRoom);
 						}
 					}
 				}
@@ -675,24 +842,32 @@ public class CoffeeMaker extends StdLibrary implements GenericBuilder
 			}
 			else
 			{
-				Vector xxV=CMLib.xml().getContentsFromPieces(xblk.contents,"XEXIT");
-				if(xxV==null) return unpackErr("Room","null 'xxV' in room "+newRoom.roomID());
+				final List<XMLLibrary.XMLTag> xxV=xblk.getContentsFromPieces("XEXIT");
+				if(xxV==null)
+					return unpackErr("Room","null 'XEXIT' in room "+newRoom.roomID(),xblk.contents());
 				Exit exit=null;
 				if(xxV.size()>0)
 				{
-					exit=CMClass.getExit(CMLib.xml().getValFromPieces(xxV,"EXID"));
-					if(exit==null) return unpackErr("Room","null 'exit' in room "+newRoom.roomID());
+					String exitID=CMLib.xml().getValFromPieces(xxV,"EXID");
+					exit=CMClass.getExit(exitID);
+					if(exit==null)
+						return unpackErr("Room","null EXID '"+exitID+"' in room "+newRoom.roomID());
+					exit.setTemporaryDoorLink("{{#"+newRoom.roomID()+"#}}");
 					exit.setMiscText(CMLib.xml().restoreAngleBrackets(CMLib.xml().getValFromPieces(xxV,"EXDAT")));
 					newRoom.setRawExit(dir,exit);
 				}
 				else
 					exit=CMClass.getExit("GenExit");
-				exit.recoverEnvStats();
+				exit.recoverPhyStats();
 				if(doorID.length()>0)
 				{
-					Room link=CMLib.map().getRoom(doorID);
-					if(link!=null)
-						newRoom.rawDoors()[dir]=link;
+					Room linkRoom=null;
+					if(forceArea!=null)
+						linkRoom=forceArea.getRoom(doorID);
+					if(linkRoom==null)
+						linkRoom=CMLib.map().getRoom(doorID);
+					if(linkRoom!=null)
+						newRoom.rawDoors()[dir]=linkRoom;
 					else
 					{
 						newRoom.setRawExit(dir,exit); // get will get the fake one too!
@@ -705,123 +880,135 @@ public class CoffeeMaker extends StdLibrary implements GenericBuilder
 		// find any mis-linked exits and fix them!
 		try
 		{
-			for(Enumeration r=CMLib.map().rooms();r.hasMoreElements();)
+			if(forceArea == null)
 			{
-				Room R=(Room)r.nextElement();
-				synchronized(("SYNC"+R.roomID()).intern())
+				for(final Enumeration<Room> r=CMLib.map().rooms();r.hasMoreElements();)
 				{
-					R=CMLib.map().getRoom(R);
-					boolean changed=false;
-					for(int d=Directions.NUM_DIRECTIONS()-1;d>=0;d--)
+					Room R=r.nextElement();
+					synchronized(("SYNC"+R.roomID()).intern())
 					{
-						Exit exit=R.getRawExit(d);
-						if((exit!=null)&&(exit.temporaryDoorLink().equalsIgnoreCase(newRoom.roomID())))
-						{
-							exit.setTemporaryDoorLink("");
-							R.rawDoors()[d]=newRoom;
-							changed=true;
-						}
-						else
-						if((R.rawDoors()[d]!=null)&&(R.rawDoors()[d].roomID().equals(newRoom.roomID())))
-						{
-							R.rawDoors()[d]=newRoom;
-							changed=true;
-						}
+						R=CMLib.map().getRoom(R);
+						fixFillingRoomUnlinkedExits(newRoom, R, andSave);
 					}
-					if(changed) CMLib.database().DBUpdateExits(R);
 				}
 			}
-	    }catch(NoSuchElementException e){}
-		CMLib.database().DBUpdateRoom(newRoom);
-		CMLib.database().DBUpdateExits(newRoom);
+			else
+			{
+				for(final Enumeration<Room> r=forceArea.getProperMap();r.hasMoreElements();)
+				{
+					Room R=r.nextElement();
+					synchronized(("SYNC"+R.roomID()).intern())
+					{
+						R=CMLib.map().getRoom(R);
+						fixFillingRoomUnlinkedExits(newRoom, R, andSave);
+					}
+				}
+			}
+		}catch(final NoSuchElementException e){}
+		if(andSave)
+		{
+			CMLib.database().DBUpdateRoom(newRoom);
+			CMLib.database().DBUpdateExits(newRoom);
+		}
 		if(andContent)
 		{
-			Hashtable identTable=new Hashtable();
+			final Map<String,Physical> identTable=new Hashtable<String,Physical>();
 
-			Vector cV=CMLib.xml().getRealContentsFromPieces(xml,"ROOMCONTENT");
-			if(cV==null) return unpackErr("Room","null 'cV' in room "+newRoom.roomID());
+			final List<XMLLibrary.XMLTag> cV=CMLib.xml().getContentsFromPieces(xml,"ROOMCONTENT");
+			if(cV==null)
+				return unpackErr("Room","null 'ROOMCONTENT' in room "+newRoom.roomID(),xml);
 			if(cV.size()>0)
 			{
-				Hashtable mobRideTable=new Hashtable();
-				Vector mV=CMLib.xml().getRealContentsFromPieces(cV,"ROOMMOBS");
-				if(mV!=null) //return unpackErr("Room","null 'mV' in room "+newRoom.roomID());
-				for(int m=0;m<mV.size();m++)
+				final Map<MOB,String> mobRideTable=new Hashtable<MOB,String>();
+				final List<XMLLibrary.XMLTag> mV=CMLib.xml().getContentsFromPieces(cV,"ROOMMOBS");
+				if(mV!=null)
 				{
-					XMLLibrary.XMLpiece mblk=(XMLLibrary.XMLpiece)mV.elementAt(m);
-					if((!mblk.tag.equalsIgnoreCase("RMOB"))||(mblk.contents==null))
-						return unpackErr("Room","bad 'mblk' in room "+newRoom.roomID());
-					String mClass=CMLib.xml().getValFromPieces(mblk.contents,"MCLAS");
-					MOB newMOB=CMClass.getMOB(mClass);
-					if(newMOB==null) return unpackErr("Room","null 'mClass': "+mClass+" in room "+newRoom.roomID());
-
-					// for rideables AND leaders now!
-					String iden=CMLib.xml().getValFromPieces(mblk.contents,"MIDEN");
-					if((iden!=null)&&(iden.length()>0)) identTable.put(iden,newMOB);
-
-					newMOB.setMiscText(CMLib.xml().restoreAngleBrackets(CMLib.xml().getValFromPieces(mblk.contents,"MTEXT")));
-					newMOB.baseEnvStats().setLevel(CMLib.xml().getIntFromPieces(mblk.contents,"MLEVL"));
-					newMOB.baseEnvStats().setAbility(CMLib.xml().getIntFromPieces(mblk.contents,"MABLE"));
-					newMOB.baseEnvStats().setRejuv(CMLib.xml().getIntFromPieces(mblk.contents,"MREJV"));
-					String ride=CMLib.xml().getValFromPieces(mblk.contents,"MRIDE");
-					if((ride!=null)&&(ride.length()>0))
-						mobRideTable.put(newMOB,ride);
-					newMOB.setStartRoom(newRoom);
-					newMOB.setLocation(newRoom);
-					newMOB.recoverCharStats();
-					newMOB.recoverEnvStats();
-					newMOB.recoverMaxState();
-					newMOB.resetToMaxState();
-					newMOB.bringToLife(newRoom,true);
-				}
-
-				Hashtable itemLocTable=new Hashtable();
-				Vector iV=CMLib.xml().getRealContentsFromPieces(cV,"ROOMITEMS");
-				if(iV!=null) //return unpackErr("Room","null 'iV' in room "+newRoom.roomID());
-				for(int i=0;i<iV.size();i++)
-				{
-					XMLLibrary.XMLpiece iblk=(XMLLibrary.XMLpiece)iV.elementAt(i);
-					if((!iblk.tag.equalsIgnoreCase("RITEM"))||(iblk.contents==null))
-						return unpackErr("Room","bad 'iblk' in room "+newRoom.roomID());
-					String iClass=CMLib.xml().getValFromPieces(iblk.contents,"ICLAS");
-					Item newItem=CMClass.getItem(iClass);
-					if(newItem instanceof ArchonOnly) continue;
-					if(newItem==null) return unpackErr("Room","null 'iClass': "+iClass+" in room "+newRoom.roomID());
-					if((newItem instanceof Container)||(newItem instanceof Rideable))
+					for(int m=0;m<mV.size();m++)
 					{
-						String iden=CMLib.xml().getValFromPieces(iblk.contents,"IIDEN");
-						if((iden!=null)&&(iden.length()>0)) identTable.put(iden,newItem);
+						final XMLTag mblk=mV.get(m);
+						if((!mblk.tag().equalsIgnoreCase("RMOB"))||(mblk.contents()==null))
+							return unpackErr("Room","bad 'mblk' in room "+newRoom.roomID(),mblk);
+						final String mClass=mblk.getValFromPieces("MCLAS");
+						final MOB newMOB=CMClass.getMOB(mClass);
+						if(newMOB==null)
+							return unpackErr("Room","null 'mClass': "+mClass+" in room "+newRoom.roomID());
+	
+						// for rideables AND leaders now!
+						final String iden=mblk.getValFromPieces("MIDEN");
+						if((iden!=null)&&(iden.length()>0))
+							identTable.put(iden,newMOB);
+	
+						newMOB.setMiscText(CMLib.xml().restoreAngleBrackets(mblk.getValFromPieces("MTEXT")));
+						newMOB.basePhyStats().setLevel(mblk.getIntFromPieces("MLEVL"));
+						newMOB.basePhyStats().setAbility(mblk.getIntFromPieces("MABLE"));
+						newMOB.basePhyStats().setRejuv(mblk.getIntFromPieces("MREJV"));
+						final String ride=mblk.getValFromPieces("MRIDE");
+						if((ride!=null)&&(ride.length()>0))
+							mobRideTable.put(newMOB,ride);
+						newMOB.setStartRoom(newRoom);
+						newMOB.setLocation(newRoom);
+						newMOB.recoverCharStats();
+						newMOB.recoverPhyStats();
+						newMOB.recoverMaxState();
+						newMOB.resetToMaxState();
+						newMOB.bringToLife(newRoom,true);
 					}
-					String iloc=CMLib.xml().getValFromPieces(iblk.contents,"ILOCA");
-					if(iloc.length()>0) itemLocTable.put(newItem,iloc);
-					newItem.baseEnvStats().setLevel(CMLib.xml().getIntFromPieces(iblk.contents,"ILEVL"));
-					newItem.baseEnvStats().setAbility(CMLib.xml().getIntFromPieces(iblk.contents,"IABLE"));
-					newItem.baseEnvStats().setRejuv(CMLib.xml().getIntFromPieces(iblk.contents,"IREJV"));
-					newItem.setUsesRemaining(CMLib.xml().getIntFromPieces(iblk.contents,"IUSES"));
-					newItem.setMiscText(CMLib.xml().restoreAngleBrackets(CMLib.xml().getValFromPieces(iblk.contents,"ITEXT")));
-					newItem.setContainer(null);
-					newItem.recoverEnvStats();
-					newRoom.addItem(newItem);
-					newItem.recoverEnvStats();
 				}
-				for(Enumeration e=itemLocTable.keys();e.hasMoreElements();)
+
+				final Map<Item,String> itemLocTable=new Hashtable<Item,String>();
+				final List<XMLLibrary.XMLTag> iV=CMLib.xml().getContentsFromPieces(cV,"ROOMITEMS");
+				if(iV!=null)
 				{
-					Item childI=(Item)e.nextElement();
-					String loc=(String)itemLocTable.get(childI);
-					Item parentI=(Item)identTable.get(loc);
+					for(int i=0;i<iV.size();i++)
+					{
+						final XMLTag iblk=iV.get(i);
+						if((!iblk.tag().equalsIgnoreCase("RITEM"))||(iblk.contents()==null))
+							return unpackErr("Room","bad 'iblk' in room "+newRoom.roomID(),iblk);
+						final String iClass=iblk.getValFromPieces("ICLAS");
+						final Item newItem=CMClass.getItem(iClass);
+						if(newItem instanceof ArchonOnly)
+							continue;
+						if(newItem==null)
+							return unpackErr("Room","null 'iClass': "+iClass+" in room "+newRoom.roomID(),iblk);
+						if((newItem instanceof Container)||(newItem instanceof Rideable))
+						{
+							final String iden=iblk.getValFromPieces("IIDEN");
+							if((iden!=null)&&(iden.length()>0))
+								identTable.put(iden,newItem);
+						}
+						final String iloc=iblk.getValFromPieces("ILOCA");
+						if(iloc.length()>0)
+							itemLocTable.put(newItem,iloc);
+						newItem.basePhyStats().setLevel(iblk.getIntFromPieces("ILEVL"));
+						newItem.basePhyStats().setAbility(iblk.getIntFromPieces("IABLE"));
+						newItem.basePhyStats().setRejuv(iblk.getIntFromPieces("IREJV"));
+						newItem.setUsesRemaining(iblk.getIntFromPieces("IUSES"));
+						newItem.setOwner(newRoom); // temporary measure to take care of behaviors
+						newItem.setMiscText(CMLib.xml().restoreAngleBrackets(iblk.getValFromPieces("ITEXT")));
+						newItem.setContainer(null);
+						newItem.recoverPhyStats();
+						newRoom.addItem(newItem);
+						newItem.recoverPhyStats();
+					}
+				}
+				for(final Item childI : itemLocTable.keySet())
+				{
+					final String loc=itemLocTable.get(childI);
+					final Item parentI=(Item)identTable.get(loc);
 					if(parentI!=null)
 					{
-						childI.setContainer(parentI);
-						childI.recoverEnvStats();
-						parentI.recoverEnvStats();
+						if(parentI instanceof Container)
+							childI.setContainer((Container)parentI);
+						childI.recoverPhyStats();
+						parentI.recoverPhyStats();
 					}
 				}
-				for(Enumeration e=mobRideTable.keys();e.hasMoreElements();)
+				for(final MOB M : mobRideTable.keySet())
 				{
-					MOB M=(MOB)e.nextElement();
-					String ride=(String)mobRideTable.get(M);
+					final String ride=mobRideTable.get(M);
 					if((ride!=null)&&(ride.length()>0))
 					{
-						Environmental E=(Environmental)identTable.get(ride);
+						final Environmental E=identTable.get(ride);
 						if(E instanceof Rideable)
 							M.setRiding((Rideable)E);
 						else
@@ -833,226 +1020,372 @@ public class CoffeeMaker extends StdLibrary implements GenericBuilder
 		}
 		// equivalent to clear debriandrestart
 		CMLib.threads().clearDebri(newRoom,0);
-		CMLib.database().DBUpdateItems(newRoom);
+		if(andSave)
+			CMLib.database().DBUpdateItems(newRoom);
 		newRoom.startItemRejuv();
-		CMLib.database().DBUpdateMOBs(newRoom);
+		if(andSave)
+			CMLib.database().DBUpdateMOBs(newRoom);
 		return "";
 	}
 
-	public String fillAreaAndCustomVectorFromXML(String buf,
-    											 Vector area,
-    											 Vector custom,
-    											 Hashtable externalFiles)
+	protected void fixFillingRoomUnlinkedExits(Room newRoom, Room R, boolean andSave)
 	{
-		Vector xml=CMLib.xml().parseAllXML(buf);
-		if(xml==null) return unpackErr("Fill","null 'xml'");
-		String error=fillCustomVectorFromXML(xml,custom,externalFiles);
-		if(error.length()>0) return error;
-		Vector areaData=CMLib.xml().getRealContentsFromPieces(xml,"AREA");
-		if(areaData==null) return unpackErr("Fill","null 'aV'");
+		boolean changed=false;
+		for(int d=Directions.NUM_DIRECTIONS()-1;d>=0;d--)
+		{
+			final Exit exit=R.getRawExit(d);
+			if((exit!=null)&&(exit.temporaryDoorLink().equalsIgnoreCase(newRoom.roomID())))
+			{
+				exit.setTemporaryDoorLink("");
+				R.rawDoors()[d]=newRoom;
+				changed=true;
+			}
+			else
+			if((R.rawDoors()[d]!=null)&&(R.rawDoors()[d].roomID().equals(newRoom.roomID())))
+			{
+				R.rawDoors()[d]=newRoom;
+				changed=true;
+			}
+		}
+		if(changed && andSave)
+			CMLib.database().DBUpdateExits(R);
+	}
+
+	@Override
+	public String fillAreaAndCustomVectorFromXML(String buf, List<XMLTag> area, List<CMObject> custom, Map<String,String> externalFiles)
+	{
+		final List<XMLLibrary.XMLTag> xml=CMLib.xml().parseAllXML(buf);
+		if(xml==null)
+			return unpackErr("Fill","null 'xml'");
+		final String error=fillCustomVectorFromXML(xml,custom,externalFiles);
+		if(error.length()>0)
+			return error;
+		final List<XMLLibrary.XMLTag> areaData=CMLib.xml().getContentsFromPieces(xml,"AREA");
+		if(areaData==null)
+			return unpackErr("Fill","null 'AREA'",xml);
 		for(int a=0;a<areaData.size();a++)
-			area.addElement(areaData.elementAt(a));
+			area.add(areaData.get(a));
 		return "";
 	}
-	public String fillCustomVectorFromXML(String xml,
-	        									 Vector custom,
-     											 Hashtable externalFiles)
+
+	@Override
+	public String fillCustomVectorFromXML(String xml, List<CMObject> custom, Map<String,String> externalFiles)
 	{
-		Vector xmlv=CMLib.xml().parseAllXML(xml);
-		if(xmlv==null) return unpackErr("Custom","null 'xmlv'");
+		final List<XMLLibrary.XMLTag> xmlv=CMLib.xml().parseAllXML(xml);
+		if(xmlv==null)
+			return unpackErr("Custom","null 'xmlv'",xmlv);
 		return fillCustomVectorFromXML(xmlv,custom,externalFiles);
 	}
-	public String fillCustomVectorFromXML(Vector xml,
-	        									 Vector custom,
-     											 Hashtable externalFiles)
+
+	@Override
+	public String fillCustomVectorFromXML(List<XMLTag> xml, List<CMObject> custom, Map<String,String> externalFiles)
 	{
-		Vector aV=CMLib.xml().getRealContentsFromPieces(xml,"CUSTOM");
-		if(aV!=null)
+		List<XMLLibrary.XMLTag> aV=CMLib.xml().getContentsFromPieces(xml,"CUSTOM");
+		if((aV!=null)&&(custom!=null))
 		{
 			for(int r=0;r<aV.size();r++)
 			{
-				XMLLibrary.XMLpiece ablk=(XMLLibrary.XMLpiece)aV.elementAt(r);
-				if(ablk.tag.equalsIgnoreCase("RACE"))
+				final XMLTag ablk=aV.get(r);
+				if(ablk.tag().equalsIgnoreCase("RACE"))
 				{
 					Race R=CMClass.getRace("GenRace");
 					if(R!=null)
 					{
 						R=(Race)R.copyOf();
-						R.setRacialParms("<RACE>"+ablk.value+"</RACE>");
+						R.setRacialParms("<RACE>"+ablk.value()+"</RACE>");
 						if(!R.ID().equals("GenRace"))
-							custom.addElement(R);
+							custom.add(R);
 					}
 				}
 				else
-				if(ablk.tag.equalsIgnoreCase("CCLASS"))
+				if(ablk.tag().equalsIgnoreCase("CCLASS"))
 				{
 					CharClass C=CMClass.getCharClass("GenCharClass");
 					if(C!=null)
 					{
 						C=(CharClass)C.copyOf();
-						C.setClassParms("<CCLASS>"+ablk.value+"</CCLASS>");
+						C.setClassParms("<CCLASS>"+ablk.value()+"</CCLASS>");
 						if(!C.ID().equals("GenCharClass"))
-							custom.addElement(C);
+							custom.add(C);
 					}
 				}
 				else
-					return unpackErr("Custom","??"+ablk.tag);
+				if(ablk.tag().equalsIgnoreCase("ABILITY"))
+				{
+					final String type=ablk.getParmValue( "TYPE");
+					if(type!=null)
+					{
+						Ability A=CMClass.getAbility(type);
+						if(A!=null)
+						{
+							A=(Ability)A.copyOf();
+							final String ID=ablk.getParmValue( "ID");
+							final boolean exists=CMClass.getAbility(ID)!=null;
+							A.setStat("ALLXML", ablk.value());
+							if(!exists)
+								CMClass.delClass(CMObjectType.ABILITY, CMClass.getAbility(ID));
+							custom.add(A);
+						}
+						else
+							return unpackErr("Custom","?type?"+ablk.tag(),ablk);
+					}
+					else
+						return unpackErr("Custom","?type?"+ablk.tag(),ablk);
+				}
+				else
+				if(ablk.tag().equalsIgnoreCase("MANUFACTURER"))
+				{
+					final Manufacturer M=(Manufacturer)CMClass.getCommon("DefaultManufacturer");
+					if(M!=null)
+					{
+						M.setXml(ablk.value());
+						if(CMLib.tech().getManufacturer(M.name())==null)
+							custom.add(M);
+					}
+					else
+						return unpackErr("Custom","?type?"+ablk.tag(),ablk);
+				}
+				else
+					return unpackErr("Custom","??"+ablk.tag(),ablk);
 			}
 		}
-		aV=CMLib.xml().getRealContentsFromPieces(xml,"FILES");
-		if(aV!=null)
+		aV=CMLib.xml().getContentsFromPieces(xml,"FILES");
+		if((aV!=null)&&(externalFiles!=null))
 		{
 			for(int r=0;r<aV.size();r++)
 			{
-				XMLLibrary.XMLpiece ablk=(XMLLibrary.XMLpiece)aV.elementAt(r);
-				if(!ablk.tag.equalsIgnoreCase("FILE"))
-					return unpackErr("Custom","Wrong tag in custome file! "+ablk.value);
-				String filename=CMLib.xml().getParmValue(ablk.parms,"NAME");
+				final XMLTag ablk=aV.get(r);
+				if(!ablk.tag().equalsIgnoreCase("FILE"))
+					return unpackErr("Custom","Wrong tag in custome file! "+ablk.value(),ablk);
+				final String filename=ablk.getParmValue("NAME");
 				if((filename==null)||(filename.length()==0))
-					return unpackErr("Custom","No custom file filename! "+ablk.value);
+					return unpackErr("Custom","No custom file filename! "+ablk.value(),ablk);
 				if(!externalFiles.containsKey(filename))
-					externalFiles.put(filename,ablk.value);
+					externalFiles.put(filename,ablk.value());
 			}
 		}
 		return "";
 	}
 
-	public String fillAreasVectorFromXML(String buf,
-	        									Vector areas,
-	        									Vector custom,
-    											Hashtable externalFiles)
+	@Override
+	public String fillAreasVectorFromXML(String buf, List<List<XMLTag>> areas, List<CMObject> custom, Map<String,String> externalFiles)
 	{
-		Vector xml=CMLib.xml().parseAllXML(buf);
-		if(xml==null) return unpackErr("Areas","null 'xml'");
+		final List<XMLLibrary.XMLTag> xml=CMLib.xml().parseAllXML(buf);
+		if(xml==null)
+			return unpackErr("Areas","null 'xml'");
 		fillCustomVectorFromXML(xml,custom,externalFiles);
-		Vector aV=CMLib.xml().getRealContentsFromPieces(xml,"AREAS");
-		if(aV==null) return unpackErr("Areas","null 'aV'");
+		final List<XMLLibrary.XMLTag> aV=CMLib.xml().getContentsFromPieces(xml,"AREAS");
+		if(aV==null)
+			return unpackErr("Areas","null 'AREAS'",xml);
 		for(int r=0;r<aV.size();r++)
 		{
-			XMLLibrary.XMLpiece ablk=(XMLLibrary.XMLpiece)aV.elementAt(r);
-			if((!ablk.tag.equalsIgnoreCase("AREA"))||(ablk.contents==null))
-				return unpackErr("Areas","??"+ablk.tag);
-			areas.addElement(ablk.contents);
+			final XMLTag ablk=aV.get(r);
+			if((!ablk.tag().equalsIgnoreCase("AREA"))||(ablk.contents()==null))
+				return unpackErr("Areas","??"+ablk.tag(),ablk);
+			areas.add(ablk.contents());
 		}
 		return "";
 	}
 
-    public void addAutoPropsToAreaIfNecessary(Area newArea)
-    {
-        if((newArea!=null)
-        &&(newArea.ID().equals("StdArea")))
-        {
-	        if(!CMProps.getVar(CMProps.SYSTEM_AUTOWEATHERPARMS).equalsIgnoreCase("no"))
-	        {
-	            Behavior B=newArea.fetchBehavior("WeatherAffects");
-	            if(B==null){ B=CMClass.getBehavior("WeatherAffects"); B.setSavable(false); newArea.addBehavior(B);}
-	            B.setParms(CMProps.getVar(CMProps.SYSTEM_AUTOWEATHERPARMS));
-	        }
-	        if(CMProps.getVar(CMProps.SYSTEM_AUTOAREAPROPS).trim().length()>0)
-	        {
-	        	String props=CMProps.getVar(CMProps.SYSTEM_AUTOAREAPROPS).trim();
-	        	Vector allProps=CMParms.parseSemicolons(props,true);
-	        	String prop=null;
-	        	String parms=null;
-	        	Ability A=null;
-	        	Behavior B=null;
-	        	for(int v=0;v<allProps.size();v++)
-	        	{
-	        		prop=(String)allProps.elementAt(v);
-	        		parms="";
-	        		int x=prop.indexOf("(");
-	        		if(x>=0)
-	        		{
-	        			parms=prop.substring(x+1).trim();
-	        			prop=prop.substring(0,x).trim();
-	        			if(parms.endsWith(")")) parms=parms.substring(0,parms.length()-1);
-	        		}
-	        		B=CMClass.getBehavior(prop);
-	        		if((B!=null)&&(newArea.fetchBehavior(B.ID())==null))
-	        		{
-	        			B.setSavable(false);
-	        			newArea.addBehavior(B);
-	        			B.setParms(parms);
-	        		}
-	        		else
-	        		{
-	        			A=CMClass.getAbility(prop);
-	        			if((A!=null)&&(newArea.fetchEffect(A.ID())==null))
-	        			{
-	        				A.setSavable(false);
-	        				newArea.addNonUninvokableEffect(A);
-	        				A.setMiscText(parms);
-	        			}
-	        		}
-	        	}
-	        }
-        }
-    }
+	@Override
+	public void addAutoPropsToAreaIfNecessary(Area newArea)
+	{
+		if((newArea!=null)
+		&&(newArea.ID().equals("StdArea")))
+		{
+			if(!CMProps.getVar(CMProps.Str.AUTOWEATHERPARMS).equalsIgnoreCase("no"))
+			{
+				Behavior B=newArea.fetchBehavior("WeatherAffects");
+				if(B==null){ B=CMClass.getBehavior("WeatherAffects"); B.setSavable(false); newArea.addBehavior(B);}
+				B.setParms(CMProps.getVar(CMProps.Str.AUTOWEATHERPARMS));
+			}
+			if(CMProps.getVar(CMProps.Str.AUTOAREAPROPS).trim().length()>0)
+			{
+				final String props=CMProps.getVar(CMProps.Str.AUTOAREAPROPS).trim();
+				final List<String> allProps=CMParms.parseSemicolons(props,true);
+				String prop=null;
+				String parms=null;
+				Ability A=null;
+				Behavior B=null;
+				for(int v=0;v<allProps.size();v++)
+				{
+					prop=allProps.get(v);
+					parms="";
+					final int x=prop.indexOf('(');
+					if(x>=0)
+					{
+						parms=prop.substring(x+1).trim();
+						prop=prop.substring(0,x).trim();
+						if(parms.endsWith(")")
+							) parms=parms.substring(0,parms.length()-1);
+					}
+					B=CMClass.getBehavior(prop);
+					if((B!=null)&&(newArea.fetchBehavior(B.ID())==null))
+					{
+						B.setSavable(false);
+						newArea.addBehavior(B);
+						B.setParms(parms);
+					}
+					else
+					{
+						A=CMClass.getAbility(prop);
+						if((A!=null)&&(newArea.fetchEffect(A.ID())==null))
+						{
+							newArea.addNonUninvokableEffect(A);
+							A.setSavable(false);
+							A.setMiscText(parms);
+						}
+					}
+				}
+			}
+		}
+		if((newArea!=null)&&(!newArea.getParents().hasMoreElements()))
+		{
+			Area defaultParentArea=null;
+			final String defaultParentAreaName=CMProps.getVar(CMProps.Str.DEFAULTPARENTAREA);
+			if((defaultParentAreaName!=null)&&(defaultParentAreaName.trim().length()>0))
+			{
+				defaultParentArea=CMLib.map().getArea(defaultParentAreaName.trim());
+				if(defaultParentArea==null)
+					Log.errOut("RoomLoader","Default parent area from coffeemud.ini '"+defaultParentAreaName.trim()+"' is unknown.");
+			}
+			if(defaultParentArea!=null)
+			{
+				if((newArea!=defaultParentArea)&&(newArea.getTimeObj()==CMLib.time().globalClock()))
+				{
+					if(defaultParentArea.canChild(newArea) && (newArea.canParent(defaultParentArea)))
+					{
+						defaultParentArea.addChild(newArea);
+						newArea.addParent(defaultParentArea);
+					}
+				}
+			}
+		}
+	}
 
-	public String unpackAreaFromXML(Vector aV, Session S, boolean andRooms)
+	@Override
+	public String unpackAreaFromXML(List<XMLTag> aV, Session S, String overrideAreaType, boolean andRooms)
 	{
 		String areaClass=CMLib.xml().getValFromPieces(aV,"ACLAS");
-		String areaName=CMLib.xml().getValFromPieces(aV,"ANAME");
+		final String areaName=CMLib.xml().getValFromPieces(aV,"ANAME");
 
-		if(CMLib.map().getArea(areaName)!=null) return "Area Exists: "+areaName;
-		Area newArea=CMClass.getAreaType(areaClass);
-		if(newArea==null) return unpackErr("Area","No class: "+areaClass);
+		if(CMLib.map().getArea(areaName)!=null)
+			return "Area Exists: "+areaName;
+		if(overrideAreaType!=null)
+			areaClass=overrideAreaType;
+		final Area newArea=CMClass.getAreaType(areaClass);
+		if(newArea==null)
+			return unpackErr("Area","No class: "+areaClass);
 		newArea.setName(areaName);
 		CMLib.map().addArea(newArea);
 		CMLib.database().DBCreateArea(newArea);
 
 		newArea.setDescription(CMLib.coffeeFilter().safetyFilter(CMLib.xml().getValFromPieces(aV,"ADESC")));
 		newArea.setClimateType(CMLib.xml().getIntFromPieces(aV,"ACLIM"));
-		newArea.setTechLevel(CMLib.xml().getIntFromPieces(aV,"ATECH"));
+		newArea.setTheme(CMLib.xml().getIntFromPieces(aV,"ATECH"));
 		newArea.setSubOpList(CMLib.xml().getValFromPieces(aV,"ASUBS"));
 		newArea.setMiscText(CMLib.xml().restoreAngleBrackets(CMLib.xml().getValFromPieces(aV,"ADATA")));
+		if(CMLib.flags().isSavable(newArea))
 		CMLib.database().DBUpdateArea(newArea.Name(),newArea);
 		if(andRooms)
 		{
-			Vector rV=CMLib.xml().getRealContentsFromPieces(aV,"AROOMS");
-			if(rV==null) return unpackErr("Area","null 'rV'");
+			final List<XMLLibrary.XMLTag> rV=CMLib.xml().getContentsFromPieces(aV,"AROOMS");
+			if(rV==null)
+				return unpackErr("Area","null 'AROOMS'",aV);
 			for(int r=0;r<rV.size();r++)
 			{
-				XMLLibrary.XMLpiece ablk=(XMLLibrary.XMLpiece)rV.elementAt(r);
-				if((!ablk.tag.equalsIgnoreCase("AROOM"))||(ablk.contents==null))
-					return unpackErr("Area","??"+ablk.tag);
+				final XMLTag ablk=rV.get(r);
+				if((!ablk.tag().equalsIgnoreCase("AROOM"))||(ablk.contents()==null))
+					return unpackErr("Area","??"+ablk.tag());
 				//if(S!=null) S.rawPrint(".");
-				String err=unpackRoomFromXML(ablk.contents,true);
-				if(err.length()>0) return err;
+				final String err=unpackRoomFromXML(ablk.contents(),true);
+				if(err.length()>0)
+					return err;
 			}
 		}
 		return "";
 	}
-	public String unpackAreaFromXML(String buf, Session S, boolean andRooms)
+	@Override
+	public String unpackAreaFromXML(String buf, Session S, String overrideAreaType, boolean andRooms)
 	{
-		Vector xml=CMLib.xml().parseAllXML(buf);
-		if(xml==null) return unpackErr("Area","null 'xml'");
-		Vector aV=CMLib.xml().getRealContentsFromPieces(xml,"AREA");
-		if(aV==null) return unpackErr("Area","null 'aV'");
-		return unpackAreaFromXML(aV,S,andRooms);
+		final List<XMLLibrary.XMLTag> xml=CMLib.xml().parseAllXML(buf);
+		if(xml==null)
+			return unpackErr("Area","null 'xml'");
+		final List<XMLLibrary.XMLTag> aV=CMLib.xml().getContentsFromPieces(xml,"AREA");
+		if(aV==null)
+			return unpackErr("Area","null 'aV'",xml);
+		return unpackAreaFromXML(aV,S,overrideAreaType,andRooms);
 	}
 
-	public StringBuffer getAreaXML(Area area,
-    							   Session S,
-    							   HashSet custom,
-    							   HashSet files,
-    							   boolean andRooms)
+	@Override
+	public Area unpackAreaObjectFromXML(String xml) throws CMException
 	{
-		StringBuffer buf=new StringBuffer("");
-		if(area==null) return buf;
-		int oldFlag=area.getAreaState();
-		area.setAreaState(Area.STATE_FROZEN);
+		List<XMLLibrary.XMLTag> aV=CMLib.xml().parseAllXML(xml);
+		if(aV==null)
+			throw new CMException(unpackErr("Area","null 'xml'"));
+		aV=CMLib.xml().getContentsFromPieces(aV,"AREA");
+		if(aV==null)
+			throw new CMException(unpackErr("Area","null 'AREA'",aV));
+
+		final String areaClass=CMLib.xml().getValFromPieces(aV,"ACLAS");
+		final String areaName=CMLib.xml().getValFromPieces(aV,"ANAME");
+
+		final Area newArea=CMClass.getAreaType(areaClass);
+		if(newArea==null)
+			throw new CMException(unpackErr("Area","No class: "+areaClass));
+		newArea.setName(areaName);
+
+		newArea.setDescription(CMLib.coffeeFilter().safetyFilter(CMLib.xml().getValFromPieces(aV,"ADESC")));
+		newArea.setClimateType(CMLib.xml().getIntFromPieces(aV,"ACLIM"));
+		newArea.setTheme(CMLib.xml().getIntFromPieces(aV,"ATECH"));
+		newArea.setSubOpList(CMLib.xml().getValFromPieces(aV,"ASUBS"));
+		newArea.setMiscText(CMLib.xml().restoreAngleBrackets(CMLib.xml().getValFromPieces(aV,"ADATA")));
+		final List<XMLLibrary.XMLTag> rV=CMLib.xml().getContentsFromPieces(aV,"AROOMS");
+		if(rV==null)
+			throw new CMException(unpackErr("Area","null 'AROOMS'",aV));
+		for(int r=0;r<rV.size();r++)
+		{
+			final XMLTag ablk=rV.get(r);
+			if((!ablk.tag().equalsIgnoreCase("AROOM"))||(ablk.contents()==null))
+				throw new CMException(unpackErr("Area","??"+ablk.tag()));
+			//if(S!=null) S.rawPrint(".");
+			final String err=unpackRoomFromXML(newArea, ablk.contents(),true,false);
+			if(err.length()>0)
+				throw new CMException(err);
+		}
+		return newArea;
+	}
+
+	@Override
+	public StringBuffer getAreaXML(Area area, Session S, Set<CMObject> custom, Set<String> files, boolean andRooms)
+	{
+		return getAreaXML(area, S, custom, files, andRooms, true);
+	}
+
+	@Override
+	public StringBuffer getAreaObjectXML(Area area, Session S, Set<CMObject> custom, Set<String> files, boolean andRooms)
+	{
+		return getAreaXML(area, S, custom, files, andRooms, false);
+	}
+
+	protected StringBuffer getAreaXML(Area area, Session S, Set<CMObject> custom, Set<String> files, boolean andRooms, boolean isInDB)
+	{
+		final StringBuffer buf=new StringBuffer("");
+		if(area==null)
+			return buf;
+		final Area.State oldFlag=area.getAreaState();
+		area.setAreaState(Area.State.FROZEN);
 		buf.append("<AREA>");
 		buf.append(CMLib.xml().convertXMLtoTag("ACLAS",area.ID()));
 		buf.append(CMLib.xml().convertXMLtoTag("ANAME",area.Name()));
 		buf.append(CMLib.xml().convertXMLtoTag("ADESC",area.description()));
-		buf.append(CMLib.xml().convertXMLtoTag("ACLIM",area.climateType()));
+		buf.append(CMLib.xml().convertXMLtoTag("ACLIM",area.getClimateTypeCode()));
 		buf.append(CMLib.xml().convertXMLtoTag("ASUBS",area.getSubOpList()));
-		buf.append(CMLib.xml().convertXMLtoTag("ATECH",area.getTechLevel()));
+		buf.append(CMLib.xml().convertXMLtoTag("ATECH",area.getThemeCode()));
 		buf.append(CMLib.xml().convertXMLtoTag("ADATA",area.text()));
 		if(andRooms)
 		{
-			Enumeration r=area.getCompleteMap();
+			final Enumeration<Room> r=area.getCompleteMap();
 			if(!r.hasMoreElements())
 				buf.append("<AROOMS />");
 			else
@@ -1061,13 +1394,13 @@ public class CoffeeMaker extends StdLibrary implements GenericBuilder
 				Room R=null;
 				for(;r.hasMoreElements();)
 				{
-					R=(Room)r.nextElement();
+					R=r.nextElement();
 					synchronized(("SYNC"+R.roomID()).intern())
 					{
 						R=CMLib.map().getRoom(R);
 						//if(S!=null) S.rawPrint(".");
 						if((R!=null)&&(R.roomID()!=null)&&(R.roomID().length()>0))
-							buf.append(getRoomXML(R,custom,files,true)+"\n\r");
+							buf.append(getRoomXML(R,custom,files,true,isInDB)+"\n\r");
 					}
 				}
 				buf.append("</AROOMS>");
@@ -1075,10 +1408,11 @@ public class CoffeeMaker extends StdLibrary implements GenericBuilder
 		}
 		fillFileSet(area,files);
 		buf.append("</AREA>");
-        area.setAreaState(oldFlag);
+		area.setAreaState(oldFlag);
 		return buf;
 	}
 
+	@Override
 	public StringBuffer logTextDiff(String e1, String e2)
 	{
 		int start=0;
@@ -1111,42 +1445,45 @@ public class CoffeeMaker extends StdLibrary implements GenericBuilder
 				}
 			}
 		}
-		StringBuffer str=new StringBuffer("*1>");
-		if(end<start) str.append("");
+		final StringBuffer str=new StringBuffer("*1>");
+		if(end<start)
+			str.append("");
 		else str.append(e1.substring(start,end));
 		str.append("\n\r*2>");
-		if(end2<start) str.append("");
+		if(end2<start)
+			str.append("");
 		else str.append(e2.substring(start,end2));
 		return str;
 	}
 
+	@Override
 	public void logDiff(Environmental E1, Environmental E2)
 	{
-		StringBuffer str=new StringBuffer("Unmatched - "+E1.Name()+"\n\r");
+		final StringBuilder str=new StringBuilder("Unmatched - "+E1.Name()+"\n\r");
 		if(E1 instanceof MOB)
 		{
-			MOB mob=(MOB)E1;
-			MOB dup=(MOB)E2;
+			final MOB mob=(MOB)E1;
+			final MOB dup=(MOB)E2;
 			if(!CMClass.classID(mob).equals(CMClass.classID(dup)))
 			   str.append(CMClass.classID(mob)+"!="+CMClass.classID(dup)+"\n\r");
-			if(mob.baseEnvStats().level()!=dup.baseEnvStats().level())
-			   str.append("Level- "+mob.baseEnvStats().level()+"!="+dup.baseEnvStats().level()+"\n\r");
-			if(mob.baseEnvStats().ability()!=dup.baseEnvStats().ability())
-			   str.append("Ability- "+mob.baseEnvStats().ability()+"!="+dup.baseEnvStats().ability()+"\n\r");
+			if(mob.basePhyStats().level()!=dup.basePhyStats().level())
+			   str.append("Level- "+mob.basePhyStats().level()+"!="+dup.basePhyStats().level()+"\n\r");
+			if(mob.basePhyStats().ability()!=dup.basePhyStats().ability())
+			   str.append("Ability- "+mob.basePhyStats().ability()+"!="+dup.basePhyStats().ability()+"\n\r");
 			if(!mob.text().equals(dup.text()))
 				str.append(logTextDiff(mob.text(),dup.text()));
 		}
 		else
 		if(E1 instanceof Item)
 		{
-			Item item=(Item)E1;
-			Item dup=(Item)E2;
+			final Item item=(Item)E1;
+			final Item dup=(Item)E2;
 			if(!CMClass.classID(item).equals(CMClass.classID(dup)))
 			   str.append(CMClass.classID(item)+"!="+CMClass.classID(dup)+"\n\r");
-			if(item.baseEnvStats().level()!=dup.baseEnvStats().level())
-			   str.append("Level- "+item.baseEnvStats().level()+"!="+dup.baseEnvStats().level()+"\n\r");
-			if(item.baseEnvStats().ability()!=dup.baseEnvStats().ability())
-			   str.append("Ability- "+item.baseEnvStats().ability()+"!="+dup.baseEnvStats().ability()+"\n\r");
+			if(item.basePhyStats().level()!=dup.basePhyStats().level())
+			   str.append("Level- "+item.basePhyStats().level()+"!="+dup.basePhyStats().level()+"\n\r");
+			if(item.basePhyStats().ability()!=dup.basePhyStats().ability())
+			   str.append("Ability- "+item.basePhyStats().ability()+"!="+dup.basePhyStats().ability()+"\n\r");
 			if(item.usesRemaining()!=dup.usesRemaining())
 			   str.append("Uses- "+item.usesRemaining()+"!="+dup.usesRemaining()+"\n\r");
 			if(!item.text().equals(dup.text()))
@@ -1156,366 +1493,539 @@ public class CoffeeMaker extends StdLibrary implements GenericBuilder
 			Log.debugOut("CoffeeMaker",str.toString());
 	}
 
-    public Room makeNewRoomContent(Room room)
-    {
-        if(room==null) return null;
-		room=CMLib.map().getRoom(room);
-        Room R=CMClass.getLocale(room.ID());
-        if(R==null) return null;
-        R.setRoomID(room.roomID());
-        CMLib.database().DBReadContent(R,null);
-        return R;
-    }
-
-
-    public StringBuffer getMobXML(MOB mob)
-    {
-        StringBuffer buf=new StringBuffer("");
-        buf.append("<MOB>");
-        buf.append(CMLib.xml().convertXMLtoTag("MCLAS",CMClass.classID(mob)));
-        buf.append(CMLib.xml().convertXMLtoTag("MLEVL",mob.baseEnvStats().level()));
-        buf.append(CMLib.xml().convertXMLtoTag("MABLE",mob.baseEnvStats().ability()));
-        buf.append(CMLib.xml().convertXMLtoTag("MREJV",mob.baseEnvStats().rejuv()));
-        buf.append(CMLib.xml().convertXMLtoTag("MTEXT",CMLib.xml().parseOutAngleBrackets(mob.text())));
-        buf.append("</MOB>\n\r");
-        return buf;
-    }
-
-    public StringBuffer getMobsXML(Vector mobs,
-                                   HashSet custom,
-                                   HashSet files,
-                                   Hashtable found)
-    {
-        StringBuffer buf=new StringBuffer("");
-        for(int i=0;i<mobs.size();i++)
-        {
-            MOB mob=(MOB)mobs.elementAt(i);
-            if(mob.savable())
-            {
-                Vector dups=(Vector)found.get(mob.Name()+mob.displayText());
-                if(dups==null)
-                {
-                    dups=new Vector();
-                    found.put(mob.Name()+mob.displayText(),dups);
-                    dups.addElement(mob);
-                }
-                else
-                {
-                    boolean matched=false;
-                    for(int v=0;v<dups.size();v++)
-                    {
-                        MOB dup=(MOB)dups.elementAt(v);
-                        int oldHeight=mob.baseEnvStats().height();
-                        int oldWeight=mob.baseEnvStats().weight();
-                        int oldGender=mob.baseCharStats().getStat(CharStats.STAT_GENDER);
-                        dup.baseEnvStats().setHeight(mob.baseEnvStats().height());
-                        dup.baseEnvStats().setWeight(mob.baseEnvStats().weight());
-                        dup.baseCharStats().setStat(CharStats.STAT_GENDER,mob.baseCharStats().getStat(CharStats.STAT_GENDER));
-                        if(CMClass.classID(mob).equals(CMClass.classID(dup))
-                        &&(mob.baseEnvStats().level()==dup.baseEnvStats().level())
-                        &&(mob.baseEnvStats().ability()==dup.baseEnvStats().ability())
-                        &&(mob.text().equals(dup.text())))
-                            matched=true;
-                        dup.baseEnvStats().setHeight(oldHeight);
-                        dup.baseEnvStats().setWeight(oldWeight);
-                        dup.baseCharStats().setStat(CharStats.STAT_GENDER,oldGender);
-                        if(matched) break;
-                    }
-                    if(!matched)
-                    {
-                        for(int v=0;v<dups.size();v++)
-                        {
-                            MOB dup=(MOB)dups.elementAt(v);
-                            int oldHeight=mob.baseEnvStats().height();
-                            int oldWeight=mob.baseEnvStats().weight();
-                            int oldGender=mob.baseCharStats().getStat(CharStats.STAT_GENDER);
-                            dup.baseEnvStats().setHeight(mob.baseEnvStats().height());
-                            dup.baseEnvStats().setWeight(mob.baseEnvStats().weight());
-                            dup.baseCharStats().setStat(CharStats.STAT_GENDER,mob.baseCharStats().getStat(CharStats.STAT_GENDER));
-                            if(Log.debugChannelOn()&&CMSecurity.isDebugging("EXPORT"))
-                                logDiff(mob,dup);
-                            dup.baseEnvStats().setHeight(oldHeight);
-                            dup.baseEnvStats().setWeight(oldWeight);
-                            dup.baseCharStats().setStat(CharStats.STAT_GENDER,oldGender);
-                        }
-                        dups.addElement(mob);
-                    }
-                    else
-                        continue;
-                }
-                buf.append(getMobXML(mob));
-                if((mob.baseCharStats().getMyRace().isGeneric())
-                &&(!custom.contains(mob.baseCharStats().getMyRace())))
-                   custom.add(mob.baseCharStats().getMyRace());
-                fillFileSet(mob,files);
-            }
-        }
-        return buf;
-    }
-
-	public StringBuffer getRoomMobs(Room room,
-    							    HashSet custom,
-    							    HashSet files,
-    							    Hashtable found)
+	@Override
+	public Room makeNewRoomContent(Room room, boolean makeLive)
 	{
-		StringBuffer buf=new StringBuffer("");
-        room=makeNewRoomContent(room);
-		if(room==null) return buf;
-		Vector mobs=new Vector();
-		for(int i=0;i<room.numInhabitants();i++)
-			mobs.addElement(room.fetchInhabitant(i));
-        buf.append(getMobsXML(mobs,custom,files,found));
-        room.destroy();
+		if((room==null)||(room.roomID().length()==0))
+			return null;
+		room=CMLib.map().getRoom(room);
+		Room R=CMLib.database().DBReadRoom(room.roomID(), false);
+		if(R!=null)
+			CMLib.database().DBReadContent(R.roomID(),R,makeLive);
+		return R;
+	}
+
+	@Override
+	public StringBuffer getMobXML(MOB mob)
+	{
+		final StringBuffer buf=new StringBuffer("");
+		buf.append("<MOB>");
+		buf.append(CMLib.xml().convertXMLtoTag("MCLAS",CMClass.classID(mob)));
+		buf.append(CMLib.xml().convertXMLtoTag("MLEVL",mob.basePhyStats().level()));
+		buf.append(CMLib.xml().convertXMLtoTag("MABLE",mob.basePhyStats().ability()));
+		buf.append(CMLib.xml().convertXMLtoTag("MREJV",mob.basePhyStats().rejuv()));
+		buf.append(CMLib.xml().convertXMLtoTag("MTEXT",CMLib.xml().parseOutAngleBrackets(mob.text())));
+		buf.append("</MOB>\n\r");
 		return buf;
 	}
 
-	public StringBuffer getUniqueItemXML(Item item,
-    									 int type,
-    									 Hashtable found,
-    									 HashSet files)
+	@Override
+	public StringBuffer getMobsXML(List<MOB> mobs,
+								   Set<CMObject> custom,
+								   Set<String> files,
+								   Map<String,List<MOB>> found)
 	{
-		StringBuffer buf=new StringBuffer("");
-		switch(type)
+		final StringBuffer buf=new StringBuffer("");
+		for(final MOB mob : mobs)
 		{
-		case 1: if(!(item instanceof Weapon)) return buf;
+			if(mob.isSavable())
+			{
+				List<MOB> dups=found.get(mob.Name()+mob.displayText());
+				if(dups==null)
+				{
+					dups=new Vector<MOB>();
+					found.put(mob.Name()+mob.displayText(),dups);
+					dups.add(mob);
+				}
+				else
+				{
+					boolean matched=false;
+					for(int v=0;v<dups.size();v++)
+					{
+						final MOB dup=dups.get(v);
+						final int oldHeight=mob.basePhyStats().height();
+						final int oldWeight=mob.basePhyStats().weight();
+						final int oldGender=mob.baseCharStats().getStat(CharStats.STAT_GENDER);
+						dup.basePhyStats().setHeight(mob.basePhyStats().height());
+						dup.basePhyStats().setWeight(mob.basePhyStats().weight());
+						dup.baseCharStats().setStat(CharStats.STAT_GENDER,mob.baseCharStats().getStat(CharStats.STAT_GENDER));
+						if(CMClass.classID(mob).equals(CMClass.classID(dup))
+						&&(mob.basePhyStats().level()==dup.basePhyStats().level())
+						&&(mob.basePhyStats().ability()==dup.basePhyStats().ability())
+						&&(mob.text().equals(dup.text())))
+							matched=true;
+						dup.basePhyStats().setHeight(oldHeight);
+						dup.basePhyStats().setWeight(oldWeight);
+						dup.baseCharStats().setStat(CharStats.STAT_GENDER,oldGender);
+						if(matched)
+							break;
+					}
+					if(!matched)
+					{
+						for(int v=0;v<dups.size();v++)
+						{
+							final MOB dup=dups.get(v);
+							final int oldHeight=mob.basePhyStats().height();
+							final int oldWeight=mob.basePhyStats().weight();
+							final int oldGender=mob.baseCharStats().getStat(CharStats.STAT_GENDER);
+							dup.basePhyStats().setHeight(mob.basePhyStats().height());
+							dup.basePhyStats().setWeight(mob.basePhyStats().weight());
+							dup.baseCharStats().setStat(CharStats.STAT_GENDER,mob.baseCharStats().getStat(CharStats.STAT_GENDER));
+							if(Log.debugChannelOn()&&CMSecurity.isDebugging(CMSecurity.DbgFlag.EXPORT))
+								logDiff(mob,dup);
+							dup.basePhyStats().setHeight(oldHeight);
+							dup.basePhyStats().setWeight(oldWeight);
+							dup.baseCharStats().setStat(CharStats.STAT_GENDER,oldGender);
+						}
+						dups.add(mob);
+					}
+					else
+						continue;
+				}
+				buf.append(getMobXML(mob));
+				possibleAddElectronicsManufacturers(mob, custom);
+				possiblyAddCustomRace(mob, custom);
+				possiblyAddCustomClass(mob, custom);
+				fillFileSet(mob,files);
+			}
+		}
+		return buf;
+	}
+
+	protected void possiblyAddCustomRace(final MOB mob, Set<CMObject> custom)
+	{
+		if(mob==null)
+			return;
+		final Race R=mob.baseCharStats().getMyRace();
+		if((R==null)||(custom==null))
+			return;
+		if((R.isGeneric()) &&(!custom.contains(R)))
+			custom.add(R);
+		for(final Ability A : R.racialAbilities(null))
+			if(A.isGeneric() && !custom.contains(A))
+				custom.add(A);
+		for(final Ability A : R.racialEffects(null))
+			if(A.isGeneric() && !custom.contains(A))
+				custom.add(A);
+	}
+
+	protected void possiblyAddCustomClass(final MOB mob, Set<CMObject> custom)
+	{
+		if(custom!=null)
+		for(int c=0;c<mob.baseCharStats().numClasses();c++)
+		{
+			final CharClass C=mob.baseCharStats().getMyClass(c);
+			if((C.isGeneric())&&(!custom.contains(C)))
+				custom.add(C);
+		}
+	}
+
+	@Override
+	public StringBuffer getRoomMobs(Room room,
+									Set<CMObject> custom,
+									Set<String> files,
+									Map<String,List<MOB>> found)
+	{
+		final StringBuffer buf=new StringBuffer("");
+		room=makeNewRoomContent(room,false);
+		if(room==null)
+			return buf;
+		final List<MOB> mobs=new Vector<MOB>();
+		for(int i=0;i<room.numInhabitants();i++)
+			mobs.add(room.fetchInhabitant(i));
+		buf.append(getMobsXML(mobs,custom,files,found));
+		room.destroy();
+		return buf;
+	}
+
+	@Override
+	public StringBuffer getUniqueItemXML(Item item,
+										 CMObjectType type,
+										 Map<String,List<Item>> found,
+										 Set<String> files)
+	{
+		final StringBuffer buf=new StringBuffer("");
+		if(type != null)
+		{
+			switch(type)
+			{
+			case WEAPON:
+				if (!(item instanceof Weapon))
+					return buf;
 				break;
-		case 2: if(!(item instanceof Armor)) return buf;
+			case ARMOR:
+				if (!(item instanceof Armor))
+					return buf;
 				break;
+			case ITEM:
+				break;
+			case MISCMAGIC:
+				if (!(item instanceof MiscMagic))
+					return buf;
+				break;
+			case CLANITEM:
+				if (!(item instanceof ClanItem))
+					return buf;
+				break;
+			case TECH:
+				if (!(item instanceof Technical))
+					return buf;
+				break;
+			case COMPTECH:
+				if (!(item instanceof TechComponent))
+					return buf;
+				break;
+			case SOFTWARE:
+				if (!(item instanceof Software))
+					return buf;
+				break;
+			default:
+				break;
+			}
 		}
 		if(item.displayText().length()>0)
 		{
-			Vector dups=(Vector)found.get(item.Name()+item.displayText());
+			List<Item> dups=found.get(item.Name()+item.displayText());
 			if(dups==null)
 			{
-				dups=new Vector();
+				dups=new Vector<Item>();
 				found.put(item.Name()+item.displayText(),dups);
-				dups.addElement(item);
+				dups.add(item);
 			}
 			else
 			{
 				for(int v=0;v<dups.size();v++)
 				{
-					Item dup=(Item)dups.elementAt(v);
-					int oldHeight=item.baseEnvStats().height();
-					item.baseEnvStats().setHeight(dup.baseEnvStats().height());
+					final Item dup=dups.get(v);
+					final int oldHeight=item.basePhyStats().height();
+					item.basePhyStats().setHeight(dup.basePhyStats().height());
 					if(CMClass.classID(item).equals(CMClass.classID(dup))
-					&&(item.baseEnvStats().level()==dup.baseEnvStats().level())
+					&&(item.basePhyStats().level()==dup.basePhyStats().level())
 					&&(item.usesRemaining()==dup.usesRemaining())
-					&&(item.baseEnvStats().ability()==dup.baseEnvStats().ability())
+					&&(item.basePhyStats().ability()==dup.basePhyStats().ability())
 					&&(item.text().equals(dup.text())))
 					{
-						item.baseEnvStats().setHeight(oldHeight);
+						item.basePhyStats().setHeight(oldHeight);
 						return buf;
 					}
-					item.baseEnvStats().setHeight(oldHeight);
+					item.basePhyStats().setHeight(oldHeight);
 				}
 				for(int v=0;v<dups.size();v++)
 				{
-					Item dup=(Item)dups.elementAt(v);
-					int oldHeight=item.baseEnvStats().height();
-					item.baseEnvStats().setHeight(dup.baseEnvStats().height());
-					if(Log.debugChannelOn()&&CMSecurity.isDebugging("EXPORT"))
+					final Item dup=dups.get(v);
+					final int oldHeight=item.basePhyStats().height();
+					item.basePhyStats().setHeight(dup.basePhyStats().height());
+					if(Log.debugChannelOn()&&CMSecurity.isDebugging(CMSecurity.DbgFlag.EXPORT))
 						logDiff(item,dup);
-					item.baseEnvStats().setHeight(oldHeight);
+					item.basePhyStats().setHeight(oldHeight);
 				}
-				dups.addElement(item);
+				dups.add(item);
 			}
-            buf.append(getItemXML(item));
+			buf.append(getItemXML(item));
 			fillFileSet(item,files);
 		}
 		return buf;
 	}
 
-    public StringBuffer getItemXML(Item item)
-    {
-        StringBuffer buf=new StringBuffer("");
-        buf.append("<ITEM>");
-        buf.append(CMLib.xml().convertXMLtoTag("ICLAS",CMClass.classID(item)));
-        buf.append(CMLib.xml().convertXMLtoTag("IUSES",item.usesRemaining()));
-        buf.append(CMLib.xml().convertXMLtoTag("ILEVL",item.baseEnvStats().level()));
-        buf.append(CMLib.xml().convertXMLtoTag("IABLE",item.baseEnvStats().ability()));
-        buf.append(CMLib.xml().convertXMLtoTag("IREJV",item.baseEnvStats().rejuv()));
-        buf.append(CMLib.xml().convertXMLtoTag("ITEXT",CMLib.xml().parseOutAngleBrackets(item.text())));
-        buf.append("</ITEM>\n\r");
-        return buf;
-    }
-
-    public Item getItemFromXML(String xmlBuffer)
-    {
-        Vector xml=CMLib.xml().parseAllXML(xmlBuffer);
-        if((xml==null)||(xml.size()==0)) return null;
-        XMLLibrary.XMLpiece iblk=(XMLLibrary.XMLpiece)xml.firstElement();
-        if((!iblk.tag.equalsIgnoreCase("ITEM"))||(iblk.contents==null))
-            return null;
-        String itemClass=CMLib.xml().getValFromPieces(iblk.contents,"ICLAS");
-        Item newItem=CMClass.getItem(itemClass);
-        if(newItem==null) return null;
-        newItem.baseEnvStats().setLevel(CMLib.xml().getIntFromPieces(iblk.contents,"ILEVL"));
-        newItem.baseEnvStats().setAbility(CMLib.xml().getIntFromPieces(iblk.contents,"IABLE"));
-        newItem.baseEnvStats().setRejuv(CMLib.xml().getIntFromPieces(iblk.contents,"IREJV"));
-        newItem.setUsesRemaining(CMLib.xml().getIntFromPieces(iblk.contents,"IUSES"));
-        newItem.setMiscText(CMLib.xml().restoreAngleBrackets(CMLib.xml().getValFromPieces(iblk.contents,"ITEXT")));
-        newItem.setContainer(null);
-        newItem.recoverEnvStats();
-        return newItem;
-    }
-
-	public String addItemsFromXML(String xmlBuffer,
-								  Vector addHere,
-								  Session S)
+	@Override
+	public StringBuffer getItemXML(Item item)
 	{
-		Vector xml=CMLib.xml().parseAllXML(xmlBuffer);
-		if(xml==null) return unpackErr("Items","null 'xml'");
-		Vector iV=CMLib.xml().getRealContentsFromPieces(xml,"ITEMS");
-		if(iV==null) return unpackErr("Items","null 'iV'");
+		final StringBuffer buf=new StringBuffer("");
+		buf.append("<ITEM>");
+		buf.append(CMLib.xml().convertXMLtoTag("ICLAS",CMClass.classID(item)));
+		buf.append(CMLib.xml().convertXMLtoTag("IUSES",item.usesRemaining()));
+		buf.append(CMLib.xml().convertXMLtoTag("ILEVL",item.basePhyStats().level()));
+		buf.append(CMLib.xml().convertXMLtoTag("IABLE",item.basePhyStats().ability()));
+		buf.append(CMLib.xml().convertXMLtoTag("IREJV",item.basePhyStats().rejuv()));
+		buf.append(CMLib.xml().convertXMLtoTag("ITEXT",CMLib.xml().parseOutAngleBrackets(item.text())));
+		buf.append("</ITEM>\n\r");
+		return buf;
+	}
+
+	@Override
+	public Item getItemFromXML(String xmlBuffer)
+	{
+		final List<XMLLibrary.XMLTag> xml=CMLib.xml().parseAllXML(xmlBuffer);
+		if((xml==null)||(xml.size()==0))
+			return null;
+		final XMLTag iblk=xml.get(0);
+		if((!iblk.tag().equalsIgnoreCase("ITEM"))||(iblk.contents()==null))
+			return null;
+		final String itemClass=iblk.getValFromPieces("ICLAS");
+		final Item newItem=CMClass.getItem(itemClass);
+		if(newItem==null)
+			return null;
+		newItem.basePhyStats().setLevel(iblk.getIntFromPieces("ILEVL"));
+		newItem.basePhyStats().setAbility(iblk.getIntFromPieces("IABLE"));
+		newItem.basePhyStats().setRejuv(iblk.getIntFromPieces("IREJV"));
+		newItem.setUsesRemaining(iblk.getIntFromPieces("IUSES"));
+		newItem.setMiscText(CMLib.xml().restoreAngleBrackets(iblk.getValFromPieces("ITEXT")));
+		newItem.setContainer(null);
+		newItem.recoverPhyStats();
+		return newItem;
+	}
+
+	@Override
+	public String addItemsFromXML(List<XMLTag> xml, List<Item> addHere, Session S)
+	{
+		if(xml==null)
+			return unpackErr("Items","null 'xml'");
+		final List<XMLLibrary.XMLTag> iV=CMLib.xml().getContentsFromPieces(xml,"ITEMS");
+		if(iV==null)
+			return unpackErr("Items","null 'ITEMS' <ITEMS>",xml);
 		for(int i=0;i<iV.size();i++)
 		{
-			XMLLibrary.XMLpiece iblk=(XMLLibrary.XMLpiece)iV.elementAt(i);
-			if((!iblk.tag.equalsIgnoreCase("ITEM"))||(iblk.contents==null))
-				return unpackErr("Items","??"+iblk.tag);
+			final XMLTag iblk=iV.get(i);
+			if((!iblk.tag().equalsIgnoreCase("ITEM"))||(iblk.contents()==null))
+				return unpackErr("Items","??"+iblk.tag());
 			//if(S!=null) S.rawPrint(".");
-			String itemClass=CMLib.xml().getValFromPieces(iblk.contents,"ICLAS");
-			Item newItem=CMClass.getItem(itemClass);
+			final String itemClass=iblk.getValFromPieces("ICLAS");
+			final Item newItem=CMClass.getItem(itemClass);
 			if((newItem instanceof ArchonOnly)
 			&&((S==null)||(S.mob()==null)||(!CMSecurity.isASysOp(S.mob()))))
 				continue;
-			if(newItem==null) return unpackErr("Items","null 'iClass': "+itemClass);
-			newItem.baseEnvStats().setLevel(CMLib.xml().getIntFromPieces(iblk.contents,"ILEVL"));
-			newItem.baseEnvStats().setAbility(CMLib.xml().getIntFromPieces(iblk.contents,"IABLE"));
-			newItem.baseEnvStats().setRejuv(CMLib.xml().getIntFromPieces(iblk.contents,"IREJV"));
-			newItem.setUsesRemaining(CMLib.xml().getIntFromPieces(iblk.contents,"IUSES"));
-			newItem.setMiscText(CMLib.xml().restoreAngleBrackets(CMLib.xml().getValFromPieces(iblk.contents,"ITEXT")));
+			if(newItem==null)
+				return unpackErr("Items","null 'iClass': "+itemClass);
+			newItem.basePhyStats().setLevel(iblk.getIntFromPieces("ILEVL"));
+			newItem.basePhyStats().setAbility(iblk.getIntFromPieces("IABLE"));
+			newItem.basePhyStats().setRejuv(iblk.getIntFromPieces("IREJV"));
+			newItem.setUsesRemaining(iblk.getIntFromPieces("IUSES"));
+			newItem.setMiscText(CMLib.xml().restoreAngleBrackets(iblk.getValFromPieces("ITEXT")));
 			newItem.setContainer(null);
-			newItem.recoverEnvStats();
-			addHere.addElement(newItem);
+			newItem.recoverPhyStats();
+			addHere.add(newItem);
 		}
 		return "";
 	}
-
-    public MOB getMobFromXML(String xmlBuffer)
-    {
-        Vector xml=CMLib.xml().parseAllXML(xmlBuffer);
-        if((xml==null)||(xml.size()==0)) return null;
-        XMLLibrary.XMLpiece mblk=(XMLLibrary.XMLpiece)xml.firstElement();
-        if((!mblk.tag.equalsIgnoreCase("MOB"))||(mblk.contents==null))
-            return null;
-        String mClass=CMLib.xml().getValFromPieces(mblk.contents,"MCLAS");
-        MOB newMOB=CMClass.getMOB(mClass);
-        if(newMOB==null) return null;
-        String text=CMLib.xml().restoreAngleBrackets(CMLib.xml().getValFromPieces(mblk.contents,"MTEXT"));
-        newMOB.setMiscText(text);
-        newMOB.baseEnvStats().setLevel(CMLib.xml().getIntFromPieces(mblk.contents,"MLEVL"));
-        newMOB.baseEnvStats().setAbility(CMLib.xml().getIntFromPieces(mblk.contents,"MABLE"));
-        newMOB.baseEnvStats().setRejuv(CMLib.xml().getIntFromPieces(mblk.contents,"MREJV"));
-        newMOB.recoverCharStats();
-        newMOB.recoverEnvStats();
-        newMOB.recoverMaxState();
-        newMOB.resetToMaxState();
-        return newMOB;
-    }
-
-
-	public String addMOBsFromXML(String xmlBuffer,
-								 Vector addHere,
-								 Session S)
+	
+	@Override
+	public String addMOBsFromXML(List<XMLTag> xml, List<MOB> addHere, Session S)
 	{
-		Vector xml=CMLib.xml().parseAllXML(xmlBuffer);
-		if(xml==null) return unpackErr("MOBs","null 'xml'");
-		Vector mV=CMLib.xml().getRealContentsFromPieces(xml,"MOBS");
-		if(mV==null) return unpackErr("MOBs","null 'mV'");
+		if(xml==null)
+			return unpackErr("MOBs","null 'xml'");
+		final List<XMLLibrary.XMLTag> mV=CMLib.xml().getContentsFromPieces(xml,"MOBS");
+		if(mV==null)
+			return unpackErr("MOBs","null 'MOBS'",xml);
 		for(int m=0;m<mV.size();m++)
 		{
-			XMLLibrary.XMLpiece mblk=(XMLLibrary.XMLpiece)mV.elementAt(m);
-			if((!mblk.tag.equalsIgnoreCase("MOB"))||(mblk.contents==null))
+			final XMLTag mblk=mV.get(m);
+			if((!mblk.tag().equalsIgnoreCase("MOB"))||(mblk.contents()==null))
 				return unpackErr("MOBs","bad 'mblk'");
-			String mClass=CMLib.xml().getValFromPieces(mblk.contents,"MCLAS");
-			MOB newMOB=CMClass.getMOB(mClass);
-			if(newMOB==null) return unpackErr("MOBs","null 'mClass': "+mClass);
-			String text=CMLib.xml().restoreAngleBrackets(CMLib.xml().getValFromPieces(mblk.contents,"MTEXT"));
+			final String mClass=mblk.getValFromPieces("MCLAS");
+			final MOB newMOB=CMClass.getMOB(mClass);
+			if(newMOB==null)
+				return unpackErr("MOBs","null 'mClass': "+mClass);
+			final String text=CMLib.xml().restoreAngleBrackets(mblk.getValFromPieces("MTEXT"));
 			newMOB.setMiscText(text);
-			newMOB.baseEnvStats().setLevel(CMLib.xml().getIntFromPieces(mblk.contents,"MLEVL"));
-			newMOB.baseEnvStats().setAbility(CMLib.xml().getIntFromPieces(mblk.contents,"MABLE"));
-			newMOB.baseEnvStats().setRejuv(CMLib.xml().getIntFromPieces(mblk.contents,"MREJV"));
+			newMOB.basePhyStats().setLevel(mblk.getIntFromPieces("MLEVL"));
+			newMOB.basePhyStats().setAbility(mblk.getIntFromPieces("MABLE"));
+			newMOB.basePhyStats().setRejuv(mblk.getIntFromPieces("MREJV"));
 			newMOB.recoverCharStats();
-			newMOB.recoverEnvStats();
+			newMOB.recoverPhyStats();
 			newMOB.recoverMaxState();
 			newMOB.resetToMaxState();
-			addHere.addElement(newMOB);
+			addHere.add(newMOB);
 		}
 		return "";
 	}
-
-    public StringBuffer getItemsXML(Vector items, Hashtable found, HashSet files, int type)
-    {
-        StringBuffer buf=new StringBuffer("");
-        for(int i=0;i<items.size();i++)
-            buf.append(getUniqueItemXML((Item)items.elementAt(i),type,found,files));
-        return buf;
-    }
-    
-	public StringBuffer getRoomItems(Room room,
-									 Hashtable found,
-									 HashSet files,
-									 int type) // 0=item, 1=weapon, 2=armor
+	
+	@Override
+	public String addItemsFromXML(String xmlBuffer, List<Item> addHere, Session S)
 	{
-		StringBuffer buf=new StringBuffer("");
-        room=makeNewRoomContent(room);
-		if(room==null) return buf;
-		Vector items=new Vector();
+		final List<XMLLibrary.XMLTag> xml=CMLib.xml().parseAllXML(xmlBuffer);
+		return addItemsFromXML(xml, addHere, S);
+	}
+
+	@Override
+	public MOB getMobFromXML(String xmlBuffer)
+	{
+		final List<XMLLibrary.XMLTag> xml=CMLib.xml().parseAllXML(xmlBuffer);
+		if((xml==null)||(xml.size()==0))
+			return null;
+		final XMLTag mblk=xml.get(0);
+		if((!mblk.tag().equalsIgnoreCase("MOB"))||(mblk.contents()==null))
+			return null;
+		final String mClass=mblk.getValFromPieces("MCLAS");
+		final MOB newMOB=CMClass.getMOB(mClass);
+		if(newMOB==null)
+			return null;
+		final String text=CMLib.xml().restoreAngleBrackets(mblk.getValFromPieces("MTEXT"));
+		newMOB.setMiscText(text);
+		newMOB.basePhyStats().setLevel(mblk.getIntFromPieces("MLEVL"));
+		newMOB.basePhyStats().setAbility(mblk.getIntFromPieces("MABLE"));
+		newMOB.basePhyStats().setRejuv(mblk.getIntFromPieces("MREJV"));
+		newMOB.recoverCharStats();
+		newMOB.recoverPhyStats();
+		newMOB.recoverMaxState();
+		newMOB.resetToMaxState();
+		return newMOB;
+	}
+
+
+	@Override
+	public String addMOBsFromXML(String xmlBuffer, List<MOB> addHere, Session S)
+	{
+		final List<XMLLibrary.XMLTag> xml=CMLib.xml().parseAllXML(xmlBuffer);
+		return addMOBsFromXML(xml, addHere, S);
+	}
+
+	@Override
+	public String addCataDataFromXML(String xmlBuffer, List<CataData> addHere, List<? extends Physical> nameMatchers, Session S)
+	{
+		final List<XMLLibrary.XMLTag> xml=CMLib.xml().parseAllXML(xmlBuffer);
+		if(xml==null)
+			return unpackErr("CataDats","null 'xml'");
+		final List<Map<String,CataData>> sets = new ArrayList<Map<String,CataData>>();
+		for(Iterator<XMLLibrary.XMLTag> t= xml.iterator();t.hasNext();)
+		{
+			XMLLibrary.XMLTag tag = t.next();
+			if(tag.tag().equalsIgnoreCase("CATADATAS"))
+			{
+				final Map<String,CataData> set = new TreeMap<String,CataData>();
+				sets.add(set);
+				for(Iterator<XMLLibrary.XMLTag> t2= tag.contents().iterator();t2.hasNext();)
+				{
+					XMLLibrary.XMLTag cataDataTag = t2.next();
+					if(cataDataTag.tag().equalsIgnoreCase("CATALOGDATA"))
+					{
+						CataData catDat = CMLib.catalog().sampleCataData(cataDataTag.toString());
+						if(cataDataTag.parms().containsKey("NAME"))
+							set.put(CMLib.xml().restoreAngleBrackets(cataDataTag.parms().get("NAME")), catDat);
+						else
+							return unpackErr("CataDats","null 'NAME'");
+					}
+				}
+			}
+		}
+		if(nameMatchers == null)
+		{
+			for(Map<String,CataData> chk : sets)
+			{
+				for(CataData dat : chk.values())
+					addHere.add(dat);
+			}
+		}
+		else
+		{
+			int bestMatch = -1;
+			Map<String,CataData> bestSet = null;
+			for(Map<String,CataData> chk : sets)
+			{
+				int ct = 0;
+				for(Physical P : nameMatchers)
+				{
+					if(chk.containsKey(P.Name()))
+						ct++;
+				}
+				if((ct > bestMatch)&&(ct>0))
+				{
+					bestMatch=ct;
+					bestSet=chk;
+				}
+			}
+			if(bestSet != null)
+			{
+				for(Physical P : nameMatchers)
+				{
+					if(bestSet.containsKey(P.Name()))
+						addHere.add(bestSet.get(P.Name()));
+					else
+					{
+						addHere.clear();
+						break;
+					}
+				}
+			}
+		}
+		if(addHere.size() == 0)
+			return unpackErr("CataDats","nothing found");
+		return "";
+	}
+
+	@Override
+	public StringBuffer getItemsXML(List<Item> items, Map<String,List<Item>> found, Set<String> files, CMObjectType type)
+	{
+		final StringBuffer buf=new StringBuffer("");
+		for(final Item I : items)
+			buf.append(getUniqueItemXML(I,type,found,files));
+		return buf;
+	}
+
+	@Override
+	public StringBuffer getRoomItems(Room room,
+									 Map<String,List<Item>> found,
+									 Set<String> files,
+									 CMObjectType type) // 0=item, 1=weapon, 2=armor
+	{
+		final StringBuffer buf=new StringBuffer("");
+		room=makeNewRoomContent(room,false);
+		if(room==null)
+			return buf;
+		final List<Item> items=new Vector<Item>();
 		for(int i=0;i<room.numItems();i++)
-			items.addElement(room.fetchItem(i));
-		Vector mobs=new Vector();
+			items.add(room.getItem(i));
+		final List<MOB> mobs=new Vector<MOB>();
 		for(int i=0;i<room.numInhabitants();i++)
-			mobs.addElement(room.fetchInhabitant(i));
+			mobs.add(room.fetchInhabitant(i));
 		for(int i=0;i<items.size();i++)
 		{
-			Item item=(Item)items.elementAt(i);
-            if(item.savable())
-    			buf.append(getUniqueItemXML(item,type,found,files));
+			final Item item=items.get(i);
+			if(item.isSavable())
+				buf.append(getUniqueItemXML(item,type,found,files));
 		}
 		for(int m=0;m<mobs.size();m++)
 		{
-			MOB M=(MOB)mobs.elementAt(m);
-			if((M!=null)&&(M.savable()))
+			final MOB M=mobs.get(m);
+			if((M!=null)&&(M.isSavable()))
 			{
-				for(int i=0;i<M.inventorySize();i++)
+				for(int i=0;i<M.numItems();i++)
 				{
-					Item item=M.fetchInventory(i);
+					final Item item=M.getItem(i);
 					buf.append(getUniqueItemXML(item,type,found,files));
 				}
 				if(CMLib.coffeeShops().getShopKeeper(M)!=null)
 				{
-					Vector V=CMLib.coffeeShops().getShopKeeper(M).getShop().getStoreInventory();
-					for(int v=0;v<V.size();v++)
+					for(final Iterator<Environmental> i=CMLib.coffeeShops().getShopKeeper(M).getShop().getStoreInventory();i.hasNext();)
 					{
-						Environmental E=(Environmental)V.elementAt(v);
+						final Environmental E=i.next();
 						if(E instanceof Item)
 							buf.append(getUniqueItemXML((Item)E,type,found,files));
 					}
 				}
 			}
 		}
-        room.destroy();
+		room.destroy();
 		return buf;
 	}
 
-	public StringBuffer getRoomXML(Room room,
-        							HashSet custom,
-        							HashSet files,
-        							boolean andContent)
+	@Override
+	public StringBuffer getRoomXML(Room room, Set<CMObject> custom, Set<String> files, boolean andContent)
 	{
-		StringBuffer buf=new StringBuffer("");
-		if(room==null) return buf;
+		return getRoomXML(room, custom, files, andContent, true);
+	}
+
+	protected StringBuffer getRoomXML(Room room, Set<CMObject> custom, Set<String> files, boolean andContent, boolean andIsInDB)
+	{
+		final StringBuffer buf=new StringBuffer("");
+		if(room==null)
+			return buf;
 		// do this quick before a tick messes it up!
-		Vector inhabs=new Vector();
-        Room croom=makeNewRoomContent(room);
+		final List<MOB> inhabs=new Vector<MOB>();
+		final Room croom=andIsInDB?makeNewRoomContent(room,false):room;
 		if(andContent)
-		for(int i=0;i<croom.numInhabitants();i++)
-			inhabs.addElement(croom.fetchInhabitant(i));
-		Vector items=new Vector();
+		{
+			for(int i=0;i<croom.numInhabitants();i++)
+				inhabs.add(croom.fetchInhabitant(i));
+		}
+		final List<Item> items=new Vector<Item>();
 		if(andContent)
-		for(int i=0;i<croom.numItems();i++)
-			items.addElement(croom.fetchItem(i));
+		{
+			for(int i=0;i<croom.numItems();i++)
+				items.add(croom.getItem(i));
+		}
+		
+		final Area area=room.getArea();
+		final boolean isShip=(area instanceof BoardableShip);
 
 		buf.append("<AROOM>");
 		buf.append(CMLib.xml().convertXMLtoTag("ROOMID",room.roomID()));
@@ -1526,11 +2036,15 @@ public class CoffeeMaker extends StdLibrary implements GenericBuilder
 		buf.append(CMLib.xml().convertXMLtoTag("RTEXT",CMLib.xml().parseOutAngleBrackets(room.text())));
 		fillFileSet(room,files);
 		buf.append("<ROOMEXITS>");
+		Room door;
 		for(int d=Directions.NUM_DIRECTIONS()-1;d>=0;d--)
 		{
-			Room door=room.rawDoors()[d];
-			Exit exit=room.getRawExit(d);
-			if(((door!=null)&&(door.roomID().length()>0))||((door==null)&&(exit!=null)))
+			door=room.rawDoors()[d];
+			final Exit exit=room.getRawExit(d);
+			if((isShip)&&(exit!=null)&&(door!=null)&&(door.getArea() != area))
+				door=null;
+			if(((door!=null)&&(door.roomID().length()>0))
+			||((door==null)&&(exit!=null)))
 			{
 				buf.append("<REXIT>");
 				buf.append(CMLib.xml().convertXMLtoTag("XDIRE",d));
@@ -1553,33 +2067,34 @@ public class CoffeeMaker extends StdLibrary implements GenericBuilder
 		}
 		if(room instanceof GridLocale)
 		{
-			Vector exits=((GridLocale)room).outerExits();
-			HashSet done=new HashSet();
+			final Set<String> done=new HashSet<String>();
 			int ordinal=0;
-			for(int v=0;v<exits.size();v++)
+			for(final Iterator<GridLocale.CrossExit> i=((GridLocale)room).outerExits();i.hasNext();)
 			{
-				WorldMap.CrossExit CE=(WorldMap.CrossExit)exits.elementAt(v);
+				final GridLocale.CrossExit CE=i.next();
 				Room R=CMLib.map().getRoom(CE.destRoomID);
-				if(R==null) continue;
-				if(R.getGridParent()!=null) R=R.getGridParent();
-				if((R.roomID().length()>0)&&(!done.contains(R.roomID())))
+				if(R==null)
+					continue;
+				if(R.getGridParent()!=null)
+					R=R.getGridParent();
+				if((R!=null)&&(R.roomID().length()>0)&&(!done.contains(R.roomID())))
 				{
 					done.add(R.roomID());
-					HashSet oldStrs=new HashSet();
-					for(int v2=0;v2<exits.size();v2++)
+					final Set<String> oldStrs=new HashSet<String>();
+					for(final Iterator<GridLocale.CrossExit> i2=((GridLocale)room).outerExits();i2.hasNext();)
 					{
-						WorldMap.CrossExit CE2=(WorldMap.CrossExit)exits.elementAt(v2);
+						final GridLocale.CrossExit CE2=i2.next();
 						if((CE2.destRoomID.equals(R.roomID())
 						||(CE2.destRoomID.startsWith(R.roomID()+"#("))))
 						{
-							String str=CE2.x+" "+CE2.y+" "+((CE2.out?256:512)|CE2.dir)+" "+CE2.destRoomID.substring(R.roomID().length())+";";
+							final String str=CE2.x+" "+CE2.y+" "+((CE2.out?256:512)|CE2.dir)+" "+CE2.destRoomID.substring(R.roomID().length())+";";
 							if(!oldStrs.contains(str))
 								oldStrs.add(str);
 						}
 					}
-					StringBuffer exitStr=new StringBuffer("");
-					for(Iterator a=oldStrs.iterator();a.hasNext();)
-						exitStr.append((String)a.next());
+					final StringBuffer exitStr=new StringBuffer("");
+					for (final String string : oldStrs)
+						exitStr.append(string);
 					buf.append("<REXIT>");
 					buf.append(CMLib.xml().convertXMLtoTag("XDIRE",(256+(++ordinal))));
 					buf.append(CMLib.xml().convertXMLtoTag("XDOOR",R.roomID()));
@@ -1599,20 +2114,20 @@ public class CoffeeMaker extends StdLibrary implements GenericBuilder
 				buf.append("<ROOMMOBS>");
 				for(int i=0;i<inhabs.size();i++)
 				{
-					MOB mob=(MOB)inhabs.elementAt(i);
+					final MOB mob=inhabs.get(i);
 					if((mob.isMonster())&&((mob.amFollowing()==null)||(mob.amFollowing().isMonster())))
 					{
-						if((mob.charStats().getMyRace().isGeneric())
-						&&(!custom.contains(mob.charStats().getMyRace())))
-						   custom.add(mob.charStats().getMyRace());
+						possiblyAddCustomRace(mob, custom);
+						possiblyAddCustomClass(mob, custom);
+						possibleAddElectronicsManufacturers(mob, custom);
 
 						buf.append("<RMOB>");
 						buf.append(CMLib.xml().convertXMLtoTag("MCLAS",CMClass.classID(mob)));
 						if((((mob instanceof Rideable)&&(((Rideable)mob).numRiders()>0)))||(mob.numFollowers()>0))
 							buf.append(CMLib.xml().convertXMLtoTag("MIDEN",""+mob));
-						buf.append(CMLib.xml().convertXMLtoTag("MLEVL",mob.baseEnvStats().level()));
-						buf.append(CMLib.xml().convertXMLtoTag("MABLE",mob.baseEnvStats().ability()));
-						buf.append(CMLib.xml().convertXMLtoTag("MREJV",mob.baseEnvStats().rejuv()));
+						buf.append(CMLib.xml().convertXMLtoTag("MLEVL",mob.basePhyStats().level()));
+						buf.append(CMLib.xml().convertXMLtoTag("MABLE",mob.basePhyStats().ability()));
+						buf.append(CMLib.xml().convertXMLtoTag("MREJV",mob.basePhyStats().rejuv()));
 						buf.append(CMLib.xml().convertXMLtoTag("MTEXT",CMLib.xml().parseOutAngleBrackets(mob.text())));
 						if(mob.riding()!=null)
 							buf.append(CMLib.xml().convertXMLtoTag("MRIDE",""+mob.riding()));
@@ -1635,74 +2150,92 @@ public class CoffeeMaker extends StdLibrary implements GenericBuilder
 				for(int i=0;i<items.size();i++)
 				{
 					buf.append("<RITEM>");
-					Item item=(Item)items.elementAt(i);
-                    if(item.savable())
-                    {
-    					buf.append(CMLib.xml().convertXMLtoTag("ICLAS",CMClass.classID(item)));
-    					if(((item instanceof Container)&&(((Container)item).capacity()>0))
-    					||((item instanceof Rideable)&&(((Rideable)item).numRiders()>0)))
-    						buf.append(CMLib.xml().convertXMLtoTag("IIDEN",""+item));
-    					if(item.container()==null)
-    						buf.append("<ILOCA />");
-    					else
-    						buf.append(CMLib.xml().convertXMLtoTag("ILOCA",""+item.container()));
-    					buf.append(CMLib.xml().convertXMLtoTag("IREJV",item.baseEnvStats().rejuv()));
-    					buf.append(CMLib.xml().convertXMLtoTag("IUSES",item.usesRemaining()));
-    					buf.append(CMLib.xml().convertXMLtoTag("ILEVL",item.baseEnvStats().level()));
-    					buf.append(CMLib.xml().convertXMLtoTag("IABLE",item.baseEnvStats().ability()));
-    					buf.append(CMLib.xml().convertXMLtoTag("ITEXT",CMLib.xml().parseOutAngleBrackets(item.text())));
-    					buf.append("</RITEM>");
-    					fillFileSet(item,files);
-                    }
+					final Item item=items.get(i);
+					if(item.isSavable() || (!andIsInDB))
+					{
+						buf.append(CMLib.xml().convertXMLtoTag("ICLAS",CMClass.classID(item)));
+						if(((item instanceof Container)&&(((Container)item).capacity()>0))
+						||((item instanceof Rideable)&&(((Rideable)item).numRiders()>0)))
+							buf.append(CMLib.xml().convertXMLtoTag("IIDEN",""+item));
+						if(item.container()==null)
+							buf.append("<ILOCA />");
+						else
+							buf.append(CMLib.xml().convertXMLtoTag("ILOCA",""+item.container()));
+						buf.append(CMLib.xml().convertXMLtoTag("IREJV",item.basePhyStats().rejuv()));
+						buf.append(CMLib.xml().convertXMLtoTag("IUSES",item.usesRemaining()));
+						buf.append(CMLib.xml().convertXMLtoTag("ILEVL",item.basePhyStats().level()));
+						buf.append(CMLib.xml().convertXMLtoTag("IABLE",item.basePhyStats().ability()));
+						buf.append(CMLib.xml().convertXMLtoTag("ITEXT",CMLib.xml().parseOutAngleBrackets(item.text())));
+						buf.append("</RITEM>");
+						possibleAddElectronicsManufacturers(item, custom);
+						fillFileSet(item,files);
+					}
 				}
 				buf.append("</ROOMITEMS>");
 			}
 			buf.append("</ROOMCONTENT>");
 		}
 		buf.append("</AROOM>");
-        croom.destroy();
+		if(croom != room)
+			croom.destroy();
 		return buf;
 	}
 
+	@Override
 	public void setPropertiesStr(Environmental E, String buf, boolean fromTop)
 	{
-		Vector V=CMLib.xml().parseAllXML(buf);
+		final List<XMLLibrary.XMLTag> V=CMLib.xml().parseAllXML(buf);
 		if(V==null)
 			Log.errOut("CoffeeMaker","setPropertiesStr: null 'V': "+((E==null)?"":E.Name()));
 		else
 			setPropertiesStr(E,V,fromTop);
 	}
 
-	public void recoverEnvironmental(Environmental E)
+	protected void recoverPhysical(Physical P)
 	{
-		if(E==null) return;
-		E.recoverEnvStats();
-		if(E instanceof MOB)
+		if(P==null)
+			return;
+		P.recoverPhyStats();
+		if(P instanceof MOB)
 		{
-			((MOB)E).recoverCharStats();
-			((MOB)E).recoverMaxState();
-			((MOB)E).resetToMaxState();
+			((MOB)P).recoverCharStats();
+			((MOB)P).recoverMaxState();
+			((MOB)P).resetToMaxState();
 		}
 	}
 
-	public void setPropertiesStr(Environmental E, Vector V, boolean fromTop)
+	@Override
+	public void setPropertiesStr(Environmental E, List<XMLTag> V, boolean fromTop)
 	{
 		if(E==null)
 		{
 			Log.errOut("CoffeeMaker","setPropertiesStr2: null 'E'");
 			return;
 		}
-		if(!handleCatalogItem(E, V, fromTop))
+		if((!(E instanceof Physical))
+		||(!handleCatalogItem((Physical)E, V, fromTop)))
 		{
 			if(E.isGeneric())
 				setGenPropertiesStr(E,V);
 			if(fromTop)
 				setOrdPropertiesStr(E,V);
+			if(E instanceof SpaceObject)
+			{
+				((SpaceObject)E).setRadius(CMLib.xml().getLongFromPieces(V,"SSRADIUS"));
+				final long[] coords=CMParms.toLongArray(CMParms.parseCommas(CMLib.xml().getValFromPieces(V,"SSCOORDS"), true));
+				if((coords!=null)&&(coords.length==3))
+					((SpaceObject)E).setCoords(coords);
+				((SpaceObject)E).setSpeed(CMLib.xml().getDoubleFromPieces(V,"SSSPEED"));
+				final double[] dir=CMParms.toDoubleArray(CMParms.parseCommas(CMLib.xml().getValFromPieces(V,"SSDIR"), true));
+				if((dir!=null)&&(dir.length==2))
+					((SpaceObject)E).setDirection(dir);
+			}
 		}
-		recoverEnvironmental(E);
+		if(E instanceof Physical)
+			recoverPhysical((Physical)E);
 	}
 
-	public void setOrdPropertiesStr(Environmental E, Vector V)
+	protected void setOrdPropertiesStr(Environmental E, List<XMLTag> V)
 	{
 		if(V==null)
 		{
@@ -1713,59 +2246,87 @@ public class CoffeeMaker extends StdLibrary implements GenericBuilder
 		if(E instanceof Room)
 		{
 			setExtraEnvProperties(E,V);
-            setGenScripts(E,V,false);
+			setGenScripts((Room)E,V,false);
 			if(E instanceof GridLocale)
 			{
 				((GridLocale)E).setXGridSize(CMLib.xml().getIntFromPieces(V,"XGRID"));
 				((GridLocale)E).setYGridSize(CMLib.xml().getIntFromPieces(V,"YGRID"));
 			}
+			if(E instanceof LocationRoom)
+				((LocationRoom)E).setDirectionFromCore(CMParms.toDoubleArray(CMParms.parseCommas(CMLib.xml().getValFromPieces(V,"COREDIR"),true)));
+			((Room)E).setClimateType(CMLib.xml().getIntFromPieces(V,"RCLIM",((Room)E).getClimateTypeCode()));
+			((Room)E).setAtmosphere(CMLib.xml().getIntFromPieces(V,"RATMO",((Room)E).getAtmosphereCode()));
 		}
 		else
 		if(E instanceof Area)
 		{
 			((Area)E).setArchivePath(CMLib.xml().getValFromPieces(V,"ARCHP"));
+			if(E instanceof BoardableShip)
+				((Area)E).setDisplayText(CMLib.xml().getValFromPieces(V,"DISP"));
 			((Area)E).setAuthorID(CMLib.xml().getValFromPieces(V,"AUTHOR"));
 			((Area)E).setCurrency(CMLib.xml().getValFromPieces(V,"CURRENCY"));
-            Vector VP=CMLib.xml().getRealContentsFromPieces(V,"PARENTS");
-            if(VP!=null)
-            {
-                for(int i=0;i<VP.size();i++)
-                {
-                    XMLLibrary.XMLpiece ablk=(XMLLibrary.XMLpiece)VP.elementAt(i);
-                    if((!ablk.tag.equalsIgnoreCase("PARENT"))||(ablk.contents==null))
-                    {
-                        Log.errOut("CoffeeMaker","Error parsing 'PARENT' of "+identifier(E,null)+".  Load aborted");
-                        return;
-                    }
-                    ((Area)E).addParentToLoad(CMLib.xml().getValFromPieces(ablk.contents,"PARENTNAMED"));
-                }
-            }
-            Vector VC=CMLib.xml().getRealContentsFromPieces(V,"CHILDREN");
-            if(VC!=null)
-            {
-                for(int i=0;i<VC.size();i++)
-                {
-                    XMLLibrary.XMLpiece ablk=(XMLLibrary.XMLpiece)VC.elementAt(i);
-                    if((!ablk.tag.equalsIgnoreCase("CHILD"))||(ablk.contents==null))
-                    {
-                        Log.errOut("CoffeeMaker","Error parsing 'CHILD' of "+identifier(E,null)+".  Load aborted");
-                        return;
-                    }
-                    ((Area)E).addChildToLoad(CMLib.xml().getValFromPieces(ablk.contents,"CHILDNAMED"));
-                }
-            }
-            for(int x=((Area)E).numBlurbFlags()-1;x>=0;x--)
-                ((Area)E).delBlurbFlag(((Area)E).getBlurbFlag(x));
-            Vector VB=CMLib.xml().parseXMLList(CMLib.xml().getValFromPieces(V,"BLURBS"));
-            for(int i=0;i<VB.size();i++)
-                ((Area)E).addBlurbFlag((String)VB.elementAt(i));
+			((Area)E).setAtmosphere(CMLib.xml().getIntFromPieces(V,"AATMO",((Area)E).getAtmosphereCode()));
+			final List<XMLLibrary.XMLTag> VP=CMLib.xml().getContentsFromPieces(V,"PARENTS");
+			if(VP!=null)
+			{
+				for(int i=0;i<VP.size();i++)
+				{
+					final XMLTag ablk=VP.get(i);
+					if((!ablk.tag().equalsIgnoreCase("PARENT"))||(ablk.contents()==null))
+					{
+						Log.errOut("CoffeeMaker","Error parsing 'PARENT' of "+identifier(E,null)+".  Load aborted");
+						return;
+					}
+					final String aName=ablk.getValFromPieces("PARENTNAMED");
+					final Area A=CMLib.map().getArea(aName);
+					if(A==null)
+						Log.warnOut("CoffeeMaker","Unknown parent area '"+aName+"' of "+identifier(E,null));
+					else
+					{
+						((Area)E).addParent(A);
+						A.addChild((Area)E);
+					}
+				}
+			}
+			final List<XMLLibrary.XMLTag> VC=CMLib.xml().getContentsFromPieces(V,"CHILDREN");
+			if(VC!=null)
+			{
+				for(int i=0;i<VC.size();i++)
+				{
+					final XMLTag ablk=VC.get(i);
+					if((!ablk.tag().equalsIgnoreCase("CHILD"))||(ablk.contents()==null))
+					{
+						Log.errOut("CoffeeMaker","Error parsing 'CHILD' of "+identifier(E,null)+".  Load aborted");
+						return;
+					}
+					final String aName=ablk.getValFromPieces("CHILDNAMED");
+					final Area A=CMLib.map().getArea(aName);
+					if(A==null)
+						Log.warnOut("CoffeeMaker","Unknown child area '"+aName+"' of "+identifier(E,null));
+					else
+					{
+						((Area)E).addChild(A);
+						A.addParent((Area)E);
+					}
+				}
+			}
+			for(final Enumeration<String> f=((Area)E).areaBlurbFlags();f.hasMoreElements();)
+				((Area)E).delBlurbFlag(f.nextElement());
+			final List<String> VB=CMLib.xml().parseXMLList(CMLib.xml().getValFromPieces(V,"BLURBS"));
+			for(final String s : VB)
+				((Area)E).addBlurbFlag(s);
 			if(E instanceof GridZones)
 			{
 				((GridZones)E).setXGridSize(CMLib.xml().getIntFromPieces(V,"XGRID"));
 				((GridZones)E).setYGridSize(CMLib.xml().getIntFromPieces(V,"YGRID"));
 			}
+			if(E instanceof AutoGenArea)
+			{
+				((AutoGenArea)E).setGeneratorXmlPath(CMLib.xml().restoreAngleBrackets(CMLib.xml().getValFromPieces(V,"AGXMLPATH")));
+				((AutoGenArea)E).setAutoGenVariables(CMLib.xml().restoreAngleBrackets(CMLib.xml().getValFromPieces(V,"AGAUTOVAR")));
+			}
 			setExtraEnvProperties(E,V);
-            setGenScripts(E,V,false);
+			setGenScripts((Area)E,V,false);
 		}
 		else
 		if(E instanceof Ability)
@@ -1773,28 +2334,29 @@ public class CoffeeMaker extends StdLibrary implements GenericBuilder
 		else
 		if(E instanceof Item)
 		{
-			Item item=(Item)E;
-			item.setUsesRemaining(CMLib.xml().getIntFromPieces(V,"IUSES"));
-			item.baseEnvStats().setLevel(CMLib.xml().getIntFromPieces(V,"ILEVL"));
-			item.baseEnvStats().setAbility(CMLib.xml().getIntFromPieces(V,"IABLE"));
+			final Item I=(Item)E;
+			I.setUsesRemaining(CMLib.xml().getIntFromPieces(V,"IUSES"));
+			I.basePhyStats().setLevel(CMLib.xml().getIntFromPieces(V,"ILEVL"));
+			I.basePhyStats().setAbility(CMLib.xml().getIntFromPieces(V,"IABLE"));
 			if(!E.isGeneric())
-				item.setMiscText(CMLib.xml().getValFromPieces(V,"ITEXT"));
+				I.setMiscText(CMLib.xml().getValFromPieces(V,"ITEXT"));
 			//item.wearAt(CMLib.xml().getIntFromPieces(V,"USES"));
 		}
 		else
 		if(E instanceof MOB)
 		{
-			E.baseEnvStats().setLevel(CMLib.xml().getIntFromPieces(V,"MLEVL"));
-			E.baseEnvStats().setAbility(CMLib.xml().getIntFromPieces(V,"MABLE"));
-			E.baseEnvStats().setRejuv(CMLib.xml().getIntFromPieces(V,"MREJV"));
-			if(!E.isGeneric())
-				E.setMiscText(CMLib.xml().getValFromPieces(V,"MTEXT"));
+			final MOB M=(MOB)E;
+			M.basePhyStats().setLevel(CMLib.xml().getIntFromPieces(V,"MLEVL"));
+			M.basePhyStats().setAbility(CMLib.xml().getIntFromPieces(V,"MABLE"));
+			M.basePhyStats().setRejuv(CMLib.xml().getIntFromPieces(V,"MREJV"));
+			if(!M.isGeneric())
+				M.setMiscText(CMLib.xml().getValFromPieces(V,"MTEXT"));
 		}
 	}
 
-	public void setGenMobAbilities(MOB M, Vector buf)
+	protected void setGenMobAbilities(MOB M, List<XMLLibrary.XMLTag> buf)
 	{
-		Vector V=CMLib.xml().getRealContentsFromPieces(buf,"ABLTYS");
+		final List<XMLLibrary.XMLTag> V=CMLib.xml().getContentsFromPieces(buf,"ABLTYS");
 		if(V==null)
 		{
 			Log.errOut("CoffeeMaker","Error parsing 'ABLTYS' of "+identifier(M,null)+".  Load aborted");
@@ -1802,25 +2364,25 @@ public class CoffeeMaker extends StdLibrary implements GenericBuilder
 		}
 		for(int i=0;i<V.size();i++)
 		{
-			XMLLibrary.XMLpiece ablk=(XMLLibrary.XMLpiece)V.elementAt(i);
-			if((!ablk.tag.equalsIgnoreCase("ABLTY"))||(ablk.contents==null))
+			final XMLTag ablk=V.get(i);
+			if((!ablk.tag().equalsIgnoreCase("ABLTY"))||(ablk.contents()==null))
 			{
 				Log.errOut("CoffeeMaker","Error parsing 'ABLTY' of "+identifier(M,null)+".  Load aborted");
 				return;
 			}
-			Ability newOne=CMClass.getAbility(CMLib.xml().getValFromPieces(ablk.contents,"ACLASS"));
+			final Ability newOne=CMClass.getAbility(ablk.getValFromPieces("ACLASS"));
 			if(newOne==null)
 			{
-				Log.errOut("CoffeeMaker","Unknown ability "+CMLib.xml().getValFromPieces(ablk.contents,"ACLASS")+" on "+identifier(M,null)+", skipping.");
+				Log.errOut("CoffeeMaker","Unknown ability "+ablk.getValFromPieces("ACLASS")+" on "+identifier(M,null)+", skipping.");
 				continue;
 			}
-			Vector adat=CMLib.xml().getRealContentsFromPieces(ablk.contents,"ADATA");
+			final List<XMLLibrary.XMLTag> adat=ablk.getContentsFromPieces("ADATA");
 			if(adat==null)
 			{
 				Log.errOut("CoffeeMaker","Error parsing 'ABLTY DATA' of "+identifier(M,null)+".  Load aborted");
 				return;
 			}
-			String proff=CMLib.xml().getValFromPieces(ablk.contents,"APROF");
+			final String proff=ablk.getValFromPieces("APROF");
 			if((proff!=null)&&(proff.length()>0))
 				newOne.setProficiency(CMath.s_int(proff));
 			else
@@ -1829,103 +2391,109 @@ public class CoffeeMaker extends StdLibrary implements GenericBuilder
 			if(M.fetchAbility(newOne.ID())==null)
 			{
 				M.addAbility(newOne);
-				newOne.autoInvocation(M);
+				newOne.autoInvocation(M, false);
 			}
 		}
 	}
 
-    public void setGenScripts(Environmental E, Vector buf, boolean restoreVars)
-    {
-        Vector V=CMLib.xml().getRealContentsFromPieces(buf,"SCRPTS");
-        if(V==null) return;
-
-        for(int i=0;i<V.size();i++)
-        {
-            XMLLibrary.XMLpiece sblk=(XMLLibrary.XMLpiece)V.elementAt(i);
-            if((!sblk.tag.equalsIgnoreCase("SCRPT"))||(sblk.contents==null))
-            {
-                Log.errOut("CoffeeMaker","Error parsing 'SCRPT' of "+identifier(E,null)+".  Load aborted");
-                return;
-            }
-            ScriptingEngine S=(ScriptingEngine)CMClass.getCommon("DefaultScriptingEngine");
-            S.setSavable(true);
-            String script=CMLib.xml().getValFromPieces(sblk.contents,"SCRIPT");
-            if(script==null)
-            {
-                Log.errOut("CoffeeMaker","Error parsing 'SCRIPT' of "+identifier(E,null)+".  Load aborted");
-                continue;
-            }
-            S.setScript(CMLib.xml().restoreAngleBrackets(script));
-            String sq=CMLib.xml().getValFromPieces(sblk.contents,"SQN");
-            if(sq.length()>0)
-                S.registerDefaultQuest(sq);
-
-            String scope=CMLib.xml().getValFromPieces(sblk.contents,"SSCOP");
-            if(scope.length()>0)
-                S.setVarScope(scope);
-
-            if(restoreVars)
-            {
-                String svars=CMLib.xml().getValFromPieces(sblk.contents,"SSVAR");
-                if((svars!=null)&&(svars.length()>0))
-                    S.setLocalVarXML(svars);
-            }
-            E.addScript(S);
-        }
-    }
-
-	public void setGenMobInventory(MOB M, Vector buf)
+	@Override
+	public void setGenScripts(PhysicalAgent E, List<XMLTag> buf, boolean restoreVars)
 	{
-		Vector V=CMLib.xml().getRealContentsFromPieces(buf,"INVEN");
+		final List<XMLLibrary.XMLTag> V=CMLib.xml().getContentsFromPieces(buf,"SCRPTS");
+		if(V==null)
+			return;
+
+		for(int i=0;i<V.size();i++)
+		{
+			final XMLTag sblk=V.get(i);
+			if((!sblk.tag().equalsIgnoreCase("SCRPT"))||(sblk.contents()==null))
+			{
+				Log.errOut("CoffeeMaker","Error parsing 'SCRPT' of "+identifier(E,null)+".  Load aborted");
+				return;
+			}
+			final ScriptingEngine S=(ScriptingEngine)CMClass.getCommon("DefaultScriptingEngine");
+			S.setSavable(true);
+			final String script=sblk.getValFromPieces("SCRIPT");
+			if(script==null)
+			{
+				Log.errOut("CoffeeMaker","Error parsing 'SCRIPT' of "+identifier(E,null)+".  Load aborted");
+				continue;
+			}
+			S.setScript(CMLib.xml().restoreAngleBrackets(script));
+			final String sq=sblk.getValFromPieces("SQN");
+			if(sq.length()>0)
+				S.registerDefaultQuest(sq);
+
+			final String scope=sblk.getValFromPieces("SSCOP");
+			if(scope.length()>0)
+				S.setVarScope(scope);
+
+			if(restoreVars)
+			{
+				final String svars=sblk.getValFromPieces("SSVAR");
+				if((svars!=null)&&(svars.length()>0))
+					S.setLocalVarXML(svars);
+			}
+			E.addScript(S);
+		}
+	}
+
+	protected void setGenMobInventory(MOB M, List<XMLTag> buf)
+	{
+		final List<XMLLibrary.XMLTag> V=CMLib.xml().getContentsFromPieces(buf,"INVEN");
 		boolean variableEq=false;
 		if(V==null)
 		{
 			Log.errOut("CoffeeMaker","Error parsing 'INVEN' of "+identifier(M,null)+".  Load aborted");
 			return;
 		}
-		Hashtable IIDmap=new Hashtable();
-		Hashtable LOCmap=new Hashtable();
+		final Hashtable<String,Container> IIDmap=new Hashtable<String,Container>();
+		final Hashtable<Item,String> LOCmap=new Hashtable<Item,String>();
 		for(int i=0;i<V.size();i++)
 		{
-			XMLLibrary.XMLpiece iblk=(XMLLibrary.XMLpiece)V.elementAt(i);
-			if((!iblk.tag.equalsIgnoreCase("ITEM"))||(iblk.contents==null))
+			final XMLTag iblk=V.get(i);
+			if((!iblk.tag().equalsIgnoreCase("ITEM"))||(iblk.contents()==null))
 			{
 				Log.errOut("CoffeeMaker","Error parsing 'ITEM' of "+identifier(M,null)+".  Load aborted");
 				return;
 			}
-			Item newOne=CMClass.getItem(CMLib.xml().getValFromPieces(iblk.contents,"ICLASS"));
-			if(newOne instanceof ArchonOnly) continue;
+			final Item newOne=CMClass.getItem(iblk.getValFromPieces("ICLASS"));
+			if(newOne instanceof ArchonOnly)
+				continue;
 			if(newOne==null)
 			{
-				Log.errOut("CoffeeMaker","Unknown item "+CMLib.xml().getValFromPieces(iblk.contents,"ICLASS")+" on "+identifier(M,null)+", skipping.");
+				Log.errOut("CoffeeMaker","Unknown item "+iblk.getValFromPieces("ICLASS")+" on "+identifier(M,null)+", skipping.");
 				continue;
 			}
-			Vector idat=CMLib.xml().getRealContentsFromPieces(iblk.contents,"IDATA");
+			final List<XMLLibrary.XMLTag> idat=iblk.getContentsFromPieces("IDATA");
 			if(idat==null)
 			{
 				Log.errOut("CoffeeMaker","Error parsing 'ITEM DATA' of "+identifier(M,null)+".  Load aborted");
 				return;
 			}
-			long wornCode=CMLib.xml().getLongFromPieces(idat,"IWORN");
+			final long wornCode=CMLib.xml().getLongFromPieces(idat,"IWORN");
 			if((newOne instanceof Container)&&(((Container)newOne).capacity()>0))
-				IIDmap.put(CMLib.xml().getValFromPieces(idat,"IID"),newOne);
-			String ILOC=CMLib.xml().getValFromPieces(idat,"ILOC");
-			M.addInventory(newOne);
+				IIDmap.put(CMLib.xml().getValFromPieces(idat,"IID"),(Container)newOne);
+			final String ILOC=CMLib.xml().getValFromPieces(idat,"ILOC");
+			M.addItem(newOne);
 			if(ILOC.length()>0)
 				LOCmap.put(newOne,ILOC);
 			setPropertiesStr(newOne,idat,true);
-			if(newOne.baseEnvStats().rejuv()>0&&newOne.baseEnvStats().rejuv()<Integer.MAX_VALUE)
+			if(newOne instanceof Electronics)
+				variableEq=true;
+			else
+			if(newOne.basePhyStats().rejuv()>0&&newOne.basePhyStats().rejuv()!=PhyStats.NO_REJUV)
 				variableEq=true;
 			newOne.wearAt(wornCode);
 		}
-		for(int i=0;i<M.inventorySize();i++)
+		for(int i=0;i<M.numItems();i++)
 		{
-			Item item=M.fetchInventory(i);
+			final Item item=M.getItem(i);
 			if(item!=null)
 			{
-				String ILOC=(String)LOCmap.get(item);
+				final String ILOC=LOCmap.get(item);
 				if(ILOC!=null)
-					item.setContainer((Item)IIDmap.get(ILOC));
+					item.setContainer(IIDmap.get(ILOC));
 				else
 				if(item.amWearingAt(Wearable.WORN_HELD)
 				&&(!item.rawLogicalAnd())
@@ -1934,112 +2502,362 @@ public class CoffeeMaker extends StdLibrary implements GenericBuilder
 					item.wearAt(Wearable.WORN_WIELD);
 			}
 		}
-		if(variableEq) M.flagVariableEq();
+		if(variableEq)
+			M.flagVariableEq();
 	}
 
-	public void populateShops(Environmental E, Vector buf)
+	@Override
+	public void populateShops(final ShopKeeper shopKeep, final List<XMLTag> buf)
 	{
 		boolean variableEq=false;
-		ShopKeeper shopmob=(ShopKeeper)E;
-		shopmob.setWhatIsSoldMask(CMLib.xml().getLongFromPieces(buf,"SELLCD"));
-		shopmob.getShop().emptyAllShelves();
-		Vector V=CMLib.xml().getRealContentsFromPieces(buf,"STORE");
+		shopKeep.setWhatIsSoldMask(CMLib.xml().getLongFromPieces(buf,"SELLCD"));
+		shopKeep.getShop().emptyAllShelves();
+		final List<XMLLibrary.XMLTag> V=CMLib.xml().getContentsFromPieces(buf,"STORE");
 		if(V==null)
 		{
-			Log.errOut("CoffeeMaker","Error parsing 'STORE' of "+identifier(E,null)+".  Load aborted");
+			Log.errOut("CoffeeMaker","Error parsing 'STORE' of "+identifier(shopKeep,null)+".  Load aborted");
 			return;
 		}
-		Hashtable IIDmap=new Hashtable();
-		Hashtable LOCmap=new Hashtable();
+		final Hashtable<String,Container> IIDmap=new Hashtable<String,Container>();
+		final Hashtable<Item,String> LOCmap=new Hashtable<Item,String>();
 		for(int i=0;i<V.size();i++)
 		{
-			XMLLibrary.XMLpiece iblk=(XMLLibrary.XMLpiece)V.elementAt(i);
-			if((!iblk.tag.equalsIgnoreCase("SHITEM"))||(iblk.contents==null))
+			final XMLTag iblk=V.get(i);
+			if((!iblk.tag().equalsIgnoreCase("SHITEM"))||(iblk.contents()==null))
 			{
-				Log.errOut("CoffeeMaker","Error parsing 'SHITEM' of "+identifier(E,null)+".  Load aborted");
+				Log.errOut("CoffeeMaker","Error parsing 'SHITEM' of "+identifier(shopKeep,null)+".  Load aborted");
 				continue;
 			}
-			String itemi=CMLib.xml().getValFromPieces(iblk.contents,"SICLASS");
-			XMLpiece x=CMLib.xml().getPieceFromPieces(iblk.contents,"SITYPE");
-			int itemtype=-1;
-			if((x!=null)&&(x.value!=null))
-				itemtype=CMath.s_int(x.value);
-			int numStock=CMLib.xml().getIntFromPieces(iblk.contents,"SISTOCK");
-			String prc=CMLib.xml().getValFromPieces(iblk.contents,"SIPRICE");
+			final String itemi=iblk.getValFromPieces("SICLASS");
+			final XMLTag x=iblk.getPieceFromPieces("SITYPE");
+			final CMClass.CMObjectType type=(x==null)?null:CMClass.getTypeByNameOrOrdinal(x.value());
+			final int numStock=iblk.getIntFromPieces("SISTOCK");
+			final String prc=iblk.getValFromPieces("SIPRICE");
 			int stockPrice=-1;
 			if((prc!=null)&&(prc.length()>0))
 				stockPrice=CMath.s_int(prc);
 			Environmental newOne=null;
-			Vector idat=CMLib.xml().getRealContentsFromPieces(iblk.contents,"SIDATA");
-			if(itemtype>=0)
-				newOne=(Environmental)CMClass.getByType(itemi, itemtype);
-			if((newOne==null)&&((iblk.value.indexOf("<ABLTY>")>=0)||(iblk.value.indexOf("&lt;ABLTY&gt;")>=0)))
+			final List<XMLLibrary.XMLTag> idat=iblk.getContentsFromPieces("SIDATA");
+			if(type!=null)
+				newOne=(Environmental)CMClass.getByType(itemi, type);
+			if((newOne==null)&&((iblk.value().indexOf("<ABLTY>")>=0)||(iblk.value().indexOf("&lt;ABLTY&gt;")>=0)))
 				newOne=CMClass.getMOB(itemi);
-			if(newOne==null) newOne=CMClass.getUnknown(itemi);
+			if(newOne==null)
+				newOne=CMClass.getUnknown(itemi);
 			if(newOne==null)
 			{
-				Log.errOut("CoffeeMaker","Unknown item "+itemi+" on "+identifier(E,null)+", skipping.");
+				Log.errOut("CoffeeMaker","Unknown item "+itemi+" on "+identifier(shopKeep,null)+", skipping.");
 				continue;
 			}
 			if(idat==null)
 			{
-				Log.errOut("CoffeeMaker","Error parsing 'SHOP DATA' of "+identifier(E,null)+".  Load aborted");
+				Log.errOut("CoffeeMaker","Error parsing 'SHOP DATA' of "+identifier(shopKeep,null)+".  Load aborted");
 				continue;
 			}
 			if(newOne instanceof Item)
 			{
 				if(newOne instanceof Container)
-					IIDmap.put(CMLib.xml().getValFromPieces(idat,"IID"),newOne);
-				String ILOC=CMLib.xml().getValFromPieces(idat,"ILOC");
+					IIDmap.put(CMLib.xml().getValFromPieces(idat,"IID"),(Container)newOne);
+				final String ILOC=CMLib.xml().getValFromPieces(idat,"ILOC");
 				if(ILOC.length()>0)
-					LOCmap.put(ILOC,newOne);
+					LOCmap.put((Item)newOne,ILOC);
 			}
 			setPropertiesStr(newOne,idat,true);
-			if((newOne.baseEnvStats().rejuv()>0)&&(newOne.baseEnvStats().rejuv()<Integer.MAX_VALUE))
+			if(newOne instanceof SpaceShip)
+			{
+				final String key=CMLib.tech().getElectronicsKey(((SpaceShip)newOne).getShipArea());
+				if(key != null)
+					CMLib.tech().unregisterAllElectronics(key);
+			}
+			if(newOne instanceof BoardableShip)
+			{
+				if(newOne instanceof LandTitle)
+					((LandTitle)newOne).setOwnerName("");
+			}
+			if(newOne instanceof Electronics)
 				variableEq=true;
-			shopmob.getShop().addStoreInventory(newOne,numStock,stockPrice);
+			else 
+			if((newOne instanceof Physical)
+			&&(((Physical)newOne).basePhyStats().rejuv()>0)
+			&&(((Physical)newOne).basePhyStats().rejuv()!=PhyStats.NO_REJUV))
+				variableEq=true;
+			shopKeep.getShop().addStoreInventory(newOne,numStock,stockPrice);
+			newOne.destroy();
 		}
-		for(int i=0;i<shopmob.getShop().getStoreInventory().size();i++)
+		for(final Iterator<Environmental> i=shopKeep.getShop().getStoreInventory();i.hasNext();)
 		{
-			Environmental stE=(Environmental)shopmob.getShop().getStoreInventory().elementAt(i);
+			final Environmental stE=i.next();
 			if(stE instanceof Item)
 			{
-				Item item=(Item)stE;
-				String ILOC=(String)LOCmap.get(item);
+				final Item item=(Item)stE;
+				final String ILOC=LOCmap.get(item);
 				if(ILOC!=null)
-					item.setContainer((Item)IIDmap.get(ILOC));
+					item.setContainer(IIDmap.get(ILOC));
 			}
 		}
-		if(variableEq) ((MOB)E).flagVariableEq();
+		if(variableEq)
+			((MOB)shopKeep).flagVariableEq();
 	}
 
-	public boolean handleCatalogItem(Environmental E, Vector buf, boolean fromTop)
+	public boolean handleCatalogItem(Physical P, List<XMLTag> buf, boolean fromTop)
 	{
-		setEnvStats(E.baseEnvStats(),CMLib.xml().getValFromPieces(buf,"PROP"));
-		if((CMLib.flags().isCataloged(E))
-		&&(E.isGeneric()))
+		setPhyStats(P.basePhyStats(),CMLib.xml().getValFromPieces(buf,"PROP"));
+		if((CMLib.flags().isCataloged(P))
+		&&(P.isGeneric()))
 		{
-			E.setName(CMLib.xml().getValFromPieces(buf,"NAME"));
-			Environmental cataE=CMLib.catalog().getCatalogObj(E);
-			if(cataE!=null)
+			P.setName(CMLib.xml().getValFromPieces(buf,"NAME"));
+			final Physical cataP=CMLib.catalog().getCatalogObj(P);
+			if(cataP!=null)
 			{
-				if(CMath.bset(cataE.baseEnvStats().disposition(),EnvStats.IS_CATALOGED))
-					Log.errOut("CoffeeMaker","Error with catalog object "+E.Name()+".");
+				if(CMath.bset(cataP.basePhyStats().disposition(),PhyStats.IS_CATALOGED))
+					Log.errOut("CoffeeMaker","Error with catalog object "+P.Name()+".");
 				else
-				if((cataE!=null)&&(cataE!=E))
+				if(cataP!=P)
 				{
 					if(fromTop)
-						setOrdPropertiesStr(E,buf);
-					setPropertiesStr(E, cataE.text(),false);
-					CMLib.catalog().changeCatalogUsage(E, true);
+						setOrdPropertiesStr(P,buf);
+					setPropertiesStr(P, cataP.text(),false);
+					CMLib.catalog().changeCatalogUsage(P, true);
 					return true;
 				}
 			}
 		}
 		return false;
 	}
-	
-	public void setGenPropertiesStr(Environmental E, Vector buf)
+
+	@Override
+	public List<String> getAllGenStats(Physical P)
+	{
+		final STreeSet<String> set=new STreeSet<String>();
+		set.addAll(Arrays.asList(P.getStatCodes()));
+		set.addAll(Arrays.asList(P.basePhyStats().getStatCodes()));
+		if(P instanceof MOB)
+		{
+			set.addAll(Arrays.asList(((MOB)P).baseCharStats().getStatCodes()));
+			if(((MOB)P).playerStats()!=null)
+				set.addAll(Arrays.asList(((MOB)P).playerStats().getStatCodes()));
+			set.addAll(Arrays.asList(CMParms.toStringArray(GenericBuilder.GenMOBCode.values())));
+		}
+		else
+		if(P instanceof Item)
+			set.addAll(Arrays.asList(CMParms.toStringArray(GenericBuilder.GenItemCode.values())));
+		return set.toVector();
+	}
+
+	@Override
+	public boolean isAnyGenStat(Physical P, String stat)
+	{
+		if(P.isStat(stat))
+			return true;
+		final boolean current=stat.startsWith("CURRENT ")||stat.startsWith("CURRENT_");
+		if(current)
+			stat=stat.substring(8);
+		else
+		if(stat.startsWith("BASE ")||stat.startsWith("BASE_"))
+			stat=stat.substring(5);
+		if(P.basePhyStats().isStat(stat))
+			return true;
+		if(P instanceof MOB)
+		{
+			if(((MOB)P).baseCharStats().isStat(stat))
+				return true;
+			if(((MOB)P).baseState().isStat(stat))
+				return true;
+			if((((MOB)P).playerStats()!=null)
+			&&((MOB)P).playerStats().isStat(stat))
+				return true;
+			if((((MOB)P).playerStats()!=null)
+			&&(((MOB)P).playerStats().getAccount()!=null)
+			&&(((MOB)P).playerStats().getAccount().isStat(stat)))
+				return true;
+			if(getGenMobCodeNum(stat)>=0)
+				return true;
+			final GenMOBBonusFakeStats fakeStat = (GenMOBBonusFakeStats)CMath.s_valueOf(GenMOBBonusFakeStats.class, stat);
+			if(fakeStat != null)
+				return true;
+		}
+		else
+		if(P instanceof Item)
+		{
+			if(getGenItemCodeNum(stat)>=0)
+				return true;
+		}
+		return false;
+	}
+
+	@Override
+	public String getAnyGenStat(Physical P, String stat)
+	{
+		if(P.isStat(stat))
+			return P.getStat(stat);
+		final boolean current=stat.startsWith("CURRENT ")||stat.startsWith("CURRENT_");
+		if(current)
+			stat=stat.substring(8);
+		else
+		if(stat.startsWith("BASE ")||stat.startsWith("BASE_"))
+			stat=stat.substring(5);
+		if(P.basePhyStats().isStat(stat))
+			return (current)?P.phyStats().getStat(stat):P.basePhyStats().getStat(stat);
+		if(P instanceof MOB)
+		{
+			if(((MOB)P).baseCharStats().isStat(stat))
+				return current?((MOB)P).charStats().getStat(stat):((MOB)P).baseCharStats().getStat(stat);
+			if(((MOB)P).baseState().isStat(stat))
+				return current?((MOB)P).curState().getStat(stat):((MOB)P).baseState().getStat(stat);
+			if((((MOB)P).playerStats()!=null)
+			&&(((MOB)P).playerStats().isStat(stat)))
+				return ((MOB)P).playerStats().getStat(stat);
+			if((((MOB)P).playerStats()!=null)
+			&&(((MOB)P).playerStats().getAccount() != null)
+			&&(((MOB)P).playerStats().getAccount().isStat(stat)))
+				return ((MOB)P).playerStats().getAccount().getStat(stat);
+			if(getGenMobCodeNum(stat)>=0)
+				return getGenMobStat((MOB)P, stat);
+			final GenMOBBonusFakeStats fakeStat = (GenMOBBonusFakeStats)CMath.s_valueOf(GenMOBBonusFakeStats.class, stat);
+			if(fakeStat != null)
+			{
+				switch(fakeStat)
+				{
+				case QUESTPOINTS:
+					return ""+((MOB)P).getQuestPoint();
+				case FOLLOWERS:
+					return ""+((MOB)P).numFollowers();
+				case TRAINS:
+					return ""+((MOB)P).getTrains();
+				case PRACTICES:
+					return ""+((MOB)P).getPractices();
+				}
+			}
+		}
+		else
+		if(P instanceof Item)
+		{
+			if(getGenItemCodeNum(stat)>=0)
+				return getGenItemStat((Item)P, stat);
+		}
+		return "";
+	}
+
+	@Override
+	public void setAnyGenStat(Physical P, String stat, String value)
+	{
+		setAnyGenStat(P,stat,value,false);
+	}
+
+	@Override
+	public void setAnyGenStat(Physical P, String stat, String value, boolean supportPlusMinusPrefix)
+	{
+		if(supportPlusMinusPrefix
+		&&(value.trim().length()>0)
+		&&("+-".indexOf(value.trim().charAt(0))>=0))
+		{
+			final char plusMinus=value.trim().charAt(0);
+			final String oldVal=getAnyGenStat(P, stat);
+			if((oldVal!=null)
+			&&(CMath.isNumber(oldVal))
+			&&(CMath.isNumber(value.trim().substring(1).trim())))
+			{
+				value=value.trim().substring(1).trim();
+				if(CMath.isInteger(oldVal))
+				{
+					if(plusMinus=='+')
+						value=Integer.toString(CMath.s_int(oldVal) + CMath.s_int(value));
+					else
+						value=Integer.toString(CMath.s_int(oldVal) - CMath.s_int(value));
+				}
+				else
+				if(plusMinus=='+')
+					value=Double.toString(CMath.s_double(oldVal) + CMath.s_double(value));
+				else
+					value=Double.toString(CMath.s_double(oldVal) - CMath.s_double(value));
+			}
+		}
+		if(P.isStat(stat))
+		{
+			P.setStat(stat, value);
+			return;
+		}
+		final boolean current=stat.startsWith("CURRENT ")||stat.startsWith("CURRENT_");
+		if(current)
+			stat=stat.substring(8);
+		else
+		if(stat.startsWith("BASE ")||stat.startsWith("BASE_"))
+			stat=stat.substring(5);
+		if(P.basePhyStats().isStat(stat))
+		{
+			if(current)
+				P.phyStats().setStat(stat, value);
+			else
+				P.basePhyStats().setStat(stat, value);
+			return;
+		}
+		if(P instanceof MOB)
+		{
+			if(((MOB)P).baseCharStats().isStat(stat))
+			{
+				if(current)
+					((MOB)P).charStats().setStat(stat, value);
+				else
+					((MOB)P).baseCharStats().setStat(stat, value);
+				return;
+			}
+			if(((MOB)P).baseState().isStat(stat))
+			{
+				if(current)
+					((MOB)P).curState().setStat(stat, value);
+				else
+					((MOB)P).baseState().setStat(stat, value);
+				return;
+			}
+			if((((MOB)P).playerStats()!=null)
+			&&(((MOB)P).playerStats().isStat(stat)))
+			{
+				((MOB)P).playerStats().setStat(stat, value);
+				return;
+			}
+			if((((MOB)P).playerStats()!=null)
+			&&(((MOB)P).playerStats().getAccount() != null)
+			&&(((MOB)P).playerStats().getAccount().isStat(stat)))
+			{
+				((MOB)P).playerStats().getAccount().setStat(stat, value);
+				return;
+			}
+			if(getGenMobCodeNum(stat)>=0)
+			{
+				setGenMobStat((MOB)P, stat, value);
+				return;
+			}
+			final GenMOBBonusFakeStats fakeStat = (GenMOBBonusFakeStats)CMath.s_valueOf(GenMOBBonusFakeStats.class, stat);
+			if(fakeStat != null)
+			{
+				switch(fakeStat)
+				{
+				case QUESTPOINTS:
+					((MOB)P).setQuestPoint(CMath.parseIntExpression(value));
+					return;
+				case FOLLOWERS:
+					return;
+				case TRAINS:
+					((MOB)P).setTrains(CMath.parseIntExpression(value));
+					return;
+				case PRACTICES:
+					((MOB)P).setPractices(CMath.parseIntExpression(value));
+					return;
+				}
+			}
+		}
+		else
+		if(P instanceof Item)
+		{
+			if(getGenItemCodeNum(stat)>=0)
+			{
+				setGenItemStat((Item)P, stat, value);
+				return;
+			}
+		}
+	}
+
+	protected void setGenPropertiesStr(Environmental E, List<XMLTag> buf)
 	{
 		if(buf==null)
 		{
@@ -2055,22 +2873,12 @@ public class CoffeeMaker extends StdLibrary implements GenericBuilder
 
 		if(E instanceof MOB)
 		{
-			while(((MOB)E).numLearnedAbilities()>0)
-			{
-				Ability A=((MOB)E).fetchAbility(0);
-				if(A!=null)
-					((MOB)E).delAbility(A);
-			}
-			while(((MOB)E).inventorySize()>0)
-			{
-				Item I=((MOB)E).fetchInventory(0);
-				if(I!=null){ I.setOwner((MOB)E); I.destroy(); ((MOB)E).delInventory(I);}
-			}
+			((MOB)E).delAllAbilities();
+			((MOB)E).delAllItems(true);
 			if(E instanceof ShopKeeper)
 			{
-				Vector V=((ShopKeeper)E).getShop().getStoreInventory();
-				for(int b=0;b<V.size();b++)
-					((ShopKeeper)E).getShop().delAllStoreInventory(((Environmental)V.elementAt(b)));
+				for(final Iterator<Environmental> i=((ShopKeeper)E).getShop().getStoreInventory();i.hasNext();)
+					((ShopKeeper)E).getShop().delAllStoreInventory(i.next());
 			}
 			if(E instanceof Deity)
 			{
@@ -2082,54 +2890,59 @@ public class CoffeeMaker extends StdLibrary implements GenericBuilder
 					((Deity)E).delPower(((Deity)E).fetchPower(0));
 			}
 		}
-		while(E.numEffects()>0)
+
+		if(E instanceof Physical)
 		{
-			Ability aff=E.fetchEffect(0);
-			if(aff!=null)
-				E.delEffect(aff);
+			final Physical P=(Physical)E;
+			P.delAllEffects(false);
 		}
-		while(E.numBehaviors()>0)
+		if(E instanceof PhysicalAgent)
 		{
-			Behavior behav=E.fetchBehavior(0);
-			if(behav!=null)
-				E.delBehavior(behav);
+			final PhysicalAgent P=(PhysicalAgent)E;
+			P.delAllBehaviors();
+			P.delAllScripts();
 		}
-        while(E.numScripts()>0)
-        {
-            ScriptingEngine scrpt=E.fetchScript(0);
-            if(scrpt!=null)
-                E.delScript(scrpt);
-        }
 
 		if(E instanceof MOB)
 		{
-			MOB mob=(MOB)E;
+			final MOB mob=(MOB)E;
 			mob.baseCharStats().setStat(CharStats.STAT_GENDER,CMLib.xml().getValFromPieces(buf,"GENDER").charAt(0));
-			mob.setClanID(CMLib.xml().getValFromPieces(buf,"CLAN"));
-			if(mob.getClanID().length()>0) mob.setClanRole(Clan.POS_MEMBER);
-			String raceID=CMLib.xml().getValFromPieces(buf,"MRACE");
-			Race R=(raceID.length()>0)?CMClass.getRace(raceID):null;
+			final List<XMLTag> clanPieces=CMLib.xml().getPiecesFromPieces(buf,"CLAN");
+			for(final XMLTag p : clanPieces)
+			{
+				final String clanID=p.value();
+				final Clan C=CMLib.clans().getClan(clanID);
+				if(C!=null)
+				{
+					int roleID=C.getGovernment().getAcceptPos();
+					if(p.parms().containsKey("ROLE"))
+						roleID=CMath.s_int(p.parms().get("ROLE"));
+					mob.setClan(C.clanID(), roleID);
+				}
+			}
+			final String raceID=CMLib.xml().getValFromPieces(buf,"MRACE");
+			final Race R=(raceID.length()>0)?CMClass.getRace(raceID):null;
 			if(R!=null)
 			{
 				mob.baseCharStats().setMyRace(R);
-                mob.setTrains(0);
-                mob.setPractices(0);
+				mob.setTrains(0);
+				mob.setPractices(0);
 				R.startRacing(mob,false);
 			}
 		}
 
 		setEnvProperties(E,buf);
-		String deprecatedFlag=CMLib.xml().getValFromPieces(buf,"FLAG");
+		final String deprecatedFlag=CMLib.xml().getValFromPieces(buf,"FLAG");
 		if((deprecatedFlag!=null)&&(deprecatedFlag.length()>0))
 			setEnvFlags(E,CMath.s_int(deprecatedFlag));
 
 		if(E instanceof Exit)
 		{
-			Exit exit=(Exit)E;
-			String closedText=CMLib.xml().getValFromPieces(buf,"CLOSTX");
-			String doorName=CMLib.xml().getValFromPieces(buf,"DOORNM");
-			String openName=CMLib.xml().getValFromPieces(buf,"OPENNM");
-			String closeName=CMLib.xml().getValFromPieces(buf,"CLOSNM");
+			final Exit exit=(Exit)E;
+			final String closedText=CMLib.xml().getValFromPieces(buf,"CLOSTX");
+			final String doorName=CMLib.xml().getValFromPieces(buf,"DOORNM");
+			final String openName=CMLib.xml().getValFromPieces(buf,"OPENNM");
+			final String closeName=CMLib.xml().getValFromPieces(buf,"CLOSNM");
 			exit.setExitParams(doorName,closeName,openName,closedText);
 			exit.setKeyName(CMLib.xml().getValFromPieces(buf,"KEYNM"));
 			exit.setOpenDelayTicks(CMLib.xml().getIntFromPieces(buf,"OPENTK"));
@@ -2138,52 +2951,105 @@ public class CoffeeMaker extends StdLibrary implements GenericBuilder
 		if(E instanceof ClanItem)
 		{
 			((ClanItem)E).setClanID(CMLib.xml().getValFromPieces(buf,"CLANID"));
-			((ClanItem)E).setCIType(CMLib.xml().getIntFromPieces(buf,"CITYPE"));
+			((ClanItem)E).setClanItemType(ClanItem.ClanItemType.values()[CMLib.xml().getIntFromPieces(buf,"CITYPE")]);
 		}
 
 		if(E instanceof Item)
 		{
-			Item item=(Item)E;
+			final Item item=(Item)E;
 			item.setSecretIdentity(CMLib.xml().getValFromPieces(buf,"IDENT"));
 			item.setBaseValue(CMLib.xml().getIntFromPieces(buf,"VALUE"));
 			item.setMaterial(CMLib.xml().getIntFromPieces(buf,"MTRAL"));
-			//item.setUsesRemaining(CMath.s_int(CMLib.xml().returnXMLValue(buf,"USES")));
+			//item.setUsesRemaining(CMath.s_int(CMLib.xml().returnXMLValue(buf,"USES"))); // handled 'from top' & in db
 			if(item instanceof Container)
 			{
 				((Container)item).setCapacity(CMLib.xml().getIntFromPieces(buf,"CAPA"));
 				((Container)item).setContainTypes(CMLib.xml().getLongFromPieces(buf,"CONT"));
+				final String openDelayStr=CMLib.xml().getValFromPieces(buf,"OPENTK");
+				if((openDelayStr!=null)&&(openDelayStr.length()>0))
+					((Container)item).setOpenDelayTicks(CMath.s_int(openDelayStr));
 
 			}
-			if(item instanceof Weapon)
-				((Weapon)item).setAmmoCapacity(CMLib.xml().getIntFromPieces(buf,"CAPA"));
+			if(item instanceof AmmunitionWeapon)
+				((AmmunitionWeapon)item).setAmmoCapacity(CMLib.xml().getIntFromPieces(buf,"ACAPA"));
 			item.setRawLogicalAnd(CMLib.xml().getBoolFromPieces(buf,"WORNL"));
-			item.setRawProperLocationBitmap(CMLib.xml().getIntFromPieces(buf,"WORNB"));
+			item.setRawProperLocationBitmap(CMLib.xml().getLongFromPieces(buf,"WORNB"));
 			item.setReadableText(CMLib.xml().getValFromPieces(buf,"READ"));
-
+			if(item instanceof BoardableShip)
+			{
+				((BoardableShip)item).setShipArea(CMLib.xml().restoreAngleBrackets(CMLib.xml().getValFromPieces(buf,"SSAREA")));
+				((BoardableShip)item).setHomePortID(CMLib.xml().restoreAngleBrackets(CMLib.xml().getValFromPieces(buf,"PORTID")));
+			}
+			if(item instanceof SpaceShip)
+			{
+				((SpaceShip)item).setOMLCoeff(CMLib.xml().getDoubleFromPieces(buf,"SSOML"));
+				double[] facing=CMParms.toDoubleArray(CMParms.parseCommas(CMLib.xml().getValFromPieces(buf,"SSFACE"),true));
+				if((facing!=null)&&(facing.length==2))
+					((SpaceShip)item).setFacing(facing);
+			}
 		}
 
 		if(E instanceof Rideable)
 		{
 			((Rideable)E).setRideBasis(CMLib.xml().getIntFromPieces(buf,"RIDET"));
 			((Rideable)E).setRiderCapacity(CMLib.xml().getIntFromPieces(buf,"RIDEC"));
+			if(E instanceof Exit) // it's a portal!
+			{
+				E.setStat("PUTSTR", CMLib.xml().getValFromPieces(buf, "PUTSTR", "in"));
+				E.setStat("MOUNTSTR", CMLib.xml().getValFromPieces(buf, "MOUNTSTR", "enter(s)"));
+				E.setStat("DISMOUNTSTR", CMLib.xml().getValFromPieces(buf, "DISMOUNTSTR", "emerge(s) from"));
+			}
 		}
 		if(E instanceof Electronics)
 		{
-			((Electronics)E).setFuelType(CMLib.xml().getIntFromPieces(buf,"FUELT"));
 			((Electronics)E).setPowerCapacity(CMLib.xml().getIntFromPieces(buf,"POWC"));
 			((Electronics)E).setPowerRemaining(CMLib.xml().getIntFromPieces(buf,"POWR"));
+			((Electronics)E).activate(CMLib.xml().getBoolFromPieces(buf, "EACT"));
+			((Electronics)E).setManufacturerName(CMLib.xml().getValFromPieces(buf, "MANUFACT"));
 		}
-	    if(E instanceof ShipComponent)
-	    {
-	        if(E instanceof ShipComponent.ShipPanel)
-	        {
-				((ShipComponent.ShipPanel)E).setPanelType(CMLib.xml().getIntFromPieces(buf,"SSPANELT"));
-	        }
-	        if(E instanceof ShipComponent.ShipEngine)
-	        {
-				((ShipComponent.ShipEngine)E).setMaxThrust(CMLib.xml().getIntFromPieces(buf,"SSTHRUST"));
-	        }
-	    }
+		if(E instanceof ElecPanel)
+		{
+			final String panelType=CMLib.xml().getValFromPieces(buf,"SSPANELT");
+			final Technical.TechType type = (Technical.TechType)CMath.s_valueOf(Technical.TechType.class, panelType);
+			if(type != null)
+				((ElecPanel)E).setPanelType(type);
+		}
+		if(E instanceof TechComponent)
+		{
+			((TechComponent)E).setInstalledFactor((float)CMLib.xml().getDoubleFromPieces(buf,"INSTF"));
+			((TechComponent)E).setRechargeRate((float)CMLib.xml().getDoubleFromPieces(buf,"RECHRATE",((TechComponent)E).getRechargeRate()));
+		}
+		if(E instanceof ShipEngine)
+		{
+			((ShipEngine)E).setMaxThrust(CMLib.xml().getIntFromPieces(buf,"SSTHRUST"));
+			((ShipEngine)E).setSpecificImpulse(CMLib.xml().getIntFromPieces(buf,"SSIMPL"));
+			((ShipEngine)E).setFuelEfficiency(CMLib.xml().getDoubleFromPieces(buf,"SSFEFF"));
+			((ShipEngine)E).setMinThrust(CMLib.xml().getIntFromPieces(buf,"SSNTHRUST"));
+			((ShipEngine)E).setConstantThruster(CMLib.xml().getBoolFromPieces(buf,"SSCONST",true));
+			final String portsStr = CMLib.xml().getValFromPieces(buf, "SSAPORTS", "");
+			if(portsStr.length()==0)
+				((ShipEngine)E).setAvailPorts(TechComponent.ShipDir.values());
+			else
+				((ShipEngine)E).setAvailPorts(CMParms.parseEnumList(TechComponent.ShipDir.class, portsStr, ',').toArray(new TechComponent.ShipDir[0]));
+		}
+		if(E instanceof ShipWarComponent)
+		{
+			((ShipWarComponent)E).setPermittedNumDirections(CMLib.xml().getIntFromPieces(buf,"SSPDIRS"));
+			((ShipWarComponent)E).setPermittedDirections(CMParms.parseEnumList(TechComponent.ShipDir.class, CMLib.xml().getValFromPieces(buf,"SSAPORTS"), ',').toArray(new TechComponent.ShipDir[0]));
+			((ShipWarComponent)E).setDamageMsgTypes(CMParms.parseIntList(CMLib.xml().getValFromPieces(buf,"SSMTYPES"),','));
+		}
+		if(E instanceof PowerGenerator)
+		{
+			((PowerGenerator)E).setGeneratedAmountPerTick(CMLib.xml().getIntFromPieces(buf,"EGENAMT"));
+		}
+		if(E instanceof FuelConsumer)
+		{
+			final List<String> mats = CMParms.parseCommas(CMLib.xml().getValFromPieces(buf,"ECONSTYP"),true);
+			final int[] newMats = new int[mats.size()];
+			for(int x=0;x<mats.size();x++)
+				newMats[x]=CMath.s_int(mats.get(x).trim());
+			((FuelConsumer)E).setConsumedFuelType(newMats);
+		}
 		if(E instanceof Coins)
 		{
 			((Coins)E).setCurrency(CMLib.xml().getValFromPieces(buf,"CRNC"));
@@ -2192,24 +3058,38 @@ public class CoffeeMaker extends StdLibrary implements GenericBuilder
 		if(E instanceof Recipe)
 		{
 			((Recipe)E).setCommonSkillID(CMLib.xml().getValFromPieces(buf,"SKILLID"));
-			((Recipe)E).setRecipeCodeLine(CMLib.xml().getValFromPieces(buf,"RECIPE"));
+			int numSupported = CMLib.xml().getIntFromPieces(buf,"NUMRECIPES");
+			if(numSupported<=0)
+				numSupported=1;
+			((Recipe)E).setTotalRecipePages(numSupported);
+			final List<XMLTag> allRecipes = CMLib.xml().getPiecesFromPieces(buf, "RECIPE");
+			final List<String> allRecipeStrings=new ArrayList<String>(allRecipes.size());
+			for(final XMLTag piece : allRecipes)
+				allRecipeStrings.add(piece.value());
+			((Recipe)E).setRecipeCodeLines(allRecipeStrings.toArray(new String[0]));
 		}
 		if(E instanceof Light)
 		{
-			String bo=CMLib.xml().getValFromPieces(buf,"BURNOUT");
+			final String bo=CMLib.xml().getValFromPieces(buf,"BURNOUT");
 			if((bo!=null)&&(bo.length()>0))
 				((Light)E).setDestroyedWhenBurntOut(CMath.s_bool(bo));
 		}
 
 		if(E instanceof Wand)
 		{
-			String bo=CMLib.xml().getValFromPieces(buf,"MAXUSE");
+			final String bo=CMLib.xml().getValFromPieces(buf,"MAXUSE");
 			if((bo!=null)&&(bo.length()>0))
 				((Wand)E).setMaxUses(CMath.s_int(bo));
 		}
 
 		if(E instanceof LandTitle)
 			((LandTitle)E).setLandPropertyID(CMLib.xml().getValFromPieces(buf,"LANDID"));
+		else
+		if(E instanceof PrivateProperty)
+		{
+			((PrivateProperty)E).setOwnerName(CMLib.xml().getValFromPieces(buf,"OWNERID"));
+			((PrivateProperty)E).setPrice(CMLib.xml().getIntFromPieces(buf,"PRICE"));
+		}
 
 		if(E instanceof Perfume)
 			((Perfume)E).setSmellList(CMLib.xml().getValFromPieces(buf,"SMELLLST"));
@@ -2217,7 +3097,7 @@ public class CoffeeMaker extends StdLibrary implements GenericBuilder
 		if(E instanceof Food)
 		{
 			((Food)E).setNourishment(CMLib.xml().getIntFromPieces(buf,"CAPA2"));
-            ((Food)E).setBite(CMLib.xml().getIntFromPieces(buf,"BITE"));
+			((Food)E).setBite(CMLib.xml().getIntFromPieces(buf,"BITE"));
 		}
 
 		if(E instanceof RawMaterial)
@@ -2225,13 +3105,21 @@ public class CoffeeMaker extends StdLibrary implements GenericBuilder
 
 		if(E instanceof Drink)
 		{
-			((Drink)E).setLiquidHeld(CMLib.xml().getIntFromPieces(buf,"CAPA2"));
-			((Drink)E).setLiquidRemaining(CMLib.xml().getIntFromPieces(buf,"CAPA2"));
+			final int capacity=CMLib.xml().getIntFromPieces(buf,"CAPA2");
+			((Drink)E).setLiquidHeld(capacity);
+			final String remaining=CMLib.xml().getValFromPieces(buf,"REMAN");
+			if(remaining.length()>0)
+			{
+				((Drink)E).setLiquidRemaining(CMath.s_int(remaining));
+				((Drink)E).setLiquidType(CMLib.xml().getIntFromPieces(buf,"LTYPE"));
+			}
+			else
+				((Drink)E).setLiquidRemaining(capacity);
 			((Drink)E).setThirstQuenched(CMLib.xml().getIntFromPieces(buf,"DRINK"));
 		}
 		if(E instanceof Weapon)
 		{
-			((Weapon)E).setWeaponType(CMLib.xml().getIntFromPieces(buf,"TYPE"));
+			((Weapon)E).setWeaponDamageType(CMLib.xml().getIntFromPieces(buf,"TYPE"));
 			((Weapon)E).setWeaponClassification(CMLib.xml().getIntFromPieces(buf,"CLASS"));
 			((Weapon)E).setRanges(CMLib.xml().getIntFromPieces(buf,"MINR"),CMLib.xml().getIntFromPieces(buf,"MAXR"));
 		}
@@ -2244,101 +3132,104 @@ public class CoffeeMaker extends StdLibrary implements GenericBuilder
 		{
 			if(((DeadBody)E).charStats()==null)
 				((DeadBody)E).setCharStats((CharStats)CMClass.getCommon("DefaultCharStats"));
-			try{
+			try
+			{
 				((DeadBody)E).charStats().setStat(CharStats.STAT_GENDER,CMLib.xml().getValFromPieces(buf,"GENDER").charAt(0));
-				((DeadBody)E).setPlayerCorpse(CMLib.xml().getBoolFromPieces(buf,"MPLAYR"));
-				String mobName=CMLib.xml().getValFromPieces(buf,"MDNAME");
+				((DeadBody)E).setIsPlayerCorpse(CMLib.xml().getBoolFromPieces(buf,"MPLAYR"));
+				final String mobName=CMLib.xml().getValFromPieces(buf,"MDNAME");
 				if(mobName.length()>0)
 				{
 					((DeadBody)E).setMobName(mobName);
 					((DeadBody)E).setMobDescription(CMLib.xml().getValFromPieces(buf,"MDDESC"));
 					((DeadBody)E).setTimeOfDeath(CMLib.xml().getLongFromPieces(buf,"MTOD"));
 					((DeadBody)E).setKillerName(CMLib.xml().getValFromPieces(buf,"MKNAME"));
-					((DeadBody)E).setKillerPlayer(CMLib.xml().getBoolFromPieces(buf,"MKPLAY"));
+					((DeadBody)E).setIsKillerPlayer(CMLib.xml().getBoolFromPieces(buf,"MKPLAY"));
+					((DeadBody)E).setMobHash(CMLib.xml().getIntFromPieces(buf,"MHASH"));
 					((DeadBody)E).setMobPKFlag(CMLib.xml().getBoolFromPieces(buf,"MPKILL"));
-					((DeadBody)E).setDestroyAfterLooting(CMLib.xml().getBoolFromPieces(buf,"MBREAL"));
+					((DeadBody)E).setIsDestroyAfterLooting(CMLib.xml().getBoolFromPieces(buf,"MBREAL"));
 					((DeadBody)E).setLastMessage(CMLib.xml().getValFromPieces(buf,"MDLMSG"));
-                    String mobsXML=CMLib.xml().getValFromPieces(buf,"MOBS");
-                    if((mobsXML!=null)&&(mobsXML.length()>0))
-                    {
-                        Vector V=new Vector();
-                        String err=addMOBsFromXML("<MOBS>"+mobsXML+"</MOBS>",V,null);
-                        if((err.length()==0)&&(V.size()>0))
-                            ((DeadBody)E).setSavedMOB((MOB)V.firstElement());
+					final String mobsXML=CMLib.xml().getValFromPieces(buf,"MOBS");
+					if((mobsXML!=null)&&(mobsXML.length()>0))
+					{
+						final List<MOB> V=new Vector<MOB>();
+						final String err=addMOBsFromXML("<MOBS>"+mobsXML+"</MOBS>",V,null);
+						if((err.length()==0)&&(V.size()>0))
+							((DeadBody)E).setSavedMOB(V.get(0));
 
-                    }
-					Vector dblk=CMLib.xml().getContentsFromPieces(buf,"KLTOOL");
+					}
+					final List<XMLLibrary.XMLTag> dblk=CMLib.xml().getContentsFromPieces(buf,"KLTOOL");
 					if((dblk!=null)&&(dblk.size()>0))
 					{
-						String itemi=CMLib.xml().getValFromPieces(dblk,"KLCLASS");
-						Environmental newOne=null;
-						Vector idat=CMLib.xml().getRealContentsFromPieces(dblk,"KLDATA");
-						if(newOne==null) newOne=CMClass.getUnknown(itemi);
+						final String itemi=CMLib.xml().getValFromPieces(dblk,"KLCLASS");
+						final List<XMLLibrary.XMLTag> idat=CMLib.xml().getContentsFromPieces(dblk,"KLDATA");
+						final Environmental newOne=CMClass.getUnknown(itemi);
 						if(newOne==null)
 							Log.errOut("CoffeeMaker","Unknown tool "+itemi+" of "+identifier(E,null)+".  Skipping.");
 						else
 						{
 							setPropertiesStr(newOne,idat,true);
-							((DeadBody)E).setKillingTool(newOne);
+							((DeadBody)E).setKillerTool(newOne);
 						}
 					}
 					else
-						((DeadBody)E).setKillingTool(null);
+						((DeadBody)E).setKillerTool(null);
 				}
-			} catch(Exception e){}
-			String raceID=CMLib.xml().getValFromPieces(buf,"MRACE");
+			}
+			catch(final Exception e){}
+			final String raceID=CMLib.xml().getValFromPieces(buf,"MRACE");
 			if((raceID.length()>0)&&(CMClass.getRace(raceID)!=null))
 			{
-				Race R=CMClass.getRace(raceID);
+				final Race R=CMClass.getRace(raceID);
 				((DeadBody)E).charStats().setMyRace(R);
 			}
 		}
 		if(E instanceof MOB)
 		{
-			MOB mob=(MOB)E;
-			String alignStr=CMLib.xml().getValFromPieces(buf,"ALIG");
+			final MOB mob=(MOB)E;
+			final String alignStr=CMLib.xml().getValFromPieces(buf,"ALIG");
 			if((alignStr.length()>0)&&(CMLib.factions().getFaction(CMLib.factions().AlignID())!=null))
-			    CMLib.factions().setAlignmentOldRange(mob,CMath.s_int(alignStr));
+				CMLib.factions().setAlignmentOldRange(mob,CMath.s_int(alignStr));
 			CMLib.beanCounter().setMoney(mob,CMLib.xml().getIntFromPieces(buf,"MONEY"));
-            mob.setMoneyVariation(CMLib.xml().getDoubleFromPieces(buf,"VARMONEY"));
+			mob.setMoneyVariation(CMLib.xml().getDoubleFromPieces(buf,"VARMONEY"));
 			setGenMobInventory((MOB)E,buf);
 			setGenMobAbilities((MOB)E,buf);
-            setFactionFromXML((MOB)E,buf);
+			setFactionFromXML((MOB)E,buf);
 
 			if(E instanceof Banker)
 			{
 				((Banker)E).setBankChain(CMLib.xml().getValFromPieces(buf,"BANK"));
 				((Banker)E).setCoinInterest(CMLib.xml().getDoubleFromPieces(buf,"COININT"));
 				((Banker)E).setItemInterest(CMLib.xml().getDoubleFromPieces(buf,"ITEMINT"));
-				String loanInt=CMLib.xml().getValFromPieces(buf,"LOANINT");
-				if(loanInt.length()>0) ((Banker)E).setLoanInterest(CMath.s_double(loanInt));
+				final String loanInt=CMLib.xml().getValFromPieces(buf,"LOANINT");
+				if(loanInt.length()>0)
+					((Banker)E).setLoanInterest(CMath.s_double(loanInt));
 			}
 
-            if(E instanceof PostOffice)
-            {
-                ((PostOffice)E).setPostalChain(CMLib.xml().getValFromPieces(buf,"POSTCHAIN"));
-                ((PostOffice)E).setMinimumPostage(CMLib.xml().getDoubleFromPieces(buf,"POSTMIN"));
-                ((PostOffice)E).setPostagePerPound(CMLib.xml().getDoubleFromPieces(buf,"POSTLBS"));
-                ((PostOffice)E).setHoldFeePerPound(CMLib.xml().getDoubleFromPieces(buf,"POSTHOLD"));
-                ((PostOffice)E).setFeeForNewBox(CMLib.xml().getDoubleFromPieces(buf,"POSTNEW"));
-                ((PostOffice)E).setMaxMudMonthsHeld(CMLib.xml().getIntFromPieces(buf,"POSTHELD"));
-            }
+			if(E instanceof PostOffice)
+			{
+				((PostOffice)E).setPostalChain(CMLib.xml().getValFromPieces(buf,"POSTCHAIN"));
+				((PostOffice)E).setMinimumPostage(CMLib.xml().getDoubleFromPieces(buf,"POSTMIN"));
+				((PostOffice)E).setPostagePerPound(CMLib.xml().getDoubleFromPieces(buf,"POSTLBS"));
+				((PostOffice)E).setHoldFeePerPound(CMLib.xml().getDoubleFromPieces(buf,"POSTHOLD"));
+				((PostOffice)E).setFeeForNewBox(CMLib.xml().getDoubleFromPieces(buf,"POSTNEW"));
+				((PostOffice)E).setMaxMudMonthsHeld(CMLib.xml().getIntFromPieces(buf,"POSTHELD"));
+			}
 
-            if(E instanceof Auctioneer)
-            {
-                ((Auctioneer)E).setAuctionHouse(CMLib.xml().getValFromPieces(buf,"AUCHOUSE"));
-                //((Auctioneer)E).setLiveListingPrice(CMLib.xml().getDoubleFromPieces(buf,"LIVEPRICE"));
-                ((Auctioneer)E).setTimedListingPrice(CMLib.xml().getDoubleFromPieces(buf,"TIMEPRICE"));
-                ((Auctioneer)E).setTimedListingPct(CMLib.xml().getDoubleFromPieces(buf,"TIMEPCT"));
-                //((Auctioneer)E).setLiveFinalCutPct(CMLib.xml().getDoubleFromPieces(buf,"LIVECUT"));
-                ((Auctioneer)E).setTimedFinalCutPct(CMLib.xml().getDoubleFromPieces(buf,"TIMECUT"));
-                ((Auctioneer)E).setMaxTimedAuctionDays(CMLib.xml().getIntFromPieces(buf,"MAXADAYS"));
-                ((Auctioneer)E).setMinTimedAuctionDays(CMLib.xml().getIntFromPieces(buf,"MINADAYS"));
-            }
+			if(E instanceof Auctioneer)
+			{
+				((Auctioneer)E).setAuctionHouse(CMLib.xml().getValFromPieces(buf,"AUCHOUSE"));
+				//((Auctioneer)E).setLiveListingPrice(CMLib.xml().getDoubleFromPieces(buf,"LIVEPRICE"));
+				((Auctioneer)E).setTimedListingPrice(CMLib.xml().getDoubleFromPieces(buf,"TIMEPRICE"));
+				((Auctioneer)E).setTimedListingPct(CMLib.xml().getDoubleFromPieces(buf,"TIMEPCT"));
+				//((Auctioneer)E).setLiveFinalCutPct(CMLib.xml().getDoubleFromPieces(buf,"LIVECUT"));
+				((Auctioneer)E).setTimedFinalCutPct(CMLib.xml().getDoubleFromPieces(buf,"TIMECUT"));
+				((Auctioneer)E).setMaxTimedAuctionDays(CMLib.xml().getIntFromPieces(buf,"MAXADAYS"));
+				((Auctioneer)E).setMinTimedAuctionDays(CMLib.xml().getIntFromPieces(buf,"MINADAYS"));
+			}
 
 			if(E instanceof Deity)
 			{
-				Deity godmob=(Deity)E;
+				final Deity godmob=(Deity)E;
 				godmob.setClericRequirements(CMLib.xml().getValFromPieces(buf,"CLEREQ"));
 				godmob.setWorshipRequirements(CMLib.xml().getValFromPieces(buf,"WORREQ"));
 				godmob.setClericRitual(CMLib.xml().getValFromPieces(buf,"CLERIT"));
@@ -2346,9 +3237,9 @@ public class CoffeeMaker extends StdLibrary implements GenericBuilder
 				godmob.setClericSin(CMLib.xml().getValFromPieces(buf,"CLERSIT"));
 				godmob.setWorshipSin(CMLib.xml().getValFromPieces(buf,"WORRSIT"));
 				godmob.setClericPowerup(CMLib.xml().getValFromPieces(buf,"CLERPOW"));
-                godmob.setServiceRitual(CMLib.xml().getValFromPieces(buf,"SVCRIT"));
+				godmob.setServiceRitual(CMLib.xml().getValFromPieces(buf,"SVCRIT"));
 
-				Vector V=CMLib.xml().getRealContentsFromPieces(buf,"BLESSINGS");
+				List<XMLLibrary.XMLTag> V=CMLib.xml().getContentsFromPieces(buf,"BLESSINGS");
 				if(V==null)
 				{
 					Log.errOut("CoffeeMaker","Error parsing 'BLESSINGS' of "+identifier(E,null)+".  Load aborted");
@@ -2356,20 +3247,20 @@ public class CoffeeMaker extends StdLibrary implements GenericBuilder
 				}
 				for(int i=0;i<V.size();i++)
 				{
-					XMLLibrary.XMLpiece ablk=(XMLLibrary.XMLpiece)V.elementAt(i);
-					if((!ablk.tag.equalsIgnoreCase("BLESS"))||(ablk.contents==null))
+					final XMLTag ablk=V.get(i);
+					if((!ablk.tag().equalsIgnoreCase("BLESS"))||(ablk.contents()==null))
 					{
 						Log.errOut("CoffeeMaker","Error parsing 'BLESS' of "+identifier(E,null)+".  Load aborted");
 						return;
 					}
-					Ability newOne=CMClass.getAbility(CMLib.xml().getValFromPieces(ablk.contents,"BLCLASS"));
+					final Ability newOne=CMClass.getAbility(ablk.getValFromPieces("BLCLASS"));
 					if(newOne==null)
 					{
-						Log.errOut("CoffeeMaker","Unknown bless "+CMLib.xml().getValFromPieces(ablk.contents,"BLCLASS")+" on "+identifier(E,null)+", skipping.");
+						Log.errOut("CoffeeMaker","Unknown bless "+ablk.getValFromPieces("BLCLASS")+" on "+identifier(E,null)+", skipping.");
 						continue;
 					}
-                    boolean clericsOnly=CMLib.xml().getBoolFromPieces(ablk.contents,"BLONLY");
-					Vector adat=CMLib.xml().getRealContentsFromPieces(ablk.contents,"BLDATA");
+					final boolean clericsOnly=ablk.getBoolFromPieces("BLONLY");
+					final List<XMLLibrary.XMLTag> adat=ablk.getContentsFromPieces("BLDATA");
 					if(adat==null)
 					{
 						Log.errOut("CoffeeMaker","Error parsing 'BLESS DATA' of "+identifier(E,null)+".  Load aborted");
@@ -2378,25 +3269,25 @@ public class CoffeeMaker extends StdLibrary implements GenericBuilder
 					setPropertiesStr(newOne,adat,true);
 					godmob.addBlessing(newOne,clericsOnly);
 				}
-				V=CMLib.xml().getRealContentsFromPieces(buf,"CURSES");
+				V=CMLib.xml().getContentsFromPieces(buf,"CURSES");
 				if(V!=null)
 				{
 					for(int i=0;i<V.size();i++)
 					{
-						XMLLibrary.XMLpiece ablk=(XMLLibrary.XMLpiece)V.elementAt(i);
-						if((!ablk.tag.equalsIgnoreCase("CURSE"))||(ablk.contents==null))
+						final XMLTag ablk=V.get(i);
+						if((!ablk.tag().equalsIgnoreCase("CURSE"))||(ablk.contents()==null))
 						{
 							Log.errOut("CoffeeMaker","Error parsing 'CURSE' of "+identifier(E,null)+".  Load aborted");
 							return;
 						}
-						Ability newOne=CMClass.getAbility(CMLib.xml().getValFromPieces(ablk.contents,"CUCLASS"));
+						final Ability newOne=CMClass.getAbility(ablk.getValFromPieces("CUCLASS"));
 						if(newOne==null)
 						{
-							Log.errOut("CoffeeMaker","Unknown curse "+CMLib.xml().getValFromPieces(ablk.contents,"CUCLASS")+" on "+identifier(E,null)+", skipping.");
+							Log.errOut("CoffeeMaker","Unknown curse "+ablk.getValFromPieces("CUCLASS")+" on "+identifier(E,null)+", skipping.");
 							continue;
 						}
-                        boolean clericsOnly=CMLib.xml().getBoolFromPieces(ablk.contents,"CUONLY");
-						Vector adat=CMLib.xml().getRealContentsFromPieces(ablk.contents,"CUDATA");
+						final boolean clericsOnly=ablk.getBoolFromPieces("CUONLY");
+						final List<XMLLibrary.XMLTag> adat=ablk.getContentsFromPieces("CUDATA");
 						if(adat==null)
 						{
 							Log.errOut("CoffeeMaker","Error parsing 'CURSE DATA' of "+identifier(E,null)+".  Load aborted");
@@ -2406,24 +3297,24 @@ public class CoffeeMaker extends StdLibrary implements GenericBuilder
 						godmob.addCurse(newOne,clericsOnly);
 					}
 				}
-				V=CMLib.xml().getRealContentsFromPieces(buf,"POWERS");
+				V=CMLib.xml().getContentsFromPieces(buf,"POWERS");
 				if(V!=null)
 				{
 					for(int i=0;i<V.size();i++)
 					{
-						XMLLibrary.XMLpiece ablk=(XMLLibrary.XMLpiece)V.elementAt(i);
-						if((!ablk.tag.equalsIgnoreCase("POWER"))||(ablk.contents==null))
+						final XMLTag ablk=V.get(i);
+						if((!ablk.tag().equalsIgnoreCase("POWER"))||(ablk.contents()==null))
 						{
 							Log.errOut("CoffeeMaker","Error parsing 'POWER' of "+identifier(E,null)+".  Load aborted");
 							return;
 						}
-						Ability newOne=CMClass.getAbility(CMLib.xml().getValFromPieces(ablk.contents,"POCLASS"));
+						final Ability newOne=CMClass.getAbility(ablk.getValFromPieces("POCLASS"));
 						if(newOne==null)
 						{
-							Log.errOut("CoffeeMaker","Unknown power "+CMLib.xml().getValFromPieces(ablk.contents,"POCLASS")+" on "+identifier(E,null)+", skipping.");
+							Log.errOut("CoffeeMaker","Unknown power "+ablk.getValFromPieces("POCLASS")+" on "+identifier(E,null)+", skipping.");
 							continue;
 						}
-						Vector adat=CMLib.xml().getRealContentsFromPieces(ablk.contents,"PODATA");
+						final List<XMLLibrary.XMLTag> adat=ablk.getContentsFromPieces("PODATA");
 						if(adat==null)
 						{
 							Log.errOut("CoffeeMaker","Error parsing 'POWER DATA' of "+identifier(E,null)+".  Load aborted");
@@ -2434,61 +3325,87 @@ public class CoffeeMaker extends StdLibrary implements GenericBuilder
 					}
 				}
 			}
-			Vector V9=CMParms.parseSemicolons(CMLib.xml().getValFromPieces(buf,"TATTS"),true);
-			while(((MOB)E).numTattoos()>0)((MOB)E).delTattoo(((MOB)E).fetchTattoo(0));
-			for(int v=0;v<V9.size();v++) ((MOB)E).addTattoo((String)V9.elementAt(v));
+			List<String> V9=CMParms.parseSemicolons(CMLib.xml().getValFromPieces(buf,"TATTS"),true);
+			for(final Enumeration<Tattoo> e=((MOB)E).tattoos();e.hasMoreElements();)
+				((MOB)E).delTattoo(e.nextElement());
+			for(final String tatt : V9)
+				((MOB)E).addTattoo(((Tattoo)CMClass.getCommon("DefaultTattoo")).parse(tatt));
 
 			V9=CMParms.parseSemicolons(CMLib.xml().getValFromPieces(buf,"EDUS"),true);
-			while(((MOB)E).numExpertises()>0)((MOB)E).delExpertise(((MOB)E).fetchExpertise(0));
-			for(int v=0;v<V9.size();v++) ((MOB)E).addExpertise((String)V9.elementAt(v));
+			((MOB)E).delAllExpertises();
+			for(int v=0;v<V9.size();v++)
+				((MOB)E).addExpertise(V9.get(v));
 
 			if(E instanceof ShopKeeper)
-				populateShops(E,buf);
+				populateShops((ShopKeeper)E,buf);
 		}
 	}
 
-	public String getPlayerXML(MOB mob,
-	        						  HashSet custom,
-	        						  HashSet files)
+	@Override
+	public String getAccountXML(PlayerAccount account, Set<CMObject> custom, Set<String> files)
 	{
-		if(mob==null) return "";
-		if(mob.Name().length()==0) return "";
-		PlayerStats pstats=mob.playerStats();
-		if(pstats==null) return "";
+		if(account==null)
+			return "";
+		if(account.getAccountName().length()==0)
+			return "";
+		final StringBuilder xml=new StringBuilder("");
+		xml.append("<NAME>").append(account.getAccountName()).append("</NAME>");
+		xml.append("<PASS>").append(account.getPasswordStr()).append("</PASS>");
+		xml.append("<AXML>").append(account.getXML()).append("</AXML>");
+		xml.append("<PLAYERS>");
+		for(final Enumeration<MOB> m=account.getLoadPlayers(); m.hasMoreElements(); )
+		{
+			final MOB M=m.nextElement();
+			xml.append("<PLAYER>").append(getPlayerXML(M,custom,files)).append("</PLAYER>");
+		}
+		xml.append("</PLAYERS>");
+		return xml.toString();
+	}
 
-		String strStartRoomID=(mob.getStartRoom()!=null)?CMLib.map().getExtendedRoomID(mob.getStartRoom()):"";
-		String strOtherRoomID=(mob.location()!=null)?CMLib.map().getExtendedRoomID(mob.location()):"";
-		StringBuffer pfxml=new StringBuffer(pstats.getXML());
-		if(mob.numTattoos()>0)
+	@Override
+	public String getPlayerXML(MOB mob, Set<CMObject> custom, Set<String> files)
+	{
+		if(mob==null)
+			return "";
+		if(mob.Name().length()==0)
+			return "";
+		final PlayerStats pstats=mob.playerStats();
+		if(pstats==null)
+			return "";
+
+		final String strStartRoomID=(mob.getStartRoom()!=null)?CMLib.map().getExtendedRoomID(mob.getStartRoom()):"";
+		final String strOtherRoomID=(mob.location()!=null)?CMLib.map().getExtendedRoomID(mob.location()):"";
+		final StringBuilder pfxml=new StringBuilder(pstats.getXML());
+		if(mob.tattoos().hasMoreElements())
 		{
 			pfxml.append("<TATTS>");
-			String s=null;
-			for(int i=0;i<mob.numTattoos();i++)
+			Tattoo T = null;
+			for(final Enumeration<Tattoo> e=mob.tattoos(); e.hasMoreElements();)
 			{
-			    s=mob.fetchTattoo(i);
-			    if(s.startsWith("<TATTS>"))
-			        pfxml.append(s.substring(7)+";");
-			    else
-			        pfxml.append(s+";");
+				T=e.nextElement();
+				if(T.getTattooName().startsWith("<TATTS>"))
+					T.set(T.getTattooName().substring(7));
+				pfxml.append(T.toString()+";");
 			}
 			pfxml.append("</TATTS>");
 		}
-		if(mob.numExpertises()>0)
+		if(mob.expertises().hasMoreElements())
 		{
 			pfxml.append("<EDUS>");
-			for(int i=0;i<mob.numExpertises();i++)
-				pfxml.append(mob.fetchExpertise(i)+";");
+			for(final Enumeration<String> x=mob.expertises();x.hasMoreElements();)
+				pfxml.append(x.nextElement()).append(';');
 			pfxml.append("</EDUS>");
 		}
 		pfxml.append(CMLib.xml().convertXMLtoTag("IMG",mob.rawImage()));
 
-		StringBuffer str=new StringBuffer("");
+		final StringBuilder str=new StringBuilder("");
+		str.append(CMLib.xml().convertXMLtoTag("CLASSID",mob.ID()));
 		str.append(CMLib.xml().convertXMLtoTag("NAME",mob.Name()));
-		str.append(CMLib.xml().convertXMLtoTag("PASS",pstats.password()));
+		str.append(CMLib.xml().convertXMLtoTag("PASS",pstats.getPasswordStr()));
 		str.append(CMLib.xml().convertXMLtoTag("CLASS",mob.baseCharStats().getMyClassesStr()));
 		str.append(CMLib.xml().convertXMLtoTag("RACE",mob.baseCharStats().getMyRace().ID()));
 		str.append(CMLib.xml().convertXMLtoTag("GEND",""+((char)mob.baseCharStats().getStat(CharStats.STAT_GENDER))));
-		for(int i : CharStats.CODES.BASE())
+		for(final int i : CharStats.CODES.BASECODES())
 			str.append(CMLib.xml().convertXMLtoTag(CMStrings.limit(CharStats.CODES.NAME(i),3),mob.baseCharStats().getStat(i)));
 		str.append(CMLib.xml().convertXMLtoTag("HIT",mob.baseState().getHitPoints()));
 		str.append(CMLib.xml().convertXMLtoTag("LVL",mob.baseCharStats().getMyLevelsStr()));
@@ -2499,25 +3416,25 @@ public class CoffeeMaker extends StdLibrary implements GenericBuilder
 		str.append(CMLib.xml().convertXMLtoTag("WORS",mob.getWorshipCharID()));
 		str.append(CMLib.xml().convertXMLtoTag("PRAC",mob.getPractices()));
 		str.append(CMLib.xml().convertXMLtoTag("TRAI",mob.getTrains()));
-		str.append(CMLib.xml().convertXMLtoTag("AGEH",mob.getAgeHours()));
+		str.append(CMLib.xml().convertXMLtoTag("AGEH",mob.getAgeMinutes()));
 		str.append(CMLib.xml().convertXMLtoTag("GOLD",mob.getMoney()));
 		str.append(CMLib.xml().convertXMLtoTag("WIMP",mob.getWimpHitPoint()));
 		str.append(CMLib.xml().convertXMLtoTag("QUES",mob.getQuestPoint()));
 		str.append(CMLib.xml().convertXMLtoTag("ROID",strStartRoomID+"||"+strOtherRoomID));
-		str.append(CMLib.xml().convertXMLtoTag("DATE",pstats.lastDateTime()));
+		str.append(CMLib.xml().convertXMLtoTag("DATE",pstats.getLastDateTime()));
 		str.append(CMLib.xml().convertXMLtoTag("CHAN",pstats.getChannelMask()));
-		str.append(CMLib.xml().convertXMLtoTag("ATTA",mob.baseEnvStats().attackAdjustment()));
-		str.append(CMLib.xml().convertXMLtoTag("AMOR",mob.baseEnvStats().armor()));
-		str.append(CMLib.xml().convertXMLtoTag("DAMG",mob.baseEnvStats().damage()));
-		str.append(CMLib.xml().convertXMLtoTag("BTMP",mob.getBitmap()));
+		str.append(CMLib.xml().convertXMLtoTag("ATTA",mob.basePhyStats().attackAdjustment()));
+		str.append(CMLib.xml().convertXMLtoTag("AMOR",mob.basePhyStats().armor()));
+		str.append(CMLib.xml().convertXMLtoTag("DAMG",mob.basePhyStats().damage()));
+		str.append(CMLib.xml().convertXMLtoTag("BTMP",mob.getAttributesBitmap()));
 		str.append(CMLib.xml().convertXMLtoTag("LEIG",mob.getLiegeID()));
-		str.append(CMLib.xml().convertXMLtoTag("HEIT",mob.baseEnvStats().height()));
-		str.append(CMLib.xml().convertXMLtoTag("WEIT",mob.baseEnvStats().weight()));
+		str.append(CMLib.xml().convertXMLtoTag("HEIT",mob.basePhyStats().height()));
+		str.append(CMLib.xml().convertXMLtoTag("WEIT",mob.basePhyStats().weight()));
 		str.append(CMLib.xml().convertXMLtoTag("PRPT",CMLib.xml().parseOutAngleBrackets(pstats.getPrompt())));
 		str.append(CMLib.xml().convertXMLtoTag("COLR",pstats.getColorStr()));
-		str.append(CMLib.xml().convertXMLtoTag("CLAN",mob.getClanID()));
-		str.append(CMLib.xml().convertXMLtoTag("LSIP",pstats.lastIP()));
-		str.append(CMLib.xml().convertXMLtoTag("CLRO",mob.getClanRole()));
+		for(final Pair<Clan,Integer> p : mob.clans())
+			str.append("<CLAN ROLE=").append(p.second.toString()).append(">").append(p.first.clanID()).append("</CLAN>");
+		str.append(CMLib.xml().convertXMLtoTag("LSIP",pstats.getLastIP()));
 		str.append(CMLib.xml().convertXMLtoTag("EMAL",pstats.getEmail()));
 		str.append(CMLib.xml().convertXMLtoTag("PFIL",pfxml.toString()));
 		str.append(CMLib.xml().convertXMLtoTag("SAVE",mob.baseCharStats().getNonBaseStatsAsString()));
@@ -2527,260 +3444,409 @@ public class CoffeeMaker extends StdLibrary implements GenericBuilder
 
 		str.append(getGenMobAbilities(mob));
 
-        str.append(getGenScripts(mob,true));
+		str.append(getGenScripts(mob,true));
+
+		possibleAddElectronicsManufacturers(mob, custom);
 
 		str.append(getGenMobInventory(mob));
 
 		str.append(getFactionXML(mob));
 
-		StringBuffer fols=new StringBuffer("");
+		final StringBuilder fols=new StringBuilder("");
 		for(int f=0;f<mob.numFollowers();f++)
 		{
-			MOB thisMOB=mob.fetchFollower(f);
+			final MOB thisMOB=mob.fetchFollower(f);
+			possibleAddElectronicsManufacturers(thisMOB, custom);
 			if((thisMOB!=null)&&(thisMOB.isMonster())&&(!thisMOB.isPossessing()))
 			{
 				fols.append("<FOLLOWER>");
 				fols.append(CMLib.xml().convertXMLtoTag("FCLAS",CMClass.classID(thisMOB)));
 				fols.append(CMLib.xml().convertXMLtoTag("FTEXT",thisMOB.text()));
-				fols.append(CMLib.xml().convertXMLtoTag("FLEVL",thisMOB.baseEnvStats().level()));
-				fols.append(CMLib.xml().convertXMLtoTag("FABLE",thisMOB.baseEnvStats().ability()));
+				fols.append(CMLib.xml().convertXMLtoTag("FLEVL",thisMOB.basePhyStats().level()));
+				fols.append(CMLib.xml().convertXMLtoTag("FABLE",thisMOB.basePhyStats().ability()));
 				fols.append("</FOLLOWER>");
 			}
 		}
 		str.append(CMLib.xml().convertXMLtoTag("FOLLOWERS",fols.toString()));
-		if((mob.baseCharStats().getMyRace().isGeneric())
-		&&(!custom.contains(mob.baseCharStats().getMyRace())))
-		   custom.add(mob.baseCharStats().getMyRace());
-		for(int c=0;c<mob.baseCharStats().numClasses();c++)
-		{
-			CharClass C=mob.baseCharStats().getMyClass(c);
-			if((C.isGeneric())&&(!custom.contains(C)))
-				custom.add(C);
-		}
+
+		possiblyAddCustomRace(mob, custom);
+		possiblyAddCustomClass(mob, custom);
+
 		fillFileSet(mob,files);
 		return str.toString();
 	}
 
-	public String addPLAYERsFromXML(String xmlBuffer,
-										   Vector addHere,
-										   Session S)
+	protected String addPlayersOnlyFromXML(List<XMLLibrary.XMLTag> mV, List<MOB> addMobs, Session S)
 	{
-		Vector xml=CMLib.xml().parseAllXML(xmlBuffer);
-		if(xml==null) return unpackErr("PLAYERs","null 'xml'");
-		Vector mV=CMLib.xml().getRealContentsFromPieces(xml,"PLAYERS");
-		if(mV==null) return unpackErr("PLAYERs","null 'mV'");
 		for(int m=0;m<mV.size();m++)
 		{
-			XMLLibrary.XMLpiece mblk=(XMLLibrary.XMLpiece)mV.elementAt(m);
-			if((!mblk.tag.equalsIgnoreCase("PLAYER"))||(mblk.contents==null))
+			final XMLTag mblk=mV.get(m);
+			if((!mblk.tag().equalsIgnoreCase("PLAYER"))||(mblk.contents()==null))
 				return unpackErr("PLAYERs","bad 'mblk'");
-			MOB mob=CMClass.getMOB("StdMOB");
+			String classID=mblk.getValFromPieces( "CLASSID");
+			if((classID==null)||(classID.length()==0))
+				classID="StdMOB";
+			final MOB mob=CMClass.getMOB(classID);
 			mob.setPlayerStats((PlayerStats)CMClass.getCommon("DefaultPlayerStats"));
-			mob.setName(CMLib.xml().getValFromPieces(mblk.contents,"NAME"));
-			mob.playerStats().setPassword(CMLib.xml().getValFromPieces(mblk.contents,"PASS"));
-			mob.baseCharStats().setMyClasses(CMLib.xml().getValFromPieces(mblk.contents,"CLASS"));
-			mob.baseCharStats().setMyLevels(CMLib.xml().getValFromPieces(mblk.contents,"LVL"));
+			mob.setName(mblk.getValFromPieces("NAME"));
+			mob.playerStats().setPassword(mblk.getValFromPieces("PASS"));
+			mob.baseCharStats().setMyClasses(mblk.getValFromPieces("CLASS"));
+			mob.baseCharStats().setMyLevels(mblk.getValFromPieces("LVL"));
 			int level=0;
 			for(int i=0;i<mob.baseCharStats().numClasses();i++)
 				level+=mob.baseCharStats().getClassLevel(mob.baseCharStats().getMyClass(i));
-			mob.baseEnvStats().setLevel(level);
-			mob.baseCharStats().setMyRace(CMClass.getRace(CMLib.xml().getValFromPieces(mblk.contents,"RACE")));
-			mob.baseCharStats().setStat(CharStats.STAT_GENDER,CMLib.xml().getValFromPieces(mblk.contents,"GEND").charAt(0));
-			for(int i : CharStats.CODES.BASE())
-				mob.baseCharStats().setStat(i,CMLib.xml().getIntFromPieces(mblk.contents,CMStrings.limit(CharStats.CODES.NAME(i),3)));
-			mob.baseState().setHitPoints(CMLib.xml().getIntFromPieces(mblk.contents,"HIT"));
-			mob.baseState().setMana(CMLib.xml().getIntFromPieces(mblk.contents,"MANA"));
-			mob.baseState().setMovement(CMLib.xml().getIntFromPieces(mblk.contents,"MOVE"));
-			String alignStr=CMLib.xml().getValFromPieces(mblk.contents,"ALIG");
+			mob.basePhyStats().setLevel(level);
+			mob.baseCharStats().setMyRace(CMClass.getRace(mblk.getValFromPieces("RACE")));
+			mob.baseCharStats().setStat(CharStats.STAT_GENDER,mblk.getValFromPieces("GEND").charAt(0));
+			for(final int i : CharStats.CODES.BASECODES())
+				mob.baseCharStats().setStat(i,mblk.getIntFromPieces(CMStrings.limit(CharStats.CODES.NAME(i),3)));
+			mob.baseState().setHitPoints(mblk.getIntFromPieces("HIT"));
+			mob.baseState().setMana(mblk.getIntFromPieces("MANA"));
+			mob.baseState().setMovement(mblk.getIntFromPieces("MOVE"));
+			final String alignStr=mblk.getValFromPieces("ALIG");
 			if((alignStr.length()>0)&&(CMLib.factions().getFaction(CMLib.factions().AlignID())!=null))
-			    CMLib.factions().setAlignmentOldRange(mob,CMath.s_int(alignStr));
-			mob.setExperience(CMLib.xml().getIntFromPieces(mblk.contents,"EXP"));
-			mob.setExpNextLevel(CMLib.xml().getIntFromPieces(mblk.contents,"EXLV"));
-			mob.setWorshipCharID(CMLib.xml().getValFromPieces(mblk.contents,"WORS"));
-			mob.setPractices(CMLib.xml().getIntFromPieces(mblk.contents,"PRAC"));
-			mob.setTrains(CMLib.xml().getIntFromPieces(mblk.contents,"TRAI"));
-			mob.setAgeHours(CMLib.xml().getIntFromPieces(mblk.contents,"AGEH"));
-			mob.setWimpHitPoint(CMLib.xml().getIntFromPieces(mblk.contents,"WIMP"));
-			mob.setQuestPoint(CMLib.xml().getIntFromPieces(mblk.contents,"QUES"));
-			String roomID=CMLib.xml().getValFromPieces(mblk.contents,"ROID");
-			if(roomID==null) roomID="";
-			int x=roomID.indexOf("||");
+				CMLib.factions().setAlignmentOldRange(mob,CMath.s_int(alignStr));
+			mob.setExperience(mblk.getIntFromPieces("EXP"));
+			//mob.setExpNextLevel(CMLib.xml().getIntFromPieces(mblk.contents,"EXLV"));
+			mob.setWorshipCharID(mblk.getValFromPieces("WORS"));
+			mob.setPractices(mblk.getIntFromPieces("PRAC"));
+			mob.setTrains(mblk.getIntFromPieces("TRAI"));
+			mob.setAgeMinutes(mblk.getIntFromPieces("AGEH"));
+			mob.setWimpHitPoint(mblk.getIntFromPieces("WIMP"));
+			mob.setQuestPoint(mblk.getIntFromPieces("QUES"));
+			String roomID=mblk.getValFromPieces("ROID");
+			if(roomID==null)
+				roomID="";
+			final int x=roomID.indexOf("||");
 			if(x>=0)
 			{
 				mob.setLocation(CMLib.map().getRoom(roomID.substring(x+2)));
 				roomID=roomID.substring(0,x);
 			}
 			mob.setStartRoom(CMLib.map().getRoom(roomID));
-			mob.playerStats().setLastDateTime(CMLib.xml().getLongFromPieces(mblk.contents,"DATE"));
-			mob.playerStats().setChannelMask(CMLib.xml().getIntFromPieces(mblk.contents,"CHAN"));
-			mob.baseEnvStats().setAttackAdjustment(CMLib.xml().getIntFromPieces(mblk.contents,"ATTA"));
-			mob.baseEnvStats().setArmor(CMLib.xml().getIntFromPieces(mblk.contents,"AMOR"));
-			mob.baseEnvStats().setDamage(CMLib.xml().getIntFromPieces(mblk.contents,"DAMG"));
-			mob.setBitmap(CMLib.xml().getIntFromPieces(mblk.contents,"BTMP"));
-			mob.setLiegeID(CMLib.xml().getValFromPieces(mblk.contents,"LEIG"));
-			mob.baseEnvStats().setHeight(CMLib.xml().getIntFromPieces(mblk.contents,"HEIT"));
-			mob.baseEnvStats().setWeight(CMLib.xml().getIntFromPieces(mblk.contents,"WEIT"));
-			mob.playerStats().setPrompt(CMLib.xml().restoreAngleBrackets(CMLib.xml().getValFromPieces(mblk.contents,"PRPT")));
-			String colorStr=CMLib.xml().getValFromPieces(mblk.contents,"COLR");
+			mob.playerStats().setLastDateTime(mblk.getLongFromPieces("DATE"));
+			mob.playerStats().setChannelMask(mblk.getIntFromPieces("CHAN"));
+			mob.basePhyStats().setAttackAdjustment(mblk.getIntFromPieces("ATTA"));
+			mob.basePhyStats().setArmor(mblk.getIntFromPieces("AMOR"));
+			mob.basePhyStats().setDamage(mblk.getIntFromPieces("DAMG"));
+			mob.setAttributesBitmap(mblk.getIntFromPieces("BTMP"));
+			mob.setLiegeID(mblk.getValFromPieces("LEIG"));
+			mob.basePhyStats().setHeight(mblk.getIntFromPieces("HEIT"));
+			mob.basePhyStats().setWeight(mblk.getIntFromPieces("WEIT"));
+			mob.playerStats().setPrompt(CMLib.xml().restoreAngleBrackets(mblk.getValFromPieces("PRPT")));
+			final String colorStr=mblk.getValFromPieces("COLR");
 			if((colorStr!=null)&&(colorStr.length()>0)&&(!colorStr.equalsIgnoreCase("NULL")))
 				mob.playerStats().setColorStr(colorStr);
-			mob.setClanID(CMLib.xml().getValFromPieces(mblk.contents,"CLAN"));
-			mob.playerStats().setLastIP(CMLib.xml().getValFromPieces(mblk.contents,"LSIP"));
-			mob.setClanRole(CMLib.xml().getIntFromPieces(mblk.contents,"CLRO"));
-			mob.playerStats().setEmail(CMLib.xml().getValFromPieces(mblk.contents,"EMAL"));
-			String buf=CMLib.xml().getValFromPieces(mblk.contents,"CMPFIL");
+			final List<XMLTag> clanPieces=mblk.getPiecesFromPieces( "CLAN");
+			final String oldRole=mblk.getValFromPieces("CLRO");
+			if((clanPieces.size()==1)&&(oldRole!=null)&&(oldRole.length()>0))
+				mob.setClan(clanPieces.get(0).value(), CMath.s_int(oldRole));
+			else
+			for(final XMLTag p : clanPieces)
+				mob.setClan(p.value(), CMath.s_int(p.parms().get("ROLE")));
+			mob.playerStats().setLastIP(mblk.getValFromPieces("LSIP"));
+			mob.playerStats().setEmail(mblk.getValFromPieces("EMAL"));
+			final String buf=mblk.getValFromPieces("CMPFIL");
 			mob.playerStats().setXML(buf);
-			Vector V9=CMParms.parseSemicolons(CMLib.xml().returnXMLValue(buf,"TATTS"),true);
-			while(mob.numTattoos()>0)mob.delTattoo(mob.fetchTattoo(0));
-			for(int v=0;v<V9.size();v++) mob.addTattoo((String)V9.elementAt(v));
+			List<String> V9=CMParms.parseSemicolons(CMLib.xml().returnXMLValue(buf,"TATTS"),true);
+			for(final Enumeration<Tattoo> e=mob.tattoos();e.hasMoreElements();)
+				mob.delTattoo(e.nextElement());
+			for(String tatt : V9)
+				mob.addTattoo(((Tattoo)CMClass.getCommon("DefaultTattoo")).parse(tatt));
 			V9=CMParms.parseSemicolons(CMLib.xml().returnXMLValue(buf,"EDUS"),true);
-			while(mob.numExpertises()>0)mob.delExpertise(mob.fetchExpertise(0));
-			for(int v=0;v<V9.size();v++) mob.addExpertise((String)V9.elementAt(v));
-			mob.baseCharStats().setNonBaseStatsFromString(CMLib.xml().getValFromPieces(mblk.contents,"SAVE"));
-			mob.setDescription(CMLib.xml().getValFromPieces(mblk.contents,"DESC"));
+			mob.delAllExpertises();
+			for(int v=0;v<V9.size();v++) mob.addExpertise(V9.get(v));
+			mob.baseCharStats().setNonBaseStatsFromString(mblk.getValFromPieces("SAVE"));
+			mob.setDescription(mblk.getValFromPieces("DESC"));
 			mob.setImage(CMLib.xml().returnXMLValue(buf,"IMG"));
 
-			setExtraEnvProperties(mob,mblk.contents);
+			setExtraEnvProperties(mob,mblk.contents());
 
-			setGenMobAbilities(mob,mblk.contents);
+			setGenMobAbilities(mob,mblk.contents());
 
-            setGenScripts(mob,mblk.contents,true);
+			setGenScripts(mob,mblk.contents(),true);
 
-			setGenMobInventory(mob,mblk.contents);
+			setGenMobInventory(mob,mblk.contents());
 
-			setFactionFromXML(mob,mblk.contents);
+			setFactionFromXML(mob,mblk.contents());
 
-			Vector iV=CMLib.xml().getRealContentsFromPieces(mblk.contents,"FOLLOWERS");
-			if(iV==null) return unpackErr("PFols","null 'iV'");
+			final List<XMLLibrary.XMLTag> iV=mblk.getContentsFromPieces("FOLLOWERS");
+			if(iV==null)
+				return unpackErr("PFols","null 'iV'",mblk);
 			for(int i=0;i<iV.size();i++)
 			{
-				XMLLibrary.XMLpiece fblk=(XMLLibrary.XMLpiece)iV.elementAt(i);
-				if((!fblk.tag.equalsIgnoreCase("FOLLOWER"))||(fblk.contents==null))
-					return unpackErr("PFols","??"+fblk.tag);
-				String mobClass=CMLib.xml().getValFromPieces(fblk.contents,"FCLAS");
-				MOB newFollower=CMClass.getMOB(mobClass);
-				if(newFollower==null) return unpackErr("PFols","null 'iClass': "+mobClass);
-				newFollower.baseEnvStats().setLevel(CMLib.xml().getIntFromPieces(fblk.contents,"FLEVL"));
-				newFollower.baseEnvStats().setAbility(CMLib.xml().getIntFromPieces(fblk.contents,"FABLE"));
-				newFollower.setMiscText(CMLib.xml().getValFromPieces(fblk.contents,"FTEXT"));
+				final XMLTag fblk=iV.get(i);
+				if((!fblk.tag().equalsIgnoreCase("FOLLOWER"))||(fblk.contents()==null))
+					return unpackErr("PFols","??"+fblk.tag());
+				final String mobClass=fblk.getValFromPieces("FCLAS");
+				final MOB newFollower=CMClass.getMOB(mobClass);
+				if(newFollower==null)
+					return unpackErr("PFols","null 'iClass': "+mobClass);
+				newFollower.basePhyStats().setLevel(fblk.getIntFromPieces("FLEVL"));
+				newFollower.basePhyStats().setAbility(fblk.getIntFromPieces("FABLE"));
+				newFollower.setMiscText(fblk.getValFromPieces("FTEXT"));
 				newFollower.recoverCharStats();
-				newFollower.recoverEnvStats();
+				newFollower.recoverPhyStats();
 				newFollower.recoverMaxState();
 				newFollower.resetToMaxState();
 				mob.addFollower(newFollower,-1);
 			}
 
 			mob.recoverCharStats();
-			mob.recoverEnvStats();
+			mob.recoverPhyStats();
 			mob.recoverMaxState();
 			mob.resetToMaxState();
-			addHere.addElement(mob);
+			addMobs.add(mob);
 		}
 		return "";
 	}
 
+	@Override
+	public String addPlayersAndAccountsFromXML(String xmlBuffer, List<PlayerAccount> addAccounts, List<MOB> addMobs, Session S)
+	{
+		final List<XMLLibrary.XMLTag> xml=CMLib.xml().parseAllXML(xmlBuffer);
+		if(xml==null)
+			return unpackErr("PLAYERs","null 'xml'");
+		List<XMLLibrary.XMLTag> mV=CMLib.xml().getContentsFromPieces(xml,"PLAYERS");
+		if(mV!=null)
+			return addPlayersOnlyFromXML(mV,addMobs,S);
+		else
+		{
+			mV=CMLib.xml().getContentsFromPieces(xml,"ACCOUNTS");
+			if(mV==null)
+				return unpackErr("PLAYERs","null 'mV'",xml);
+			for(int m=0;m<mV.size();m++)
+			{
+				final XMLTag mblk=mV.get(m);
+				if((!mblk.tag().equalsIgnoreCase("ACCOUNT"))||(mblk.contents()==null))
+					return unpackErr("ACCOUNTs","bad 'mblk'");
+				PlayerAccount account = null;
+				account = (PlayerAccount)CMClass.getCommon("DefaultPlayerAccount");
+				final String name=mblk.getValFromPieces( "NAME");
+				final String password=mblk.getValFromPieces( "PASS");
+				final XMLTag xmlPiece=mblk.getPieceFromPieces( "AXML");
+				final String accountXML=xmlPiece.value();
+				final XMLTag playersPiece=mblk.getPieceFromPieces( "PLAYERS");
+				final Vector<String> names = new Vector<String>();
+				final List<MOB> accountMobs=new Vector<MOB>();
+				final String err=addPlayersOnlyFromXML(playersPiece.contents(),accountMobs,S);
+				if(err.length()>0)
+					return err;
+				addMobs.addAll(accountMobs);
+				for(final MOB M : accountMobs)
+				{
+					M.playerStats().setAccount(account);
+					names.add(M.Name());
+				}
+				account.setAccountName(CMStrings.capitalizeAndLower(name));
+				account.setPassword(password);
+				account.setPlayerNames(names);
+				account.setXML(accountXML);
+				addAccounts.add(account);
+			}
+		}
+		return "";
+	}
 
-
+	@Override
 	public String getExtraEnvPropertiesStr(Environmental E)
 	{
-		StringBuffer text=new StringBuffer("");
+		final StringBuilder text=new StringBuilder("");
 
-        if(E instanceof Economics)
-        {
-            text.append(CMLib.xml().convertXMLtoTag("PREJFC",((Economics)E).prejudiceFactors()));
-            text.append(CMLib.xml().convertXMLtoTag("IGNMSK",((Economics)E).ignoreMask()));
-            text.append(CMLib.xml().convertXMLtoTag("BUDGET",((Economics)E).budget()));
-            text.append(CMLib.xml().convertXMLtoTag("DEVALR",((Economics)E).devalueRate()));
-            text.append(CMLib.xml().convertXMLtoTag("INVRER",((Economics)E).invResetRate()));
-            String[] prics=((Economics)E).itemPricingAdjustments();
-            if(prics.length==0) text.append("<IPRICS />");
-            else
-            {
-                text.append("<IPRICS>");
-                for(int p=0;p<prics.length;p++)
-                    text.append(CMLib.xml().convertXMLtoTag("IPRIC",CMLib.xml().parseOutAngleBrackets(prics[p])));
-                text.append("</IPRICS>");
-            }
+		if(E instanceof Economics)
+		{
+			text.append(CMLib.xml().convertXMLtoTag("PREJFC",((Economics)E).prejudiceFactors()));
+			text.append(CMLib.xml().convertXMLtoTag("IGNMSK",((Economics)E).ignoreMask()));
+			text.append(CMLib.xml().convertXMLtoTag("BUDGET",((Economics)E).budget()));
+			text.append(CMLib.xml().convertXMLtoTag("DEVALR",((Economics)E).devalueRate()));
+			text.append(CMLib.xml().convertXMLtoTag("INVRER",((Economics)E).invResetRate()));
+			final String[] prics=((Economics)E).itemPricingAdjustments();
+			if(prics.length==0)
+				text.append("<IPRICS />");
+			else
+			{
+				text.append("<IPRICS>");
+				for (final String pric : prics)
+					text.append(CMLib.xml().convertXMLtoTag("IPRIC",CMLib.xml().parseOutAngleBrackets(pric)));
+				text.append("</IPRICS>");
+			}
 
-        }
+		}
 
 		text.append(CMLib.xml().convertXMLtoTag("IMG",E.rawImage()));
 
-		StringBuffer behaviorstr=new StringBuffer("");
-		for(int b=0;b<E.numBehaviors();b++)
+		if(E instanceof PhysicalAgent)
 		{
-			Behavior B=E.fetchBehavior(b);
-			if(B!=null)
+			final PhysicalAgent P = (PhysicalAgent)E;
+			final StringBuilder behaviorstr=new StringBuilder("");
+			for(final Enumeration<Behavior> e=P.behaviors();e.hasMoreElements();)
 			{
-				behaviorstr.append("<BHAVE>");
-				behaviorstr.append(CMLib.xml().convertXMLtoTag("BCLASS",CMClass.classID(B)));
-				behaviorstr.append(CMLib.xml().convertXMLtoTag("BPARMS",CMLib.xml().parseOutAngleBrackets(B.getParms())));
-				behaviorstr.append("</BHAVE>");
+				final Behavior B=e.nextElement();
+				if(B!=null)
+				{
+					behaviorstr.append("<BHAVE>");
+					behaviorstr.append(CMLib.xml().convertXMLtoTag("BCLASS",CMClass.classID(B)));
+					behaviorstr.append(CMLib.xml().convertXMLtoTag("BPARMS",CMLib.xml().parseOutAngleBrackets(B.getParms())));
+					behaviorstr.append("</BHAVE>");
+				}
 			}
+			text.append(CMLib.xml().convertXMLtoTag("BEHAVES",behaviorstr.toString()));
 		}
-		text.append(CMLib.xml().convertXMLtoTag("BEHAVES",behaviorstr.toString()));
 
-		StringBuffer affectstr=new StringBuffer("");
-		for(int a=0;a<E.numEffects();a++)
+		if(E instanceof Physical)
 		{
-			Ability A=E.fetchEffect(a);
-			if((A!=null)&&(A.savable()))
+			final Physical P = (Physical)E;
+			final StringBuilder affectstr=new StringBuilder("");
+			for(int a=0;a<P.numEffects();a++) // definitely personal
 			{
-				affectstr.append("<AFF>");
-				affectstr.append(CMLib.xml().convertXMLtoTag("ACLASS",CMClass.classID(A)));
-				affectstr.append(CMLib.xml().convertXMLtoTag("ATEXT",CMLib.xml().parseOutAngleBrackets(A.text())));
-				affectstr.append("</AFF>");
+				final Ability A=P.fetchEffect(a);
+				if((A!=null)&&(A.isSavable()))
+				{
+					affectstr.append("<AFF>");
+					affectstr.append(CMLib.xml().convertXMLtoTag("ACLASS",CMClass.classID(A)));
+					affectstr.append(CMLib.xml().convertXMLtoTag("ATEXT",CMLib.xml().parseOutAngleBrackets(A.text())));
+					affectstr.append("</AFF>");
+				}
 			}
+			text.append(CMLib.xml().convertXMLtoTag("AFFECS",affectstr.toString()));
 		}
-		text.append(CMLib.xml().convertXMLtoTag("AFFECS",affectstr.toString()));
-		String[] codes=E.getStatCodes();
+
+		final String[] codes=E.getStatCodes();
 		for(int i=E.getSaveStatIndex();i<codes.length;i++)
 			text.append(CMLib.xml().convertXMLtoTag(codes[i].toUpperCase(),E.getStat(codes[i].toUpperCase())));
 		return text.toString();
 	}
 
-	public void fillFileSet(Vector V, HashSet H)
+	public void fillFileSet(List<String> V, Set<String> H)
 	{
-	    if(H==null) return;
-	    if(V==null) return;
-	    for(int v=0;v<V.size();v++)
-	        if((!H.contains(V.elementAt(v)))
-            &&(V.elementAt(v) instanceof String))
-	            H.add(V.elementAt(v));
+		if(H==null)
+			return;
+		if(V==null)
+			return;
+		for(int v=0;v<V.size();v++)
+			if((!H.contains(V.get(v)))
+			&&(V.get(v) != null))
+				H.add(V.get(v));
 	}
-	public void fillFileSet(Environmental E, HashSet H)
+
+	@Override
+	public void fillFileSet(Environmental E, Set<String> H)
 	{
-	    if(E==null) return;
-		for(int b=0;b<E.numBehaviors();b++)
+		if(E==null)
+			return;
+		if(E instanceof PhysicalAgent)
 		{
-			Behavior B=E.fetchBehavior(b);
-			if(B!=null) fillFileSet(B.externalFiles(),H);
+			final PhysicalAgent P=(PhysicalAgent)E;
+			for(final Enumeration<Behavior> e=P.behaviors();e.hasMoreElements();)
+			{
+				final Behavior B=e.nextElement();
+				if(B!=null)
+					fillFileSet(B.externalFiles(),H);
+			}
+			for(final Enumeration<ScriptingEngine> e=P.scripts();e.hasMoreElements();)
+			{
+				final ScriptingEngine SE=e.nextElement();
+				if(SE!=null)
+					fillFileSet(SE.externalFiles(),H);
+			}
 		}
-		for(int a=0;a<E.numEffects();a++)
+		if(E instanceof Physical)
 		{
-			Ability A=E.fetchEffect(a);
-			if((A!=null)&&(A.savable())) fillFileSet(A.externalFiles(),H);
+			final Physical P=(Physical)E;
+			for(int a=0;a<P.numEffects();a++)
+			{
+				final Ability A=P.fetchEffect(a);
+				if((A!=null)&&(A.isSavable()))
+					fillFileSet(A.externalFiles(),H);
+			}
 		}
-        for(int m=0;m<E.numScripts();m++)
-        {
-            ScriptingEngine S=E.fetchScript(m);
-            if(S!=null) fillFileSet(S.externalFiles(),H);
-        }
 		if(E instanceof MOB)
 		{
-		    MOB M=(MOB)E;
-		    for(int i=0;i<M.inventorySize();i++)
-		        fillFileSet(M.fetchInventory(i),H);
+			final MOB M=(MOB)E;
+			for(int i=0;i<M.numItems();i++)
+				fillFileSet(M.getItem(i),H);
 		}
 		if(E instanceof ShopKeeper)
 		{
-		    Vector shop=((ShopKeeper)E).getShop().getStoreInventory();
-		    for(int i=0;i<shop.size();i++)
-		        fillFileSet((Environmental)shop.elementAt(i),H);
+			for(final Iterator<Environmental> i=((ShopKeeper)E).getShop().getStoreInventory();i.hasNext();)
+				fillFileSet(i.next(),H);
 		}
 	}
 
-	public String getEnvStatsStr(EnvStats E)
+	protected void fillFileMap(Environmental E, List<String> V, Map<String,Set<Environmental>> H)
+	{
+		if(H==null)
+			return;
+		if(V==null)
+			return;
+		for(String path : V)
+		{
+			Set<Environmental> L;
+			if(H.containsKey(path))
+				L=H.get(path);
+			else
+			{
+				L=new HashSet<Environmental>(1);
+				H.put(path, L);
+			}
+			if(!L.contains(E))
+				L.add(E);
+		}
+	}
+
+	@Override
+	public void fillFileMap(Environmental E, Map<String,Set<Environmental>> H)
+	{
+		if(E==null)
+			return;
+		if(E instanceof PhysicalAgent)
+		{
+			final PhysicalAgent P=(PhysicalAgent)E;
+			for(final Enumeration<Behavior> e=P.behaviors();e.hasMoreElements();)
+			{
+				final Behavior B=e.nextElement();
+				if(B!=null)
+					fillFileMap(E, B.externalFiles(),H);
+			}
+			for(final Enumeration<ScriptingEngine> e=P.scripts();e.hasMoreElements();)
+			{
+				final ScriptingEngine SE=e.nextElement();
+				if(SE!=null)
+					fillFileMap(E, SE.externalFiles(),H);
+			}
+		}
+		if(E instanceof Physical)
+		{
+			final Physical P=(Physical)E;
+			for(int a=0;a<P.numEffects();a++)
+			{
+				final Ability A=P.fetchEffect(a);
+				if((A!=null)&&(A.isSavable()))
+					fillFileMap(E, A.externalFiles(),H);
+			}
+		}
+		if(E instanceof MOB)
+		{
+			final MOB M=(MOB)E;
+			for(int i=0;i<M.numItems();i++)
+				fillFileMap(M.getItem(i),H);
+		}
+		if(E instanceof ShopKeeper)
+		{
+			for(final Iterator<Environmental> i=((ShopKeeper)E).getShop().getStoreInventory();i.hasNext();)
+				fillFileMap(i.next(),H);
+		}
+		if(E instanceof Room)
+		{
+			for(final Enumeration<MOB> m=((Room)E).inhabitants();m.hasMoreElements();)
+				fillFileMap(m.nextElement(),H);
+			for(final Enumeration<Item> i=((Room)E).items();i.hasMoreElements();)
+				fillFileMap(i.nextElement(),H);
+		}
+	}
+
+	@Override
+	public String getPhyStatsStr(PhyStats E)
 	{
 		return E.ability()+"|"+
 				E.armor()+"|"+
@@ -2794,6 +3860,8 @@ public class CoffeeMaker extends StdLibrary implements GenericBuilder
 				E.height()+"|"+
 				E.sensesMask()+"|";
 	}
+
+	@Override
 	public String getCharStateStr(CharState E)
 	{
 		return E.getFatigue()+"|"+
@@ -2803,60 +3871,48 @@ public class CoffeeMaker extends StdLibrary implements GenericBuilder
 				E.getMovement()+"|"+
 				E.getThirst()+"|";
 	}
+
+	@Override
 	public String getCharStatsStr(CharStats E)
 	{
-		StringBuffer str=new StringBuffer("");
-		for(int i : CharStats.CODES.ALL())
+		final StringBuilder str=new StringBuilder("");
+		for(final int i : CharStats.CODES.ALLCODES())
 			str.append(E.getStat(i)+"|");
 		return str.toString();
 	}
 
+	@Override
 	public String getEnvPropertiesStr(Environmental E)
 	{
-		StringBuffer text=new StringBuffer("");
+		final StringBuilder text=new StringBuilder("");
 		text.append(CMLib.xml().convertXMLtoTag("NAME",E.Name()));
 		text.append(CMLib.xml().convertXMLtoTag("DESC",E.description()));
 		text.append(CMLib.xml().convertXMLtoTag("DISP",E.displayText()));
-		text.append(CMLib.xml().convertXMLtoTag("PROP",getEnvStatsStr(E.baseEnvStats())));
+		if(E instanceof Physical)
+			text.append(CMLib.xml().convertXMLtoTag("PROP",getPhyStatsStr(((Physical)E).basePhyStats())));
 		text.append(getExtraEnvPropertiesStr(E));
-        text.append(getGenScripts(E,false));
+		if(E instanceof PhysicalAgent)
+			text.append(getGenScripts((PhysicalAgent)E,false));
 		return text.toString();
 	}
 
+	@Override
 	public void setCharStats(CharStats E, String props)
 	{
-		int x=0;
-		for(int y=props.indexOf("|");y>=0;y=props.indexOf("|"))
-		{
-			try
-			{
-				E.setStat(x,Integer.valueOf(props.substring(0,y)).intValue());
-			}
-			catch(Exception e)
-			{
-				E.setStat(x,CMath.s_int(props.substring(0,y)));
-			}
-			x++;
-			props=props.substring(y+1);
-		}
+		final String[] split=props.split("\\|");
+		final int totalStats=CharStats.CODES.TOTAL();
+		for(int x=0;x<split.length && (x<totalStats);x++)
+			E.setStat(x,CMath.s_int(split[x]));
 	}
+
+	@Override
 	public void setCharState(CharState E, String props)
 	{
-		int[] nums=new int[6];
-		int x=0;
-		for(int y=props.indexOf("|");y>=0;y=props.indexOf("|"))
-		{
-			try
-			{
-				nums[x]=Integer.valueOf(props.substring(0,y)).intValue();
-			}
-			catch(Exception e)
-			{
-				nums[x]=CMath.s_int(props.substring(0,y));
-			}
-			x++;
-			props=props.substring(y+1);
-		}
+		final int[] nums=new int[6];
+		final String[] split=props.split("\\|");
+		final int totalStats=6;
+		for(int x=0;x<split.length && (x<totalStats);x++)
+			nums[x]=CMath.s_int(split[x]);
 		E.setFatigue(nums[0]);
 		E.setHitPoints(nums[1]);
 		E.setHunger(nums[2]);
@@ -2864,23 +3920,27 @@ public class CoffeeMaker extends StdLibrary implements GenericBuilder
 		E.setMovement(nums[4]);
 		E.setThirst(nums[5]);
 	}
-	public void setEnvStats(EnvStats E, String props)
+
+	@Override
+	public void setPhyStats(PhyStats E, String props)
 	{
-		double[] nums=new double[11];
+		if(props.length()==0)
+			return;
+		final double[] nums=new double[11];
 		int x=0;
 		int lastBar=0;
 		for(int y=0;y<props.length();y++)
 			if(props.charAt(y)=='|')
 			{
 				try{nums[x]=Double.valueOf(props.substring(lastBar,y)).doubleValue();}
-				catch(Exception e){nums[x]=(double)CMath.s_int(props.substring(lastBar,y));}
+				catch(final Exception e){nums[x]=CMath.s_int(props.substring(lastBar,y));}
 				x++;
 				lastBar=y+1;
 			}
 		if(lastBar<props.length())
 		{
 			try{nums[x]=Double.valueOf(props.substring(lastBar)).doubleValue();}
-			catch(Exception e){nums[x]=(double)CMath.s_int(props.substring(lastBar));}
+			catch(final Exception e){nums[x]=CMath.s_int(props.substring(lastBar));}
 		}
 		E.setAbility((int)Math.round(nums[0]));
 		E.setArmor((int)Math.round(nums[1]));
@@ -2895,484 +3955,639 @@ public class CoffeeMaker extends StdLibrary implements GenericBuilder
 		E.setSensesMask((int)Math.round(nums[10]));
 	}
 
-	public void setEnvProperties(Environmental E, Vector buf)
+	@Override
+	public void setEnvProperties(Environmental E, List<XMLTag> buf)
 	{
 		E.setName(CMLib.xml().getValFromPieces(buf,"NAME"));
 		E.setDescription(CMLib.xml().getValFromPieces(buf,"DESC"));
 		E.setDisplayText(CMLib.xml().getValFromPieces(buf,"DISP"));
-		setEnvStats(E.baseEnvStats(),CMLib.xml().getValFromPieces(buf,"PROP"));
+		if(E instanceof Physical)
+			setPhyStats(((Physical)E).basePhyStats(),CMLib.xml().getValFromPieces(buf,"PROP"));
 		setExtraEnvProperties(E,buf);
-        setGenScripts(E,buf,false);
+		if(E instanceof PhysicalAgent)
+			setGenScripts((PhysicalAgent)E,buf,false);
 	}
 
-    public String identifier(Environmental E, Environmental parent)
-    {
-        StringBuffer str=new StringBuffer("");
-        if((E instanceof MOB)&&(parent==null))
-            parent=((MOB)E).location();
-        if((E instanceof Item)&&(parent==null))
-            parent=((Item)E).owner();
-        if(E instanceof Area)
-            return ((Area)E).Name()+" ("+((Area)E).ID()+")";
-        if(E instanceof Room)
-            str.append(((Room)E).roomID()+" ("+E.ID()+")");
-        else
-            str.append(E.Name()+" ("+E.ID()+")");
-        if(parent!=null)
-            return str.toString()+" of "+identifier(parent,null);
-        return str.toString();
-    }
+	protected String identifier(Environmental E, Environmental parent)
+	{
+		final StringBuilder str=new StringBuilder("");
+		if((E instanceof MOB)&&(parent==null))
+			parent=((MOB)E).location();
+		if((E instanceof Item)&&(parent==null))
+			parent=((Item)E).owner();
+		if(E instanceof Area)
+			return ((Area)E).Name()+" ("+((Area)E).ID()+")";
+		if(E instanceof Room)
+			str.append(((Room)E).roomID()+" ("+E.ID()+")");
+		else
+			str.append(E.Name()+" ("+E.ID()+")");
+		if(parent!=null)
+			return str.toString()+" of "+identifier(parent,null);
+		return str.toString();
+	}
 
-	public void setExtraEnvProperties(Environmental E, Vector buf)
+	@Override
+	public void setExtraEnvProperties(Environmental E, List<XMLTag> buf)
 	{
 
-	    E.setImage(CMLib.xml().getValFromPieces(buf,"IMG"));
-        if(E instanceof Economics)
-        {
-            ((Economics)E).setPrejudiceFactors(CMLib.xml().getValFromPieces(buf,"PREJFC"));
-            ((Economics)E).setIgnoreMask(CMLib.xml().getValFromPieces(buf,"IGNMSK"));
-            ((Economics)E).setBudget(CMLib.xml().getValFromPieces(buf,"BUDGET"));
-            ((Economics)E).setDevalueRate(CMLib.xml().getValFromPieces(buf,"DEVALR"));
-            ((Economics)E).setInvResetRate(CMLib.xml().getIntFromPieces(buf,"INVRER"));
-            Vector iV=CMLib.xml().getRealContentsFromPieces(buf,"IPRICS");
-            if(iV!=null)
-            {
-                String[] ipric=new String[iV.size()];
-                for(int i=0;i<iV.size();i++)
-                {
-                    XMLLibrary.XMLpiece iblk=(XMLLibrary.XMLpiece)iV.elementAt(i);
-                    if((!iblk.tag.equalsIgnoreCase("IPRIC"))||(iblk.contents==null))
-                    {
-                        Log.errOut("CoffeeMaker","Error parsing 'IPRICS' of "+identifier(E,null)+".  Load aborted");
-                        continue;
-                    }
-                    ipric[i]=CMLib.xml().restoreAngleBrackets(iblk.value);
-                }
-                ((Economics)E).setItemPricingAdjustments(ipric);
-            }
-        }
-		Vector V=CMLib.xml().getRealContentsFromPieces(buf,"BEHAVES");
-		if(V==null)
+		E.setImage(CMLib.xml().getValFromPieces(buf,"IMG"));
+		if(E instanceof Economics)
 		{
-			Log.errOut("CoffeeMaker","Error parsing 'BEHAVES' of "+identifier(E,null)+".  Load aborted");
-			return;
-		}
-		for(int i=0;i<V.size();i++)
-		{
-			XMLLibrary.XMLpiece ablk=(XMLLibrary.XMLpiece)V.elementAt(i);
-			if((!ablk.tag.equalsIgnoreCase("BHAVE"))||(ablk.contents==null))
+			((Economics)E).setPrejudiceFactors(CMLib.xml().getValFromPieces(buf,"PREJFC"));
+			((Economics)E).setIgnoreMask(CMLib.xml().getValFromPieces(buf,"IGNMSK"));
+			((Economics)E).setBudget(CMLib.xml().getValFromPieces(buf,"BUDGET"));
+			((Economics)E).setDevalueRate(CMLib.xml().getValFromPieces(buf,"DEVALR"));
+			((Economics)E).setInvResetRate(CMLib.xml().getIntFromPieces(buf,"INVRER"));
+			final List<XMLLibrary.XMLTag> iV=CMLib.xml().getContentsFromPieces(buf,"IPRICS");
+			if(iV!=null)
 			{
-				Log.errOut("CoffeeMaker","Error parsing 'BHAVE' of "+identifier(E,null)+".  Load aborted");
+				final String[] ipric=new String[iV.size()];
+				for(int i=0;i<iV.size();i++)
+				{
+					final XMLTag iblk=iV.get(i);
+					if((!iblk.tag().equalsIgnoreCase("IPRIC"))||(iblk.contents()==null))
+					{
+						Log.errOut("CoffeeMaker","Error parsing 'IPRICS' of "+identifier(E,null)+".  Load aborted");
+						continue;
+					}
+					ipric[i]=CMLib.xml().restoreAngleBrackets(iblk.value());
+				}
+				((Economics)E).setItemPricingAdjustments(ipric);
+			}
+		}
+		if(E instanceof PhysicalAgent)
+		{
+			final List<XMLLibrary.XMLTag> V=CMLib.xml().getContentsFromPieces(buf,"BEHAVES");
+			if(V==null)
+			{
+				Log.errOut("CoffeeMaker","Error parsing 'BEHAVES' of "+identifier(E,null)+".  Load aborted");
 				return;
 			}
-			Behavior newOne=CMClass.getBehavior(CMLib.xml().getValFromPieces(ablk.contents,"BCLASS"));
-			String bparms=CMLib.xml().getValFromPieces(ablk.contents,"BPARMS");
-			if(newOne==null)
+			for(int i=0;i<V.size();i++)
 			{
-				Log.errOut("CoffeeMaker","Unknown behavior "+CMLib.xml().getValFromPieces(ablk.contents,"BCLASS")+" on "+identifier(E,null)+", skipping.");
-				continue;
+				final XMLTag ablk=V.get(i);
+				if((!ablk.tag().equalsIgnoreCase("BHAVE"))||(ablk.contents()==null))
+				{
+					Log.errOut("CoffeeMaker","Error parsing 'BHAVE' of "+identifier(E,null)+".  Load aborted");
+					return;
+				}
+				final Behavior newOne=CMClass.getBehavior(ablk.getValFromPieces("BCLASS"));
+				final String bparms=ablk.getValFromPieces("BPARMS");
+				if(newOne==null)
+				{
+					Log.errOut("CoffeeMaker","Unknown behavior "+ablk.getValFromPieces("BCLASS")+" on "+identifier(E,null)+", skipping.");
+					continue;
+				}
+				newOne.setParms(CMLib.xml().restoreAngleBrackets(bparms));
+				((PhysicalAgent)E).addBehavior(newOne);
 			}
-			newOne.setParms(CMLib.xml().restoreAngleBrackets(bparms));
-			E.addBehavior(newOne);
 		}
-        if(E instanceof Area)
-        	addAutoPropsToAreaIfNecessary((Area)E);
+		if((E instanceof Area)&&(((Area)E).isSavable()))
+			addAutoPropsToAreaIfNecessary((Area)E);
 
-		V=CMLib.xml().getRealContentsFromPieces(buf,"AFFECS");
-		if(V==null)
+		if(E instanceof Physical)
 		{
-			Log.errOut("CoffeeMaker","Error parsing 'AFFECS' of "+identifier(E,null)+".  Load aborted");
-			return;
-		}
-		for(int i=0;i<V.size();i++)
-		{
-			XMLLibrary.XMLpiece ablk=(XMLLibrary.XMLpiece)V.elementAt(i);
-			if((!ablk.tag.equalsIgnoreCase("AFF"))||(ablk.contents==null))
+			final List<XMLLibrary.XMLTag> V=CMLib.xml().getContentsFromPieces(buf,"AFFECS");
+			if(V==null)
 			{
-				Log.errOut("CoffeeMaker","Error parsing 'AFF' of "+identifier(E,null)+".  Load aborted");
+				Log.errOut("CoffeeMaker","Error parsing 'AFFECS' of "+identifier(E,null)+".  Load aborted");
 				return;
 			}
-			Ability newOne=CMClass.getAbility(CMLib.xml().getValFromPieces(ablk.contents,"ACLASS"));
-			String aparms=CMLib.xml().getValFromPieces(ablk.contents,"ATEXT");
-			if(newOne==null)
+			for(int i=0;i<V.size();i++)
 			{
-				Log.errOut("CoffeeMaker","Unknown affect "+CMLib.xml().getValFromPieces(ablk.contents,"ACLASS")+" on "+identifier(E,null)+", skipping.");
-				continue;
+				final XMLTag ablk=V.get(i);
+				if((!ablk.tag().equalsIgnoreCase("AFF"))||(ablk.contents()==null))
+				{
+					Log.errOut("CoffeeMaker","Error parsing 'AFF' of "+identifier(E,null)+".  Load aborted");
+					return;
+				}
+				final Ability newOne=CMClass.getAbility(ablk.getValFromPieces("ACLASS"));
+				final String aparms=ablk.getValFromPieces("ATEXT");
+				if(newOne==null)
+				{
+					Log.errOut("CoffeeMaker","Unknown affect "+ablk.getValFromPieces("ACLASS")+" on "+identifier(E,null)+", skipping.");
+					continue;
+				}
+				newOne.setMiscText(CMLib.xml().restoreAngleBrackets(aparms));
+				((Physical)E).addNonUninvokableEffect(newOne);
 			}
-			newOne.setMiscText(CMLib.xml().restoreAngleBrackets(aparms));
-			E.addNonUninvokableEffect(newOne);
 		}
-		String[] codes=E.getStatCodes();
+		final String[] codes=E.getStatCodes();
 		for(int i=E.getSaveStatIndex();i<codes.length;i++)
 		{
 			String val=CMLib.xml().getValFromPieces(buf,codes[i].toUpperCase());
-			if(val==null) val="";
+			if(val==null)
+				val="";
 			E.setStat(codes[i].toUpperCase(),val);
 		}
 	}
 
+	@Override
+	public Ammunition makeAmmunition(String ammunitionType, int number)
+	{
+		final Item neww=CMClass.getBasicItem("GenAmmunition");
+		String ammo=ammunitionType;
+		if(ammo.length()==0)
+			return null;
+		if(ammo.endsWith("s"))
+			ammo=ammo.substring(0,ammo.length()-1);
+		if(number>1)
+		{
+			neww.setName(L("several @x1",CMLib.english().makePlural(ammo)));
+			neww.setDisplayText(L("@x1 sit here.",ammo));
+		}
+		else
+		{
+			neww.setName(CMLib.english().startWithAorAn(ammo));
+			neww.setDisplayText(L("@x1 sits here.",ammo));
+		}
+		((Ammunition)neww).setAmmunitionType(ammo);
+		((Ammunition)neww).setAmmoRemaining(number);
+		neww.setMaterial(RawMaterial.RESOURCE_OAK);
+		neww.basePhyStats().setWeight(number);
+		neww.setBaseValue(0);
+		neww.recoverPhyStats();
+		return (Ammunition)neww;
+	}
+
+	@Override
 	public int getGenItemCodeNum(String code)
 	{
-		if(GENITEMCODESHASH.size()==0)
+		code=code.toUpperCase().trim();
+		GenItemCode itemCode = (GenItemCode)CMath.s_valueOf(GenItemCode.class, code);
+		if(itemCode != null)
+			return itemCode.ordinal();
+		for(GenItemCode c : GenItemCode.values())
 		{
-			for(int i=0;i<GENITEMCODES.length;i++)
-				GENITEMCODESHASH.put(GENITEMCODES[i],Integer.valueOf(i));
+			if(code.startsWith(c.name()))
+				return c.ordinal();
 		}
-		if(GENITEMCODESHASH.containsKey(code.toUpperCase()))
-			return ((Integer)GENITEMCODESHASH.get(code.toUpperCase())).intValue();
-		for(int i=0;i<GENITEMCODES.length;i++)
-			if(code.toUpperCase().startsWith(GENITEMCODES[i])) return i;
 		return -1;
 	}
+
+	@Override
 	public String getGenItemStat(Item I, String code)
 	{
-		switch(getGenItemCodeNum(code))
+		int codeNum = getGenItemCodeNum(code);
+		if(codeNum < 0)
+			return "";
+		switch(GenItemCode.values()[codeNum])
 		{
-		case 0: return I.ID();
-		case 1: return ""+I.usesRemaining();
-		case 2: return ""+I.baseEnvStats().level();
-		case 3: return ""+I.baseEnvStats().ability();
-		case 4: return I.Name();
-		case 5: return I.displayText();
-		case 6: return I.description();
-		case 7: return I.rawSecretIdentity();
-		case 8: return ""+I.rawProperLocationBitmap();
-		case 9: return ""+I.rawLogicalAnd();
-		case 10: return ""+I.baseGoldValue();
-		case 11: return ""+(CMath.bset(I.baseEnvStats().sensesMask(),EnvStats.SENSE_ITEMREADABLE));
-		case 12: return ""+(!CMath.bset(I.baseEnvStats().sensesMask(),EnvStats.SENSE_ITEMNODROP));
-		case 13: return ""+(!CMath.bset(I.baseEnvStats().sensesMask(),EnvStats.SENSE_ITEMNOREMOVE));
-		case 14: return ""+I.material();
-		case 15: return getExtraEnvPropertiesStr(I);
-		case 16: return ""+I.baseEnvStats().disposition();
-		case 17: return ""+I.baseEnvStats().weight();
-		case 18: return ""+I.baseEnvStats().armor();
-		case 19: return ""+I.baseEnvStats().damage();
-		case 20: return ""+I.baseEnvStats().attackAdjustment();
-		case 21: return I.readableText();
-		case 22: return I.rawImage();
-        //case 23: return getGenScripts(I,false);
+		case CLASS:
+			return I.ID(); // class
+		case USES:
+			return "" + I.usesRemaining(); // uses
+		case LEVEL:
+			return "" + I.basePhyStats().level(); // level
+		case ABILITY:
+			return "" + I.basePhyStats().ability(); // ability
+		case NAME:
+			return I.Name(); // name
+		case DISPLAY:
+			return I.displayText(); // display
+		case DESCRIPTION:
+			return I.description(); // description
+		case SECRET:
+			return I.rawSecretIdentity(); // secret
+		case PROPERWORN:
+			return "" + I.rawProperLocationBitmap(); // properworn
+		case WORNAND:
+			return "" + I.rawLogicalAnd(); // wornand
+		case BASEGOLD:
+			return "" + I.baseGoldValue(); // basegold
+		case ISREADABLE:
+			return "" + (CMath.bset(I.basePhyStats().sensesMask(), PhyStats.SENSE_ITEMREADABLE)); // isreadable
+		case ISDROPPABLE:
+			return "" + (!CMath.bset(I.basePhyStats().sensesMask(), PhyStats.SENSE_ITEMNODROP)); // isdroppable
+		case ISREMOVABLE:
+			return "" + (!CMath.bset(I.basePhyStats().sensesMask(), PhyStats.SENSE_ITEMNOREMOVE)); // isremovable
+		case MATERIAL:
+			return "" + I.material(); // material
+		case AFFBEHAV:
+			return getExtraEnvPropertiesStr(I); // affbehav
+		case DISPOSITION:
+			return "" + I.basePhyStats().disposition(); // disposition
+		case WEIGHT:
+			return "" + I.basePhyStats().weight(); // weight
+		case ARMOR:
+			return "" + I.basePhyStats().armor(); // armor
+		case DAMAGE:
+			return "" + I.basePhyStats().damage(); // damage
+		case ATTACK:
+			return "" + I.basePhyStats().attackAdjustment(); // attack
+		case READABLETEXT:
+			return I.readableText(); // readabletext
+		case IMG:
+			return I.rawImage(); // img
+			// case 23: return getGenScripts(I,false);
 		}
 		return "";
 	}
+
+	@Override
 	public void setGenItemStat(Item I, String code, String val)
 	{
-		switch(getGenItemCodeNum(code))
+		int codeNum = getGenItemCodeNum(code);
+		if(codeNum < 0)
+			return;
+		switch(GenItemCode.values()[codeNum])
 		{
-		case 0: break;
-		case 1: I.setUsesRemaining(CMath.s_parseIntExpression(val)); break;
-		case 2: I.baseEnvStats().setLevel(CMath.s_parseIntExpression(val)); break;
-		case 3: I.baseEnvStats().setAbility(CMath.s_parseIntExpression(val)); break;
-		case 4: I.setName(val); break;
-		case 5: I.setDisplayText(val); break;
-		case 6: I.setDescription(val); break;
-		case 7: I.setSecretIdentity(val); break;
-		case 8: {
-				  if(CMath.isLong(val)||(val.trim().length()==0))
-					  I.setRawProperLocationBitmap(CMath.s_long(val)); 
-				  else
-				  {
-					  I.setRawProperLocationBitmap(0);
-					  Vector V=CMParms.parseCommas(val,true);
-					  Wearable.CODES codes = Wearable.CODES.instance();
-					  for(Enumeration e=V.elements();e.hasMoreElements();)
-					  {
-						  val=(String)e.nextElement();
-						  int wornIndex=codes.findDex_ignoreCase(val);
-						  if(wornIndex>=0)
-							  I.setRawProperLocationBitmap(I.rawProperLocationBitmap()|codes.get(wornIndex));
-					  }
-				  }
-				  break;
+		case CLASS:
+			break; // class
+		case USES:
+			I.setUsesRemaining(CMath.s_parseIntExpression(val));
+			break; // uses
+		case LEVEL:
+			I.basePhyStats().setLevel(CMath.s_parseIntExpression(val));
+			break; // level
+		case ABILITY:
+			I.basePhyStats().setAbility(CMath.s_parseIntExpression(val));
+			break; // ability
+		case NAME:
+			I.setName(val);
+			break; // name
+		case DISPLAY:
+			I.setDisplayText(val);
+			break; // display
+		case DESCRIPTION:
+			I.setDescription(val);
+			break; // description
+		case SECRET:
+			I.setSecretIdentity(val);
+			break; // secret
+		case PROPERWORN:
+		{
+			if (CMath.isLong(val) || (val.trim().length() == 0)) // properworn
+				I.setRawProperLocationBitmap(CMath.s_long(val));
+			else
+			{
+				I.setRawProperLocationBitmap(0);
+				final List<String> V = CMParms.parseCommas(val, true);
+				final Wearable.CODES codes = Wearable.CODES.instance();
+				for (final Iterator<String> e = V.iterator(); e.hasNext();)
+				{
+					val = e.next();
+					final int wornIndex = codes.findDex_ignoreCase(val);
+					if (wornIndex >= 0)
+						I.setRawProperLocationBitmap(I.rawProperLocationBitmap() | codes.get(wornIndex));
 				}
-		case 9: I.setRawLogicalAnd(CMath.s_bool(val)); break;
-		case 10: I.setBaseValue(CMath.s_parseIntExpression(val)); break;
-		case 11: CMLib.flags().setReadable(I,CMath.s_bool(val)); break;
-		case 12: CMLib.flags().setDroppable(I,CMath.s_bool(val)); break;
-		case 13: CMLib.flags().setRemovable(I,CMath.s_bool(val)); break;
-		case 14: if(CMath.isInteger(val)||(val.trim().length()==0))
-					I.setMaterial(CMath.s_int(val)); 
-				 else
-				 {
-					 int rsc=RawMaterial.CODES.FIND_IgnoreCase(val);
-					 if(rsc>=0) I.setMaterial(rsc);
-				 }
-				 break;
-		case 15: {
-					 while(I.numEffects()>0)
-					 {
-						 Ability A=I.fetchEffect(0);
-						 if(A!=null){ A.unInvoke(); I.delEffect(A);}
-					 }
-					 while(I.numBehaviors()>0)
-					 {
-						 Behavior B=I.fetchBehavior(0);
-						 if(B!=null) I.delBehavior(B);
-					 }
-					 setExtraEnvProperties(I,CMLib.xml().parseAllXML(val));
-					 break;
-				 }
-		case 16:{
-				  if(CMath.isInteger(val)||(val.trim().length()==0))
-					 I.baseEnvStats().setDisposition(CMath.s_parseIntExpression(val));
-				  else
-				  {
-					  I.baseEnvStats().setDisposition(0);
-					  Vector V=CMParms.parseCommas(val,true);
-					  for(Enumeration e=V.elements();e.hasMoreElements();)
-					  {
-						  val=(String)e.nextElement();
-						  int dispIndex=CMParms.indexOfIgnoreCase(EnvStats.IS_CODES,val);
-						  if(dispIndex>=0)
-							  I.baseEnvStats().setDisposition(I.baseEnvStats().disposition()|(int)CMath.pow(2,dispIndex));
-					  }
-				  }
-				  break;
+			}
+			break;
 		}
-		case 17: I.baseEnvStats().setWeight(CMath.s_parseIntExpression(val)); break;
-		case 18: I.baseEnvStats().setArmor(CMath.s_parseIntExpression(val)); break;
-		case 19: I.baseEnvStats().setDamage(CMath.s_parseIntExpression(val)); break;
-		case 20: I.baseEnvStats().setAttackAdjustment(CMath.s_parseIntExpression(val)); break;
-		case 21: I.setReadableText(val); break;
-		case 22: I.setImage(val); break;
-        /*case 23:
-        {
-            while(I.numScripts()>0)
-            {
-                ScriptingEngine S=I.fetchScript(0);
-                if(S!=null) I.delScript(S);
-            }
-            setGenScripts(I,CMLib.xml().parseAllXML(val),false);
-            break;
-        }
-        */
+		case WORNAND:
+			I.setRawLogicalAnd(CMath.s_bool(val));
+			break; // wornand
+		case BASEGOLD:
+			I.setBaseValue(CMath.s_parseIntExpression(val));
+			break; // basegold
+		case ISREADABLE:
+			CMLib.flags().setReadable(I, CMath.s_bool(val));
+			break; // isreadable
+		case ISDROPPABLE:
+			CMLib.flags().setDroppable(I, CMath.s_bool(val));
+			break; // isdroppable
+		case ISREMOVABLE:
+			CMLib.flags().setRemovable(I, CMath.s_bool(val));
+			break; // isremovable
+		case MATERIAL:
+			if (CMath.isInteger(val) || (val.trim().length() == 0)) // material
+				I.setMaterial(CMath.s_int(val));
+			else
+			{
+				final int rsc = RawMaterial.CODES.FIND_IgnoreCase(val);
+				if (rsc >= 0)
+					I.setMaterial(rsc);
+			}
+			break;
+		case AFFBEHAV:
+		{
+			I.delAllEffects(true);
+			I.delAllBehaviors();
+			setExtraEnvProperties(I, CMLib.xml().parseAllXML(val)); // affbehav
+			break;
+		}
+		case DISPOSITION:
+		{
+			if (CMath.isInteger(val) || (val.trim().length() == 0))
+				I.basePhyStats().setDisposition(CMath.s_parseIntExpression(val)); // disposition
+			else
+			{
+				I.basePhyStats().setDisposition(0);
+				final List<String> V = CMParms.parseCommas(val, true);
+				for (final Iterator<String> e = V.iterator(); e.hasNext();)
+				{
+					val = e.next();
+					final int dispIndex = CMParms.indexOfIgnoreCase(PhyStats.IS_CODES, val);
+					if (dispIndex >= 0)
+						I.basePhyStats().setDisposition(I.basePhyStats().disposition() | (int) CMath.pow(2, dispIndex));
+				}
+			}
+			break;
+		}
+		case WEIGHT:
+			I.basePhyStats().setWeight(CMath.s_parseIntExpression(val));
+			break; // weight
+		case ARMOR:
+			I.basePhyStats().setArmor(CMath.s_parseIntExpression(val));
+			break; // armor
+		case DAMAGE:
+			I.basePhyStats().setDamage(CMath.s_parseIntExpression(val));
+			break; // damage
+		case ATTACK:
+			I.basePhyStats().setAttackAdjustment(CMath.s_parseIntExpression(val));
+			break; // attack
+		case READABLETEXT:
+			I.setReadableText(val);
+			break; // readabletext
+		case IMG:
+			I.setImage(val);
+			break; // img
+		/*
+		 * case 23: { while(I.numScripts()>0) { ScriptingEngine
+		 * S=I.fetchScript(0); if(S!=null) I.delScript(S); }
+		 * setGenScripts(I,CMLib.xml().parseAllXML(val),false); break; }
+		 */
 		}
 	}
 
+	@Override
 	public int getGenMobCodeNum(String code)
 	{
-		if(GENMOBCODESHASH.size()==0)
-		{
-			for(int i=0;i<GENMOBCODES.length;i++)
-				GENMOBCODESHASH.put(GENMOBCODES[i],Integer.valueOf(i));
-		}
-		if(GENMOBCODESHASH.containsKey(code.toUpperCase()))
-			return ((Integer)GENMOBCODESHASH.get(code.toUpperCase())).intValue();
-		for(int i=0;i<GENMOBCODES.length;i++)
-			if(code.toUpperCase().startsWith(GENMOBCODES[i])) return i;
+		code=code.toUpperCase().trim();
+		GenMOBCode itemCode = (GenMOBCode)CMath.s_valueOf(GenMOBCode.class, code);
+		if(itemCode != null)
+			return itemCode.ordinal();
+		for(GenMOBCode c : GenMOBCode.values())
+			if(code.startsWith(c.name()))
+				return c.ordinal();
 		return -1;
 	}
+
+	@Override
 	public String getGenMobStat(MOB M, String code)
 	{
-		switch(getGenMobCodeNum(code))
+		int codeNum = getGenMobCodeNum(code);
+		if(codeNum < 0)
+			return "";
+		switch(GenMOBCode.values()[codeNum])
 		{
-		case 0: return CMClass.classID(M);
-		case 1: return M.baseCharStats().getMyRace().ID();
-		case 2: return ""+M.baseEnvStats().level();
-		case 3: return ""+M.baseEnvStats().ability();
-		case 4: return M.Name();
-		case 5: return M.displayText();
-		case 6: return M.description();
-		case 7: {
-		    	String money=""+CMLib.beanCounter().getMoney(M);
-		    	//CMLib.beanCounter().clearZeroMoney(M,null);  WHY THE HECK WAS THIS EVER HERE?!?!
-		    	return money;
-		    	}
-		case 8: return ""+M.fetchFaction(CMLib.factions().AlignID());
-		case 9: return ""+M.baseEnvStats().disposition();
-		case 10: return ""+M.baseEnvStats().sensesMask();
-		case 11: return ""+M.baseEnvStats().armor();
-		case 12: return ""+M.baseEnvStats().damage();
-		case 13: return ""+M.baseEnvStats().attackAdjustment();
-		case 14: return ""+M.baseEnvStats().speed();
-		case 15: return getExtraEnvPropertiesStr(M);
-		case 16: return getGenMobAbilities(M);
-		case 17:{
-					StringBuffer str=new StringBuffer(getGenMobInventory(M));
-					int x=str.indexOf("<IID>");
-					while(x>0)
-					{
-						int y=str.indexOf("</IID>",x);
-						if(y>x)	str.delete(x,y+6);
-						else break;
-						x=str.indexOf("<IID>");
-					}
-					x=str.indexOf("<ILOC>");
-					while(x>0)
-					{
-						int y=str.indexOf("</ILOC>",x);
-						if(y>x)	str.delete(x,y+7);
-						else break;
-						x=str.indexOf("<ILOC>");
-					}
-					return str.toString();
-				}
-		case 18:{StringBuffer str=new StringBuffer("");
-				 for(int i=0;i<M.numTattoos();i++)
-					 str.append(M.fetchTattoo(i)+";");
-				 return str.toString();
-				}
-		case 19:{StringBuffer str=new StringBuffer("");
-				 for(int i=0;i<M.numExpertises();i++)
-					 str.append(M.fetchExpertise(i)+";");
-				 return str.toString();
-				}
-		case 20: return M.rawImage();
-		case 21: return M.getFactionListing();
-		case 22: return ""+M.getMoneyVariation();
-        //case 23: return getGenScripts(M,false);
+		case CLASS:
+			return CMClass.classID(M); // class
+		case RACE:
+			return M.baseCharStats().getMyRace().ID(); // race
+		case LEVEL:
+			return "" + M.basePhyStats().level(); // level
+		case ABILITY:
+			return "" + M.basePhyStats().ability(); // ability
+		case NAME:
+			return M.Name(); // name
+		case DISPLAY:
+			return M.displayText(); // display
+		case DESCRIPTION:
+			return M.description(); // description
+		case MONEY:
+		{
+			final String money = "" + CMLib.beanCounter().getMoney(M); // money
+			// CMLib.beanCounter().clearZeroMoney(M,null); WHY THE HECK WAS THIS
+			// EVER HERE?!?!
+			return money;
+		}
+		case ALIGNMENT:
+			return "" + M.fetchFaction(CMLib.factions().AlignID()); // alignment
+		case DISPOSITION:
+			return "" + M.basePhyStats().disposition(); // disposition
+		case SENSES:
+			return "" + M.basePhyStats().sensesMask(); // senses
+		case ARMOR:
+			return "" + M.basePhyStats().armor(); // armor
+		case DAMAGE:
+			return "" + M.basePhyStats().damage(); // damage
+		case ATTACK:
+			return "" + M.basePhyStats().attackAdjustment(); // attack
+		case SPEED:
+			return "" + M.basePhyStats().speed(); // speed
+		case AFFBEHAV:
+			return getExtraEnvPropertiesStr(M); // affbehav
+		case ABLES:
+			return getGenMobAbilities(M); // ables
+		case INVENTORY:
+		{
+			final StringBuilder str = new StringBuilder(getGenMobInventory(M)); // inventory
+			int x = str.indexOf("<IID>");
+			while (x > 0)
+			{
+				final int y = str.indexOf("</IID>", x);
+				if (y > x)
+					str.delete(x, y + 6);
+				else
+					break;
+				x = str.indexOf("<IID>");
+			}
+			x = str.indexOf("<ILOC>");
+			while (x > 0)
+			{
+				final int y = str.indexOf("</ILOC>", x);
+				if (y > x)
+					str.delete(x, y + 7);
+				else
+					break;
+				x = str.indexOf("<ILOC>");
+			}
+			return str.toString();
+		}
+		case TATTS:
+		{
+			final StringBuilder str = new StringBuilder(""); // tatts
+			for (final Enumeration<Tattoo> e = M.tattoos(); e.hasMoreElements();)
+				str.append(e.nextElement().toString() + ";");
+			return str.toString();
+		}
+		case EXPS:
+		{
+			final StringBuilder str = new StringBuilder(""); // exps
+			for (final Enumeration<String> x = M.expertises(); x.hasMoreElements();)
+				str.append(x.nextElement()).append(';');
+			return str.toString();
+		}
+		case IMG:
+			return M.rawImage(); // img
+		case FACTIONS:
+			return M.getFactionListing(); // factions
+		case VARMONEY:
+			return "" + M.getMoneyVariation(); // varmoney
+			// case 23: return getGenScripts(M,false);
 		}
 		return "";
 	}
+
+	@Override
 	public void setGenMobStat(MOB M, String code, String val)
 	{
-		switch(getGenMobCodeNum(code))
+		int codeNum = getGenMobCodeNum(code);
+		if(codeNum < 0)
+			return;
+		switch(GenMOBCode.values()[codeNum])
 		{
-		case 0: break;
-		case 1: M.baseCharStats().setMyRace(CMClass.getRace(val)); break;
-		case 2: M.baseEnvStats().setLevel(CMath.s_parseIntExpression(val)); break;
-		case 3: M.baseEnvStats().setAbility(CMath.s_parseIntExpression(val)); break;
-		case 4: M.setName(val); break;
-		case 5: M.setDisplayText(val); break;
-		case 6: M.setDescription(val); break;
-		case 7: CMLib.beanCounter().setMoney(M,CMath.s_parseIntExpression(val)); break;
-		case 8: if(CMath.s_int(val)==Integer.MAX_VALUE)
-		    		M.removeFaction(CMLib.factions().AlignID());
-				else
-		        	M.addFaction(CMLib.factions().AlignID(),CMath.s_parseIntExpression(val));
-				break;
-		case 9: 
+		case CLASS:
+			break; // class
+		case RACE:
+			M.baseCharStats().setMyRace(CMClass.getRace(val));
+			break; // race
+		case LEVEL:
+			M.basePhyStats().setLevel(CMath.s_parseIntExpression(val));
+			break; // level
+		case ABILITY:
+			M.basePhyStats().setAbility(CMath.s_parseIntExpression(val));
+			break; // ability
+		case NAME:
+			M.setName(val);
+			break; // name
+		case DISPLAY:
+			M.setDisplayText(val);
+			break; // display
+		case DESCRIPTION:
+			M.setDescription(val);
+			break; // description
+		case MONEY:
+			CMLib.beanCounter().setMoney(M, CMath.s_parseIntExpression(val));
+			break; // money
+		case ALIGNMENT:
+			if (CMath.s_int(val) == Integer.MAX_VALUE) // alignment
+				M.removeFaction(CMLib.factions().AlignID());
+			else
+				M.addFaction(CMLib.factions().AlignID(), CMath.s_parseIntExpression(val));
+			break;
+		case DISPOSITION:
+		{
+			if (CMath.isInteger(val) || (val.trim().length() == 0)) // disposition
+				M.basePhyStats().setDisposition(CMath.s_parseIntExpression(val));
+			else
 			{
-				  if(CMath.isInteger(val)||(val.trim().length()==0))
-					 M.baseEnvStats().setDisposition(CMath.s_parseIntExpression(val));
-				  else
-				  {
-					  M.baseEnvStats().setDisposition(0);
-					  Vector V=CMParms.parseCommas(val,true);
-					  for(Enumeration e=V.elements();e.hasMoreElements();)
-					  {
-						  val=(String)e.nextElement();
-						  int dispIndex=CMParms.indexOfIgnoreCase(EnvStats.IS_CODES,val);
-						  if(dispIndex>=0)
-							  M.baseEnvStats().setDisposition(M.baseEnvStats().disposition()|(int)CMath.pow(2,dispIndex));
-					  }
-				  }
-				  break;
-			}
-		case 10: 
-			{
-				  if(CMath.isInteger(val)||(val.trim().length()==0))
-					 M.baseEnvStats().setSensesMask(CMath.s_parseIntExpression(val));
-				  else
-				  {
-					  M.baseEnvStats().setSensesMask(0);
-					  Vector V=CMParms.parseCommas(val,true);
-					  for(Enumeration e=V.elements();e.hasMoreElements();)
-					  {
-						  val=(String)e.nextElement();
-						  int dispIndex=CMParms.indexOfIgnoreCase(EnvStats.CAN_SEE_CODES,val);
-						  if(dispIndex>=0)
-							  M.baseEnvStats().setSensesMask(M.baseEnvStats().sensesMask()|(int)CMath.pow(2,dispIndex));
-					  }
-				  }
-				  break;
-			}
-		case 11: M.baseEnvStats().setArmor(CMath.s_parseIntExpression(val)); break;
-		case 12: M.baseEnvStats().setDamage(CMath.s_parseIntExpression(val)); break;
-		case 13: M.baseEnvStats().setAttackAdjustment(CMath.s_parseIntExpression(val)); break;
-		case 14: M.baseEnvStats().setSpeed(CMath.s_parseMathExpression(val)); break;
-		case 15: {
-					 while(M.numEffects()>0)
-					 {
-						 Ability A=M.fetchEffect(0);
-						 if(A!=null){ A.unInvoke(); M.delEffect(A);}
-					 }
-					 while(M.numBehaviors()>0)
-					 {
-						 Behavior B=M.fetchBehavior(0);
-						 if(B!=null) M.delBehavior(B);
-					 }
-					 setExtraEnvProperties(M,CMLib.xml().parseAllXML(val));
-					 break;
-				 }
-		case 16:
-			{
-				String extras=getExtraEnvPropertiesStr(M);
-				while(M.numLearnedAbilities()>0)
+				M.basePhyStats().setDisposition(0);
+				final List<String> V = CMParms.parseCommas(val, true);
+				for (final Iterator<String> e = V.iterator(); e.hasNext();)
 				{
-					Ability A=M.fetchAbility(0);
-					if(A!=null) M.delAbility(A);
+					val = e.next();
+					final int dispIndex = CMParms.indexOfIgnoreCase(PhyStats.IS_CODES, val);
+					if (dispIndex >= 0)
+						M.basePhyStats().setDisposition(M.basePhyStats().disposition() | (int) CMath.pow(2, dispIndex));
 				}
-				setExtraEnvProperties(M,CMLib.xml().parseAllXML(extras));
-				setGenMobAbilities(M,CMLib.xml().parseAllXML(val));
-				break;
 			}
-		case 17:
+			break;
+		}
+		case SENSES:
+		{
+			if (CMath.isInteger(val) || (val.trim().length() == 0)) // senses
+				M.basePhyStats().setSensesMask(CMath.s_parseIntExpression(val));
+			else
 			{
-				while(M.inventorySize()>0)
+				M.basePhyStats().setSensesMask(0);
+				final List<String> V = CMParms.parseCommas(val, true);
+				for (final Iterator<String> e = V.iterator(); e.hasNext();)
 				{
-					Item I=M.fetchInventory(0);
-					if(I!=null){ I.setOwner(M); I.destroy(); M.delInventory(I);}
+					val = e.next();
+					final int dispIndex = CMParms.indexOfIgnoreCase(PhyStats.CAN_SEE_CODES, val);
+					if (dispIndex >= 0)
+						M.basePhyStats().setSensesMask(M.basePhyStats().sensesMask() | (int) CMath.pow(2, dispIndex));
 				}
-				setGenMobInventory(M,CMLib.xml().parseAllXML(val));
 			}
 			break;
-		case 18:
+		}
+		case ARMOR:
+			M.basePhyStats().setArmor(CMath.s_parseIntExpression(val));
+			break; // armor
+		case DAMAGE:
+			M.basePhyStats().setDamage(CMath.s_parseIntExpression(val));
+			break; // damage
+		case ATTACK:
+			M.basePhyStats().setAttackAdjustment(CMath.s_parseIntExpression(val));
+			break; // attack
+		case SPEED:
+			M.basePhyStats().setSpeed(CMath.s_parseMathExpression(val));
+			break; // speed
+		case AFFBEHAV:
+		{
+			M.delAllEffects(true);
+			M.delAllBehaviors();
+			setExtraEnvProperties(M, CMLib.xml().parseAllXML(val)); // affbehav
+			break;
+		}
+		case ABLES:
+		{
+			final String extras = getExtraEnvPropertiesStr(M);
+			M.delAllAbilities();
+			setExtraEnvProperties(M, CMLib.xml().parseAllXML(extras)); // ables
+			setGenMobAbilities(M, CMLib.xml().parseAllXML(val));
+			break;
+		}
+		case INVENTORY:
+		{
+			M.delAllItems(true);
+			setGenMobInventory(M, CMLib.xml().parseAllXML(val)); // inventory
+			break;
+		}
+		case TATTS:
+		{
+			final List<String> V9 = CMParms.parseSemicolons(val, true);
+			for (final Enumeration<Tattoo> e = M.tattoos(); e.hasMoreElements();) // tatts
+				M.delTattoo(e.nextElement());
+			for (final String tatt : V9)
+				M.addTattoo(((Tattoo)CMClass.getCommon("DefaultTattoo")).parse(tatt));
+			break;
+		}
+		case EXPS:
+		{
+			final List<String> V9 = CMParms.parseSemicolons(val, true); // exps
+			M.delAllExpertises();
+			for (int v = 0; v < V9.size(); v++)
+				M.addExpertise(V9.get(v));
+			break;
+		}
+		case IMG:
+			M.setImage(val);
+			break; // img
+		case FACTIONS:
+		{
+			final List<String> V10 = CMParms.parseSemicolons(val, true); // factions
+			for (int v = 0; v < V10.size(); v++)
 			{
-				Vector V9=CMParms.parseSemicolons(val,true);
-				while(M.numTattoos()>0)M.delTattoo(M.fetchTattoo(0));
-				for(int v=0;v<V9.size();v++) M.addTattoo((String)V9.elementAt(v));
+				final String s = V10.get(v);
+				final int x = s.lastIndexOf('(');
+				final int y = s.lastIndexOf(")");
+				if ((x > 0) && (y > x))
+					M.addFaction(s.substring(0, x), CMath.s_int(s.substring(x + 1, y)));
 			}
 			break;
-		case 19:
-			{
-				Vector V9=CMParms.parseSemicolons(val,true);
-				while(M.numExpertises()>0)M.delExpertise(M.fetchExpertise(0));
-				for(int v=0;v<V9.size();v++) M.addExpertise((String)V9.elementAt(v));
-			}
-			break;
-		case 20: M.setImage(val); break;
-		case 21:
-		    {
-		    	Vector V10=CMParms.parseSemicolons(val,true);
-		    	for(int v=0;v<V10.size();v++)
-		    	{
-		    	    String s=(String)V10.elementAt(v);
-		    	    int x=s.lastIndexOf("(");
-		    	    int y=s.lastIndexOf(")");
-		    	    if((x>0)&&(y>x))
-		    	        M.addFaction(s.substring(0,x),CMath.s_int(s.substring(x+1,y)));
-		    	}
-		    	break;
-		    }
-		case 22: M.setMoneyVariation(CMath.s_parseMathExpression(val)); break;
-        /*case 23:
-        {
-            while(M.numScripts()>0)
-            {
-                ScriptingEngine S=M.fetchScript(0);
-                if(S!=null) M.delScript(S);
-            }
-            setGenScripts(M,CMLib.xml().parseAllXML(val),false);
-            break;
-        }*/
+		}
+		case VARMONEY:
+			M.setMoneyVariation(CMath.s_parseMathExpression(val));
+			break; // varmoney
+		/*
+		 * case 23: { while(M.numScripts()>0) { ScriptingEngine
+		 * S=M.fetchScript(0); if(S!=null) M.delScript(S); }
+		 * setGenScripts(M,CMLib.xml().parseAllXML(val),false); break; }
+		 */
 		}
 	}
 
-	public Area copyArea(Area A, String newName)
+	@Override
+	public Area copyArea(Area A, String newName, boolean savable)
 	{
-		Area newArea=(Area)A.copyOf();
+		final Area newArea=(Area)A.copyOf();
 		newArea.setName(newName);
-		CMLib.database().DBCreateArea(newArea);
+		if(savable)
+			CMLib.database().DBCreateArea(newArea);
+		else
+			CMLib.flags().setSavable(newArea, false);
 		CMLib.map().addArea(newArea);
-		Hashtable altIDs=new Hashtable();
-		for(Enumeration e=A.getCompleteMap();e.hasMoreElements();)
+		final Map<String,String> altIDs=new Hashtable<String,String>();
+		for(final Enumeration<Room> e=A.getCompleteMap();e.hasMoreElements();)
 		{
-			Room room=(Room)e.nextElement();
+			Room room=e.nextElement();
 			synchronized(("SYNC"+room.roomID()).intern())
 			{
 				room=CMLib.map().getRoom(room);
-				Room newRoom=(Room)room.copyOf();
+				final Room newRoom=(Room)room.copyOf();
 				newRoom.clearSky();
 				if(newRoom instanceof GridLocale)
 					((GridLocale)newRoom).clearGrid(null);
@@ -3380,58 +4595,79 @@ public class CoffeeMaker extends StdLibrary implements GenericBuilder
 					newRoom.rawDoors()[d]=null;
 				newRoom.setRoomID(newArea.getNewRoomID(room,-1));
 				newRoom.setArea(newArea);
-				CMLib.database().DBCreateRoom(newRoom);
+				if(savable)
+					CMLib.database().DBCreateRoom(newRoom);
+				else
+					CMLib.flags().setSavable(newRoom, false);
 				altIDs.put(room.roomID(),newRoom.roomID());
-				if(newRoom.numInhabitants()>0)
-					CMLib.database().DBUpdateMOBs(newRoom);
-				if(newRoom.numItems()>0)
-					CMLib.database().DBUpdateItems(newRoom);
+				if(savable)
+				{
+					if(newRoom.numInhabitants()>0)
+						CMLib.database().DBUpdateMOBs(newRoom);
+					if(newRoom.numItems()>0)
+						CMLib.database().DBUpdateItems(newRoom);
+				}
 			}
 		}
-		for(Enumeration e=A.getCompleteMap();e.hasMoreElements();)
+		for(final Enumeration<Room> e=A.getCompleteMap();e.hasMoreElements();)
 		{
-			Room room=(Room)e.nextElement();
-			String altID=(String)altIDs.get(room.roomID());
-			if(altID==null) continue;
+			final Room room=e.nextElement();
+			final String altID=altIDs.get(room.roomID());
+			if(altID==null)
+				continue;
 			Room newRoom=CMLib.map().getRoom(altID);
-			if(newRoom==null) continue;
+			if(newRoom==null)
+				continue;
 			synchronized(("SYNC"+newRoom.roomID()).intern())
 			{
 				newRoom=CMLib.map().getRoom(newRoom);
 				for(int d=Directions.NUM_DIRECTIONS()-1;d>=0;d--)
 				{
-					Room R=room.rawDoors()[d];
+					final Room R=room.rawDoors()[d];
 					String myRID=null;
-					if(R!=null) myRID=(String)altIDs.get(R.roomID());
+					if(R!=null)
+						myRID=altIDs.get(R.roomID());
 					Room myR=null;
-					if(myRID!=null) myR=CMLib.map().getRoom(myRID);
+					if(myRID!=null)
+						myR=CMLib.map().getRoom(myRID);
 					newRoom.rawDoors()[d]=myR;
 				}
-				CMLib.database().DBUpdateExits(newRoom);
+				if(savable)
+					CMLib.database().DBUpdateExits(newRoom);
 				newRoom.getArea().fillInAreaRoom(newRoom);
 			}
 		}
+		if(!savable)
+			CMLib.map().delArea(newArea);
 		return newArea;
 	}
 
+	@Override
 	public String getFactionXML(MOB mob)
 	{
-		StringBuffer facts=new StringBuffer();
-		for(Enumeration e=mob.fetchFactions();e.hasMoreElements();) {
-			String name=(String)e.nextElement();
-			facts.append("<FCTN ID=\""+name+"\">"+mob.fetchFaction(name)+"</FCTN>");
+		final StringBuilder facts=new StringBuilder();
+		for(final Enumeration<String> e=mob.factions();e.hasMoreElements();)
+		{
+			final String name=e.nextElement();
+			final int val=mob.fetchFaction(name);
+			if(val!=Integer.MAX_VALUE)
+				facts.append("<FCTN ID=\""+name+"\">"+val+"</FCTN>");
 		}
 		return CMLib.xml().convertXMLtoTag("FACTIONS",facts.toString());
 	}
 
-	public void setFactionFromXML(MOB mob, Vector xml)
+	@Override
+	public void setFactionFromXML(MOB mob, List<XMLTag> xml)
 	{
-	   if(xml!=null) {
-		   Vector mV = CMLib.xml().getRealContentsFromPieces(xml,"FACTIONS");
-		   if (mV!=null) {
-			   for (int m=0;m<mV.size();m++) {
-				   XMLLibrary.XMLpiece mblk=(XMLLibrary.XMLpiece) mV.elementAt(m);
-				   mob.addFaction(CMLib.xml().getParmValue(mblk.parms,"ID"),Integer.valueOf(mblk.value).intValue());
+	   if(xml!=null)
+	   {
+		   final List<XMLLibrary.XMLTag> mV = CMLib.xml().getContentsFromPieces(xml,"FACTIONS");
+		   if (mV!=null)
+		   {
+			   for (int m=0;m<mV.size();m++)
+			   {
+				   final XMLTag mblk=mV.get(m);
+				   mob.addFaction(mblk.getParmValue("ID"),Integer.valueOf(mblk.value()).intValue());
 			   }
 		   }
 	   }

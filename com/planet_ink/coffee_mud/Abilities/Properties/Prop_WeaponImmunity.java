@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Properties;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,6 +10,7 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -16,13 +18,13 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2000-2010 Bo Zimmerman
+   Copyright 2003-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -30,45 +32,56 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
-public class Prop_WeaponImmunity extends Property
-{
-	public String ID() { return "Prop_WeaponImmunity"; }
-	public String name(){ return "Weapon Immunity";}
-	protected int canAffectCode(){return Ability.CAN_MOBS|Ability.CAN_ITEMS;}
-	public Hashtable flags=new Hashtable();
 
+public class Prop_WeaponImmunity extends Property implements TriggeredAffect
+{
+	@Override public String ID() { return "Prop_WeaponImmunity"; }
+	@Override public String name(){ return "Weapon Immunity";}
+	@Override protected int canAffectCode(){return Ability.CAN_MOBS|Ability.CAN_ITEMS;}
+	public Hashtable<String,Object> flags=new Hashtable<String,Object>();
+
+	@Override
+	public int triggerMask()
+	{
+		return TriggeredAffect.TRIGGER_BEING_HIT;
+	}
+
+
+	@Override public long flags(){return Ability.FLAG_IMMUNER;}
+
+	@Override
 	public String accountForYourself()
 	{
-		String id="Weapon Immunities for the wearer: "+text();
+		final String id="Weapon Immunities for the wearer: "+text();
 		return id;
 	}
+	@Override
 	public void setMiscText(String newValue)
 	{
-	    super.setMiscText(newValue);
-	    flags=new Hashtable();
-	    Vector V=CMParms.parse(newValue.toUpperCase());
-	    Object c=null;
-	    String s=null;
-	    for(int v=0;v<V.size();v++)
-	    {
-	        s=(String)V.elementAt(v);
-	        c=new Character(s.charAt(0));
-	        if((s.charAt(0)=='-')||(s.charAt(0)=='+'))
-	            s=s.substring(1);
-	        else
-	            c=new Character('+');
-	        if(s.startsWith("LEVEL"))
-	        {
-	            c=((Character)c).charValue()+" "+s.substring(5).trim();
-	            s=s.substring(5).trim();
-	        }
-            flags.put(s,c);
-	    }
-
+		super.setMiscText(newValue);
+		flags=new Hashtable<String,Object>();
+		final Vector<String> V=CMParms.parse(newValue.toUpperCase());
+		Object c=null;
+		String s=null;
+		for(int v=0;v<V.size();v++)
+		{
+			s=V.elementAt(v);
+			c=new Character(s.charAt(0));
+			if((s.charAt(0)=='-')||(s.charAt(0)=='+'))
+				s=s.substring(1);
+			else
+				c=new Character('+');
+			if((s!=null)&&(s.startsWith("LEVEL")))
+			{
+				c=((Character)c).charValue()+" "+s.substring(5).trim();
+				s=s.substring(5).trim();
+			}
+			flags.put(s,c);
+		}
 	}
 
-	public boolean okMessage(Environmental myHost, CMMsg msg)
+	@Override
+	public boolean okMessage(final Environmental myHost, final CMMsg msg)
 	{
 		if(!super.okMessage(myHost,msg))
 			return false;
@@ -84,35 +97,39 @@ public class Prop_WeaponImmunity extends Property
 			&&(((Item)affected).owner()!=null)
 			&&(((Item)affected).owner() instanceof MOB))
 				M=(MOB)((Item)affected).owner();
-			if(M==null) return true;
-			if(!msg.amITarget(M)) return true;
-			if(msg.tool()==null) return true;
-			if(flags.size()==0) return true;
+			if(M==null)
+				return true;
+			if(!msg.amITarget(M))
+				return true;
+			if(msg.tool()==null)
+				return true;
+			if(flags.size()==0)
+				return true;
 
 			boolean immune=flags.containsKey("ALL")&&(((Character)flags.get("ALL")).charValue()=='+');
 			Character foundPlusMinus=null;
-			for(int i : CharStats.CODES.SAVING_THROWS())
-				if((CharStats.CODES.CMMSGMAP(i)==msg.sourceMinor())
-				&&(i!=CharStats.STAT_SAVE_MAGIC))
+			int statCode = CharStats.CODES.RVSCMMSGMAP(msg.sourceMinor());
+			if((statCode>=0)
+			&&(statCode!=CharStats.STAT_SAVE_MAGIC))
+			{
+				foundPlusMinus=(Character)flags.get(CharStats.CODES.NAME(statCode));
+				if(foundPlusMinus!=null)
 				{
-					foundPlusMinus=(Character)flags.get(CharStats.CODES.NAME(i));
-					if(foundPlusMinus!=null)
-					{
-						if((foundPlusMinus.charValue()=='-')&&(immune))
-							immune=false;
-						else
-						if(foundPlusMinus.charValue()!='-')
-							immune=true;
-						break;
-					}
+					if((foundPlusMinus.charValue()=='-')&&(immune))
+						immune=false;
+					else
+					if(foundPlusMinus.charValue()!='-')
+						immune=true;
 				}
+			}
 
 			if((foundPlusMinus==null)&&(msg.tool() instanceof Weapon))
 			{
-			    foundPlusMinus=(Character)flags.get(Weapon.TYPE_DESCS[((Weapon)msg.tool()).weaponType()]);
-			    foundPlusMinus=(Character)flags.get(Weapon.CLASS_DESCS[((Weapon)msg.tool()).weaponClassification()]);
-			    foundPlusMinus=(Character)flags.get((CMLib.flags().isABonusItems(msg.tool()))?"MAGIC":"NONMAGIC");
-			    foundPlusMinus=(Character)flags.get(RawMaterial.CODES.NAME(((Weapon)msg.tool()).material()));
+				final Weapon W=(Weapon)msg.tool();
+				foundPlusMinus=(Character)flags.get(Weapon.TYPE_DESCS[W.weaponDamageType()]);
+				foundPlusMinus=(Character)flags.get(Weapon.CLASS_DESCS[W.weaponClassification()]);
+				foundPlusMinus=(Character)flags.get((CMLib.flags().isABonusItems(W))?"MAGIC":"NONMAGIC");
+				foundPlusMinus=(Character)flags.get(RawMaterial.CODES.NAME((W).material()));
 				if(foundPlusMinus!=null)
 				{
 					if((foundPlusMinus.charValue()=='-')&&(immune))
@@ -123,7 +140,7 @@ public class Prop_WeaponImmunity extends Property
 				}
 				else
 				{
-				    Object O=flags.get("LEVEL");
+					final Object O=flags.get("LEVEL");
 					if((O!=null)&&(O instanceof String)&&(((String)O).length()>3))
 					{
 						String lvl=(String)O;
@@ -131,13 +148,13 @@ public class Prop_WeaponImmunity extends Property
 						lvl=lvl.substring(2).trim();
 						if((foundPlusMinus.charValue()=='-')&&(immune))
 						{
-							if(msg.tool().envStats().level()>=CMath.s_int(lvl))
+							if(W.phyStats().level()>=CMath.s_int(lvl))
 								immune=false;
 						}
 						else
 						if(foundPlusMinus.charValue()!='-')
 						{
-							if(msg.tool().envStats().level()<CMath.s_int(lvl))
+							if(W.phyStats().level()<CMath.s_int(lvl))
 								immune=true;
 						}
 					}
@@ -146,7 +163,7 @@ public class Prop_WeaponImmunity extends Property
 
 			if((foundPlusMinus==null)&&(msg.tool() instanceof Ability))
 			{
-				int classType=((Ability)msg.tool()).classificationCode()&Ability.ALL_ACODES;
+				final int classType=((Ability)msg.tool()).classificationCode()&Ability.ALL_ACODES;
 				switch(classType)
 				{
 				case Ability.ACODE_SPELL:
@@ -154,8 +171,9 @@ public class Prop_WeaponImmunity extends Property
 				case Ability.ACODE_CHANT:
 				case Ability.ACODE_SONG:
 					{
-				    	foundPlusMinus=(Character)flags.get("MAGICSKILLS");
-						if(foundPlusMinus==null) foundPlusMinus=(Character)flags.get("MAGIC");
+						foundPlusMinus=(Character)flags.get("MAGICSKILLS");
+						if(foundPlusMinus==null)
+							foundPlusMinus=(Character)flags.get("MAGIC");
 						if(foundPlusMinus!=null)
 						{
 							if((foundPlusMinus.charValue()=='-')&&(immune))
@@ -170,7 +188,8 @@ public class Prop_WeaponImmunity extends Property
 					break;
 				}
 			}
-			if(immune) msg.setValue(0);
+			if(immune)
+				msg.setValue(0);
 		}
 		return true;
 	}

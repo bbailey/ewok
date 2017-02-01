@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Behaviors;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,6 +10,7 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -17,13 +19,13 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2000-2010 Bo Zimmerman
+   Copyright 2001-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -33,26 +35,33 @@ import java.util.*;
 */
 public class GoodGuardian extends StdBehavior
 {
-	public String ID(){return "GoodGuardian";}
+	@Override public String ID(){return "GoodGuardian";}
 
-    protected long deepBreath=System.currentTimeMillis();
+	protected long deepBreath=System.currentTimeMillis();
+
+	@Override
+	public String accountForYourself()
+	{
+		return "protective against aggression, evilness, or thieflyness";
+	}
 
 	public static MOB anyPeaceToMake(Room room, MOB observer)
 	{
-		if(room==null) return null;
+		if(room==null)
+			return null;
 		MOB victim=null;
 		for(int i=0;i<room.numInhabitants();i++)
 		{
-			MOB inhab=room.fetchInhabitant(i);
+			final MOB inhab=room.fetchInhabitant(i);
 			if((inhab!=null)&&(inhab.isInCombat()))
 			{
-                if(inhab.isMonster())
-				for(int b=0;b<inhab.numBehaviors();b++)
-				{
-					Behavior B=inhab.fetchBehavior(b);
-					if((B!=null)&&(B.grantsAggressivenessTo(inhab.getVictim())))
-						return inhab;
-				}
+				if(inhab.isMonster())
+					for(final Enumeration<Behavior> e=inhab.behaviors();e.hasMoreElements();)
+					{
+						final Behavior B=e.nextElement();
+						if((B!=null)&&(B.grantsAggressivenessTo(inhab.getVictim())))
+							return inhab;
+					}
 
 				if((BrotherHelper.isBrother(inhab,observer,false))&&(victim==null))
 					victim=inhab.getVictim();
@@ -67,61 +76,68 @@ public class GoodGuardian extends StdBehavior
 
 	public static void keepPeace(MOB observer, MOB victim)
 	{
-		if(!canFreelyBehaveNormal(observer)) return;
+		if(!canFreelyBehaveNormal(observer))
+			return;
 
 		if(victim!=null)
 		{
+			final MOB victimVictim=victim.getVictim();
 			if((!BrotherHelper.isBrother(victim,observer,false))
-            &&(!victim.amDead())
-            &&(victim.isInCombat())
-            &&(!victim.getVictim().amDead())
-            &&(victim.getVictim().isInCombat()))
+			&&(victimVictim!=null)
+			&&(!victim.amDead())
+			&&(victim.isInCombat())
+			&&(!victimVictim.amDead())
+			&&(victimVictim.isInCombat())
+			&&((!victimVictim.isMonster())||(victimVictim.fetchEffect("QuestBound")==null)))
 			{
 				Aggressive.startFight(observer,victim,true,false,"PROTECT THE INNOCENT!");
 			}
 		}
 		else
 		{
-			Room room=observer.location();
+			final Room room=observer.location();
 			for(int i=0;i<room.numInhabitants();i++)
 			{
-				MOB inhab=room.fetchInhabitant(i);
+				final MOB inhab=room.fetchInhabitant(i);
 				if((inhab!=null)
-				   &&(inhab.isInCombat())
-				   &&(inhab.getVictim().isInCombat())
-				&&((observer.envStats().level()>(inhab.envStats().level()+5))))
+				&&(inhab.isInCombat())
+				&&(inhab.getVictim().isInCombat())
+				&&((observer.phyStats().level()>(inhab.phyStats().level()+5))))
 				{
-					String msg="<S-NAME> stop(s) <T-NAME> from fighting with "+inhab.getVictim().name();
-					CMMsg msgs=CMClass.getMsg(observer,inhab,CMMsg.MSG_NOISYMOVEMENT,msg);
+					final String msg="<S-NAME> stop(s) <T-NAME> from fighting with "+inhab.getVictim().name();
+					final CMMsg msgs=CMClass.getMsg(observer,inhab,CMMsg.MSG_NOISYMOVEMENT,msg);
 					if(observer.location().okMessage(observer,msgs))
 					{
 						observer.location().send(observer,msgs);
-						MOB ivictim=inhab.getVictim();
-						if(ivictim!=null) ivictim.makePeace();
-						inhab.makePeace();
+						final MOB ivictim=inhab.getVictim();
+						if(ivictim!=null)
+							ivictim.makePeace(true);
+						inhab.makePeace(true);
 					}
 				}
 			}
 		}
 	}
 
+	@Override
 	public boolean tick(Tickable ticking, int tickID)
 	{
 		super.tick(ticking,tickID);
 
-		if(tickID!=Tickable.TICKID_MOB) return true;
-        if(!canFreelyBehaveNormal(ticking))
-        {
-            deepBreath=System.currentTimeMillis();
-            return true;
-        }
-        if((deepBreath==0)||(System.currentTimeMillis()-deepBreath)>6000)
-        {
-            deepBreath=0;
-    		MOB mob=(MOB)ticking;
-    		MOB victim=anyPeaceToMake(mob.location(),mob);
-    		keepPeace(mob,victim);
-        }
+		if(tickID!=Tickable.TICKID_MOB)
+			return true;
+		if(!canFreelyBehaveNormal(ticking))
+		{
+			deepBreath=System.currentTimeMillis();
+			return true;
+		}
+		if((deepBreath==0)||(System.currentTimeMillis()-deepBreath)>6000)
+		{
+			deepBreath=0;
+			final MOB mob=(MOB)ticking;
+			final MOB victim=anyPeaceToMake(mob.location(),mob);
+			keepPeace(mob,victim);
+		}
 		return true;
 	}
 }

@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Commands;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,20 +10,21 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2004-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -30,23 +32,34 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
+
 public class Follow extends StdCommand
 {
-	public Follow(){}
+	public Follow()
+	{
+	}
+	
+	private final String[]	access	= I(new String[] { "FOLLOW", "FOL", "FO", "F" });
 
-	private String[] access={"FOLLOW","FOL","FO","F"};
-	public String[] getAccessWords(){return access;}
+	@Override
+	public String[] getAccessWords()
+	{
+		return access;
+	}
 
+	@SuppressWarnings("rawtypes")
+	private final static Class[][] internalParameters=new Class[][]{{MOB.class,Boolean.class}};
 
 	public boolean nofollow(MOB mob, boolean errorsOk, boolean quiet)
 	{
-		if(mob==null) return false;
-		Room R=mob.location();
-		if(R==null) return false;
+		if(mob==null)
+			return false;
+		final Room R=mob.location();
+		if(R==null)
+			return false;
 		if(mob.amFollowing()!=null)
 		{
-			CMMsg msg=CMClass.getMsg(mob,mob.amFollowing(),null,CMMsg.MSG_NOFOLLOW,quiet?null:"<S-NAME> stop(s) following <T-NAMESELF>.");
+			final CMMsg msg=CMClass.getMsg(mob,mob.amFollowing(),null,CMMsg.MSG_NOFOLLOW,quiet?null:L("<S-NAME> stop(s) following <T-NAMESELF>."));
 			// no room OKaffects, since the damn leader may not be here.
 			if(mob.okMessage(mob,msg))
 				R.send(mob,msg);
@@ -55,22 +68,23 @@ public class Follow extends StdCommand
 		}
 		else
 		if(errorsOk)
-			mob.tell("You aren't following anyone!");
+			mob.tell(L("You aren't following anyone!"));
 		return true;
 	}
 
 	public void unfollow(MOB mob, boolean quiet)
 	{
 		nofollow(mob,false,quiet);
-		Vector V=new Vector();
+		final Vector<MOB> V=new Vector<MOB>();
 		for(int f=0;f<mob.numFollowers();f++)
 		{
-			MOB F=mob.fetchFollower(f);
-			if(F!=null) V.addElement(F);
+			final MOB F=mob.fetchFollower(f);
+			if(F!=null)
+				V.add(F);
 		}
 		for(int v=0;v<V.size();v++)
 		{
-			MOB F=(MOB)V.elementAt(v);
+			final MOB F=V.get(v);
 			nofollow(F,false,quiet);
 		}
 	}
@@ -78,24 +92,26 @@ public class Follow extends StdCommand
 
 	public boolean processFollow(MOB mob, MOB tofollow, boolean quiet)
 	{
-		if(mob==null) return false;
-		Room R=mob.location();
-		if(R==null) return false;
+		if(mob==null)
+			return false;
+		final Room R=mob.location();
+		if(R==null)
+			return false;
 		if(tofollow!=null)
 		{
 			if(tofollow==mob)
 			{
 				return nofollow(mob,true,false);
 			}
-			if(mob.getGroupMembers(new HashSet()).contains(tofollow))
+			if(mob.getGroupMembers(new HashSet<MOB>()).contains(tofollow))
 			{
 				if(!quiet)
-					mob.tell("You are already a member of "+tofollow.name()+"'s group!");
+					mob.tell(L("You are already a member of @x1's group!",tofollow.name()));
 				return false;
 			}
 			if(nofollow(mob,false,false))
 			{
-				CMMsg msg=CMClass.getMsg(mob,tofollow,null,CMMsg.MSG_FOLLOW,quiet?null:"<S-NAME> follow(s) <T-NAMESELF>.");
+				final CMMsg msg=CMClass.getMsg(mob,tofollow,null,CMMsg.MSG_FOLLOW,quiet?null:L("<S-NAME> follow(s) <T-NAMESELF>."));
 				if(R.okMessage(mob,msg))
 					R.send(mob,msg);
 				else
@@ -109,65 +125,90 @@ public class Follow extends StdCommand
 		return true;
 	}
 
-	public boolean execute(MOB mob, Vector commands, int metaFlags)
+	@Override
+	public boolean execute(MOB mob, List<String> commands, int metaFlags)
 		throws java.io.IOException
 	{
 		boolean quiet=false;
+		if(mob==null)
+			return false;
+		Vector<String> origCmds=new XVector<String>(commands);
+		final Room R=mob.location();
+		if(R==null)
+			return false;
 
-		if(mob==null) return false;
-		Room R=mob.location();
-		if(R==null) return false;
 		if((commands.size()>2)
-		&&(commands.lastElement() instanceof String)
-		&&(((String)commands.lastElement()).equalsIgnoreCase("UNOBTRUSIVELY")))
+		&&(commands.get(commands.size()-1).equalsIgnoreCase("UNOBTRUSIVELY")))
 		{
-			commands.removeElementAt(commands.size()-1);
+			commands.remove(commands.size()-1);
 			quiet=true;
 		}
-		if((commands.size()>1)&&(commands.elementAt(1) instanceof MOB))
-			return processFollow(mob,(MOB)commands.elementAt(1),quiet);
-
+		
 		if(commands.size()<2)
 		{
-			mob.tell("Follow whom?");
+			CMLib.commands().doCommandFail(mob,origCmds,L("Follow whom?"));
 			return false;
 		}
 
-		String whomToFollow=CMParms.combine(commands,1);
+		final String whomToFollow=CMParms.combine(commands,1);
 		if((whomToFollow.equalsIgnoreCase("self")||whomToFollow.equalsIgnoreCase("me"))
 		   ||(mob.name().toUpperCase().startsWith(whomToFollow)))
 		{
 			nofollow(mob,true,quiet);
 			return false;
 		}
-		MOB target=R.fetchInhabitant(whomToFollow);
+		final MOB target=R.fetchInhabitant(whomToFollow);
 		if((target==null)||(!CMLib.flags().canBeSeenBy(target,mob)))
 		{
-			mob.tell("I don't see them here.");
+			CMLib.commands().doCommandFail(mob,origCmds,L("I don't see them here."));
 			return false;
 		}
 		if((target.isMonster())&&(!mob.isMonster()))
 		{
-			mob.tell("You cannot follow '"+target.name()+"'.");
+			CMLib.commands().doCommandFail(mob,origCmds,L("You cannot follow '@x1'.",target.name(mob)));
 			return false;
 		}
-		if(CMath.bset(target.getBitmap(),MOB.ATT_NOFOLLOW))
+		if(target.isAttributeSet(MOB.Attrib.NOFOLLOW))
 		{
-			mob.tell(target.name()+" is not accepting followers.");
+			CMLib.commands().doCommandFail(mob,origCmds,L("@x1 is not accepting followers.",target.name(mob)));
 			return false;
 		}
-        MOB ultiTarget=target.amUltimatelyFollowing();
-        if((ultiTarget!=null)&&(CMath.bset(ultiTarget.getBitmap(),MOB.ATT_NOFOLLOW)))
-        {
-            mob.tell(ultiTarget.name()+" is not accepting followers.");
-            return false;
-        }
+		final MOB ultiTarget=target.amUltimatelyFollowing();
+		if((ultiTarget!=null)&&(ultiTarget.isAttributeSet(MOB.Attrib.NOFOLLOW)))
+		{
+			CMLib.commands().doCommandFail(mob,origCmds,L("@x1 is not accepting followers.",ultiTarget.name()));
+			return false;
+		}
 		processFollow(mob,target,quiet);
 		return false;
 	}
-    public double combatActionsCost(MOB mob, Vector cmds){return CMath.div(CMProps.getIntVar(CMProps.SYSTEMI_DEFCOMCMDTIME),100.0);}
-    public double actionsCost(MOB mob, Vector cmds){return CMath.div(CMProps.getIntVar(CMProps.SYSTEMI_DEFCMDTIME),100.0);}
-	public boolean canBeOrdered(){return false;}
-
 	
+	@Override
+	public Object executeInternal(MOB mob, int metaFlags, Object... args) throws java.io.IOException
+	{
+		if(!super.checkArguments(internalParameters, args))
+			return Boolean.FALSE;
+		final MOB target=(MOB)args[0];
+		final Boolean quiet=(Boolean)args[1];
+		return Boolean.valueOf(processFollow(mob,target,quiet.booleanValue()));
+	}
+	
+	@Override
+	public double combatActionsCost(final MOB mob, final List<String> cmds)
+	{
+		return CMProps.getCommandCombatActionCost(ID());
+	}
+
+	@Override
+	public double actionsCost(final MOB mob, final List<String> cmds)
+	{
+		return CMProps.getCommandActionCost(ID());
+	}
+
+	@Override
+	public boolean canBeOrdered()
+	{
+		return false;
+	}
+
 }

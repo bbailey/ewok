@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Properties;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,21 +10,21 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
-
 import java.util.*;
 
 /*
-   Copyright 2000-2010 Bo Zimmerman
+   Copyright 2003-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -31,21 +32,51 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
 public class Prop_AstralSpirit extends Property
 {
-	public String ID() { return "Prop_AstralSpirit"; }
-	public String name(){ return "Astral Spirit";}
-	public String displayText(){ return "(Spirit Form)";}
-	protected int canAffectCode(){return Ability.CAN_MOBS;}
-	private Race race=null;
-	
-	public Race spiritRace() {
+	@Override
+	public String ID()
+	{
+		return "Prop_AstralSpirit";
+	}
+
+	@Override
+	public String name()
+	{
+		return "Astral Spirit";
+	}
+
+	private final static String	localizedStaticDisplay	= CMLib.lang().L("(Spirit Form)");
+
+	@Override
+	public String displayText()
+	{
+		return localizedStaticDisplay;
+	}
+
+	@Override
+	protected int canAffectCode()
+	{
+		return Ability.CAN_MOBS;
+	}
+
+	private Race	race	= null;
+
+	@Override
+	public long flags()
+	{
+		return Ability.FLAG_ADJUSTER | Ability.FLAG_IMMUNER;
+	}
+
+	public Race spiritRace()
+	{
 		if(race==null)
 			race=CMClass.getRace("Spirit");
 		return race;
 	}
-	public boolean autoInvocation(MOB mob)
+
+	@Override
+	public boolean autoInvocation(MOB mob, boolean force)
 	{
 		if((mob!=null)&&(mob.fetchEffect(ID())==null))
 		{
@@ -55,85 +86,110 @@ public class Prop_AstralSpirit extends Property
 		return false;
 	}
 
+	@Override
 	public String accountForYourself()
-	{ return "an astral spirit";	}
+	{
+		return "an astral spirit";
+	}
 
 	public void peaceAt(MOB mob)
 	{
-		Room room=mob.location();
-		if(room==null) return;
+		final Room room=mob.location();
+		if(room==null)
+			return;
 		for(int m=0;m<room.numInhabitants();m++)
 		{
-			MOB inhab=room.fetchInhabitant(m);
+			final MOB inhab=room.fetchInhabitant(m);
 			if((inhab!=null)&&(inhab.getVictim()==mob))
 				inhab.setVictim(null);
 		}
 	}
-	public boolean okMessage(Environmental myHost, CMMsg msg)
+	@Override
+	public boolean okMessage(final Environmental myHost, final CMMsg msg)
 	{
-		if((affected==null)||(!(affected instanceof MOB)))
+		if(!(affected instanceof MOB))
 			return true;
-		MOB mob=(MOB)affected;
+		final MOB mob=(MOB)affected;
 
-		if((msg.amISource(mob))&&(!CMath.bset(msg.sourceMajor(),CMMsg.MASK_ALWAYS)))
+		if((msg.amISource(mob))&&(!msg.sourceMajor(CMMsg.MASK_ALWAYS)))
 		{
+			if((msg.sourceMinor()==CMMsg.TYP_DISPOSSESS)&&(msg.source().soulMate()!=null))
+			{
+				Ability A=msg.source().fetchEffect("Chant_AstralProjection");
+				if(A==null)
+					A=msg.source().soulMate().fetchEffect("Chant_AstralProjection");
+				if(A!=null)
+				{
+					A.unInvoke();
+					return false;
+				}
+			}
+			else
 			if((msg.targetMinor()==CMMsg.TYP_SIT)&&(msg.target() instanceof DeadBody))
 			{
-				Vector V=CMParms.parse(text().toUpperCase());
+				final Vector<String> V=CMParms.parse(text().toUpperCase());
 				if(!V.contains("SELF-RES"))
 				{
-					mob.tell("You lack that power");
+					mob.tell(L("You lack that power"));
 					return false;
 				}
 			}
 			if((msg.tool()!=null)&&(msg.tool().ID().equalsIgnoreCase("Skill_Revoke")))
-			   return super.okMessage(myHost,msg);
+				return super.okMessage(myHost,msg);
 			else
 			if(msg.targetMinor()==CMMsg.TYP_WEAPONATTACK)
 			{
-				mob.tell("You are unable to attack in this incorporeal form.");
+				mob.tell(L("You are unable to attack in this incorporeal form."));
 				peaceAt(mob);
 				return false;
 			}
 			else
-			if((CMath.bset(msg.sourceMajor(),CMMsg.MASK_HANDS))
-			||(CMath.bset(msg.sourceMajor(),CMMsg.MASK_MOUTH)))
+			if((msg.sourceMajor(CMMsg.MASK_HANDS))||(msg.sourceMajor(CMMsg.MASK_MOUTH)))
 			{
-				if(CMath.bset(msg.sourceMajor(),CMMsg.MASK_SOUND))
-					mob.tell("You are unable to make sounds in this incorporeal form.");
+				if(msg.sourceMajor(CMMsg.MASK_SOUND))
+					mob.tell(L("You are unable to make sounds in this incorporeal form."));
 				else
-					mob.tell("You are unable to do that this incorporeal form.");
+					mob.tell(L("You are unable to do that this incorporeal form."));
 				peaceAt(mob);
 				return false;
 			}
 		}
 		else
 		if((msg.amITarget(mob))&&(!msg.amISource(mob))
-		   &&(!CMath.bset(msg.targetMajor(),CMMsg.MASK_ALWAYS)))
+		   &&(!msg.targetMajor(CMMsg.MASK_ALWAYS)))
 		{
-			mob.tell(mob.name()+" doesn't seem to be here.");
+			mob.tell(L("@x1 doesn't seem to be here.",mob.name()));
 			return false;
 		}
 		return true;
 	}
 
+	@Override
 	public void affectCharStats(MOB affected, CharStats affectableStats)
 	{
 		affectableStats.setMyRace(spiritRace());
 		super.affectCharStats(affected, affectableStats);
 	}
-	public void affectEnvStats(Environmental affected, EnvStats affectableStats)
+
+	@Override
+	public void affectPhyStats(Physical affected, PhyStats affectableStats)
 	{
-		super.affectEnvStats(affected,affectableStats);
+		super.affectPhyStats(affected,affectableStats);
 		// when this spell is on a MOBs Affected list,
 		// it should consistantly put the mob into
 		// a sleeping state, so that nothing they do
 		// can get them out of it.
 		affectableStats.setWeight(0);
 		affectableStats.setHeight(-1);
-		affectableStats.setDisposition(affectableStats.disposition()|EnvStats.IS_GOLEM);
-		affectableStats.setDisposition(affectableStats.disposition()|EnvStats.IS_INVISIBLE);
-		affectableStats.setDisposition(affectableStats.disposition()|EnvStats.IS_NOT_SEEN);
-		affectableStats.setSensesMask(affectableStats.sensesMask()|EnvStats.CAN_NOT_SPEAK);
+		affectableStats.setName(L("The spirit of @x1",affected.name()));
+		affectableStats.setDisposition(affectableStats.disposition()|PhyStats.IS_GOLEM);
+		affectableStats.setDisposition(affectableStats.disposition()|PhyStats.IS_INVISIBLE);
+		affectableStats.setDisposition(affectableStats.disposition()|PhyStats.IS_NOT_SEEN);
+		affectableStats.setDisposition(affectableStats.disposition()|PhyStats.IS_FLYING);
+		affectableStats.setDisposition(affectableStats.disposition()&~PhyStats.IS_SITTING);
+		affectableStats.setDisposition(affectableStats.disposition()&~PhyStats.IS_SLEEPING);
+		affectableStats.setDisposition(affectableStats.disposition()&~PhyStats.IS_CUSTOM);
+		affectableStats.setSensesMask(affectableStats.sensesMask()&~PhyStats.CAN_NOT_MOVE);
+		affectableStats.setSensesMask(affectableStats.sensesMask()|PhyStats.CAN_NOT_SPEAK);
 	}
 }

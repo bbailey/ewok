@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Commands;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -16,14 +17,14 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2004-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -31,32 +32,34 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
+
 public class Knock extends StdCommand
 {
 	public Knock(){}
 
-	private String[] access={"KNOCK"};
-	public String[] getAccessWords(){return access;}
-	public boolean execute(MOB mob, Vector commands, int metaFlags)
+	private final String[] access=I(new String[]{"KNOCK"});
+	@Override public String[] getAccessWords(){return access;}
+	@Override
+	public boolean execute(MOB mob, List<String> commands, int metaFlags)
 		throws java.io.IOException
 	{
+		Vector<String> origCmds=new XVector<String>(commands);
 		if(commands.size()<=1)
 		{
-			mob.tell("Knock on what?");
+			CMLib.commands().doCommandFail(mob,origCmds,L("Knock on what?"));
 			return false;
 		}
-		String knockWhat=CMParms.combine(commands,1).toUpperCase();
-		int dir=CMLib.tracking().findExitDir(mob,mob.location(),knockWhat);
+		final String knockWhat=CMParms.combine(commands,1).toUpperCase();
+		final int dir=CMLib.tracking().findExitDir(mob,mob.location(),knockWhat);
 		if(dir<0)
 		{
-			Environmental getThis=mob.location().fetchFromMOBRoomItemExit(mob,null,knockWhat,Wearable.FILTER_UNWORNONLY);
+			final Environmental getThis=mob.location().fetchFromMOBRoomItemExit(mob,null,knockWhat,Wearable.FILTER_UNWORNONLY);
 			if(getThis==null)
 			{
-				mob.tell("You don't see '"+knockWhat.toLowerCase()+"' here.");
+				CMLib.commands().doCommandFail(mob,origCmds,L("You don't see '@x1' here.",knockWhat.toLowerCase()));
 				return false;
 			}
-			CMMsg msg=CMClass.getMsg(mob,getThis,null,CMMsg.MSG_KNOCK,CMMsg.MSG_KNOCK,CMMsg.MSG_KNOCK,"<S-NAME> knock(s) on <T-NAMESELF>."+CMProps.msp("knock.wav",50));
+			final CMMsg msg=CMClass.getMsg(mob,getThis,null,CMMsg.MSG_KNOCK,CMMsg.MSG_KNOCK,CMMsg.MSG_KNOCK,L("<S-NAME> knock(s) on <T-NAMESELF>.@x1",CMLib.protocol().msp("knock.wav",50)));
 			if(mob.location().okMessage(mob,msg))
 				mob.location().send(mob,msg);
 
@@ -66,40 +69,44 @@ public class Knock extends StdCommand
 			Exit E=mob.location().getExitInDir(dir);
 			if(E==null)
 			{
-				mob.tell("Knock on what?");
+				CMLib.commands().doCommandFail(mob,origCmds,L("Knock on what?"));
 				return false;
 			}
 			if(!E.hasADoor())
 			{
-				mob.tell("You can't knock on "+E.name()+"!");
+				CMLib.commands().doCommandFail(mob,origCmds,L("You can't knock on @x1!",E.name()));
 				return false;
 			}
-			CMMsg msg=CMClass.getMsg(mob,E,null,CMMsg.MSG_KNOCK,CMMsg.MSG_KNOCK,CMMsg.MSG_KNOCK,"<S-NAME> knock(s) on <T-NAMESELF>."+CMProps.msp("knock.wav",50));
+			final CMMsg msg=CMClass.getMsg(mob,E,null,CMMsg.MSG_KNOCK,CMMsg.MSG_KNOCK,CMMsg.MSG_KNOCK,L("<S-NAME> knock(s) on <T-NAMESELF>.@x1",CMLib.protocol().msp("knock.wav",50)));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);
 				E=mob.location().getPairedExit(dir);
-				Room R=mob.location().getRoomInDir(dir);
+				final Room R=mob.location().getRoomInDir(dir);
 				if((R!=null)&&(E!=null)&&(E.hasADoor())
-				&&(R.showOthers(mob,E,null,CMMsg.MSG_KNOCK,"You hear a knock on <T-NAMESELF>."+CMProps.msp("knock.wav",50)))
+				&&(R.showOthers(mob,E,null,CMMsg.MSG_KNOCK,L("You hear a knock on <T-NAMESELF>.@x1",CMLib.protocol().msp("knock.wav",50))))
 				&&((R.domainType()&Room.INDOORS)==Room.INDOORS))
 				{
-					Vector V=new Vector();
-					V.addElement(mob.location());
+					final Vector<Room> V=new Vector<Room>();
+					V.add(mob.location());
 					TrackingLibrary.TrackingFlags flags;
-					flags = new TrackingLibrary.TrackingFlags()
-							.add(TrackingLibrary.TrackingFlag.OPENONLY);
+					flags = CMLib.tracking().newFlags()
+							.plus(TrackingLibrary.TrackingFlag.OPENONLY);
 					CMLib.tracking().getRadiantRooms(R,V,flags,null,5,null);
 					V.removeElement(mob.location());
 					for(int v=0;v<V.size();v++)
 					{
-						Room R2=(Room)V.elementAt(v);
-						int dir2=CMLib.tracking().radiatesFromDir(R2,V);
+						final Room R2=V.get(v);
+						final int dir2=CMLib.tracking().radiatesFromDir(R2,V);
 						if((dir2>=0)&&((R2.domainType()&Room.INDOORS)==Room.INDOORS))
 						{
-							Room R3=R2.getRoomInDir(dir2);
+							final Room R3=R2.getRoomInDir(dir2);
 							if(((R3!=null)&&(R3.domainType()&Room.INDOORS)==Room.INDOORS))
-								R2.showHappens(CMMsg.MASK_SOUND|CMMsg.TYP_KNOCK,"You hear a knock "+Directions.getInDirectionName(dir2)+"."+CMProps.msp("knock.wav",50));
+							{
+								final boolean useShipDirs=(R2 instanceof BoardableShip)||(R2.getArea() instanceof BoardableShip);
+								final String inDirName=useShipDirs?CMLib.directions().getShipInDirectionName(dir2):CMLib.directions().getInDirectionName(dir2);
+								R2.showHappens(CMMsg.MASK_SOUND|CMMsg.TYP_KNOCK,L("You hear a knock @x1.@x2",inDirName,CMLib.protocol().msp("knock.wav",50)));
+							}
 						}
 					}
 				}
@@ -107,9 +114,9 @@ public class Knock extends StdCommand
 		}
 		return false;
 	}
-    public double combatActionsCost(MOB mob, Vector cmds){return CMath.div(CMProps.getIntVar(CMProps.SYSTEMI_DEFCOMCMDTIME),100.0);}
-    public double actionsCost(MOB mob, Vector cmds){return CMath.div(CMProps.getIntVar(CMProps.SYSTEMI_DEFCMDTIME),100.0);}
-	public boolean canBeOrdered(){return true;}
+	@Override public double combatActionsCost(final MOB mob, final List<String> cmds){return CMProps.getCommandCombatActionCost(ID());}
+	@Override public double actionsCost(final MOB mob, final List<String> cmds){return CMProps.getCommandActionCost(ID());}
+	@Override public boolean canBeOrdered(){return true;}
 
-	
+
 }

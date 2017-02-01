@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Languages;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,51 +10,65 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
 
-@SuppressWarnings("unchecked")
 public class Ignan extends StdLanguage
 {
-	public String ID() { return "Ignan"; }
-	public String name(){ return "Ignan";}
-	public static Vector wordLists=null;
-	private static boolean mapped=false;
+	@Override
+	public String ID()
+	{
+		return "Ignan";
+	}
+
+	private final static String localizedName = CMLib.lang().L("Ignan");
+	@Override
+	public String name()
+	{
+		return localizedName;
+	}
+
+	public static List<String[]> wordLists=null;
 	public Ignan()
 	{
 		super();
-		if(!mapped){mapped=true;
-					CMLib.ableMapper().addCharAbilityMapping("All",1,ID(),false);}
 	}
+
+	@Override
 	public CMObject newInstance()
-    {	
-        return new Ignan();
-    }
-	public Vector translationVector(String language)
+	{
+		return new Ignan();
+	}
+
+	@Override
+	public List<String[]> translationVector(String language)
 	{
 		if(wordLists==null)
 		{
-			String[] one={"am","sa","pu","ra","an","aj","na","dh"};
-			String[] two={"pul","sak","dhu","ka","rej","ya","no","la","iy","da","vra","ni","ik"};
-			String[] three={"nya","rik","iwa","tya","mat","kaj","raj","lak","vak","dra","vik","sat","nav"};
-			String[] four={"nahi","ty'aj","tras","dams","dagh","jatu","chik","jhak","gruk","k'sip","kuha","ucca","inkh","asya","abhi","arya","isti","id'va","mala","mrga","s'ami","sira","skus","stup"};
-			String[] five={"stigh","stubh","stoka","me'das","mraks","ghana","buk'ni","narka","pams'u","niska","netrya","ni'jh","dhu'li","dhraj","taran","tarus","jungu","chupna","jattu","chirnu","cukvu","jhakut","jhaur","udaya","ilih"};
-			String[] six={"masu'ra","marttika","bhai'sa","bollai","vila'sini","barhis't'ha","barkro","parada","nikauriya","nird'har","dhanik","ja'n'o","tanakti","chikka'ra","kullada","uccaya","utsava","istaka","i'rsya","inkhuksa","akha'ra","adhuna","avas'dyak"};
-			wordLists=new Vector();
-			wordLists.addElement(one);
-			wordLists.addElement(two);
-			wordLists.addElement(three);
-			wordLists.addElement(four);
-			wordLists.addElement(five);
-			wordLists.addElement(six);
+			final String[] one={"am","sa","pu","ra","an","aj","na","dh"};
+			final String[] two={"pul","sak","dhu","ka","rej","ya","no","la","iy","da","vra","ni","ik"};
+			final String[] three={"nya","rik","iwa","tya","mat","kaj","raj","lak","vak","dra","vik","sat","nav"};
+			final String[] four={"nahi","ty'aj","tras","dams","dagh","jatu","chik","jhak","gruk","k'sip","kuha","ucca","inkh","asya","abhi","arya","isti","id'va","mala","mrga","s'ami","sira","skus","stup"};
+			final String[] five={"stigh","stubh","stoka","me'das","mraks","ghana","buk'ni","narka","pams'u","niska","netrya","ni'jh","dhu'li","dhraj","taran","tarus","jungu","chupna","jattu","chirnu","cukvu","jhakut","jhaur","udaya","ilih"};
+			final String[] six={"masu'ra","marttika","bhai'sa","bollai","vila'sini","barhis't'ha","barkro","parada","nikauriya","nird'har","dhanik","ja'n'o","tanakti","chikka'ra","kullada","uccaya","utsava","istaka","i'rsya","inkhuksa","akha'ra","adhuna","avas'dyak"};
+			wordLists=new Vector<String[]>();
+			wordLists.add(one);
+			wordLists.add(two);
+			wordLists.add(three);
+			wordLists.add(four);
+			wordLists.add(five);
+			wordLists.add(six);
 		}
 		return wordLists;
 	}
-	private static final Hashtable hashwords=new Hashtable();
-	public Hashtable translationHash(String language)
+
+	private static final Hashtable<String,String> hashwords=new Hashtable<String,String>();
+	@Override
+	public Map<String, String> translationHash(String language)
 	{
 		if((hashwords!=null)&&(hashwords.size()>0))
 			return hashwords;

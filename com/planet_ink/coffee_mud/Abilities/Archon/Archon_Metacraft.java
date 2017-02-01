@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Archon;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,21 +10,21 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
-
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2004-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,25 +33,43 @@ import java.util.*;
    limitations under the License.
 */
 
-@SuppressWarnings("unchecked")
 public class Archon_Metacraft extends ArchonSkill
 {
-	public String ID() { return "Archon_Metacraft"; }
-	public String name(){ return "Metacrafting";}
-	private static final String[] triggerStrings = {"METACRAFT"};
-	public String[] triggerStrings(){return triggerStrings;}
-	
-	public static Vector craftingSkills=new Vector();
-	public boolean invoke(MOB mob, Vector commands, Environmental givenTarget, boolean auto, int asLevel)
+	@Override
+	public String ID()
+	{
+		return "Archon_Metacraft";
+	}
+
+	private final static String localizedName = CMLib.lang().L("Metacrafting");
+
+	@Override
+	public String name()
+	{
+		return localizedName;
+	}
+
+	private static final String[] triggerStrings = I(new String[] { "METACRAFT" });
+
+	@Override
+	public String[] triggerStrings()
+	{
+		return triggerStrings;
+	}
+
+	public static List<Ability> craftingSkills = new Vector<Ability>();
+
+	@Override
+	public boolean invoke(MOB mob, List<String> commands, Physical givenTarget, boolean auto, int asLevel)
 	{
 		if(craftingSkills.size()==0)
 		{
-		    Vector V=new Vector();
-			for(Enumeration e=CMClass.abilities();e.hasMoreElements();)
+			final Vector<Ability> V=new Vector<Ability>();
+			for(final Enumeration<Ability> e=CMClass.abilities();e.hasMoreElements();)
 			{
-				Ability A=(Ability)e.nextElement();
+				final Ability A=e.nextElement();
 				if(A instanceof ItemCraftor)
-					V.addElement(A.copyOf());
+					V.addElement((Ability)A.copyOf());
 			}
 			while(V.size()>0)
 			{
@@ -58,225 +77,271 @@ public class Archon_Metacraft extends ArchonSkill
 				Ability lowestA=null;
 				for(int i=0;i<V.size();i++)
 				{
-				    Ability A=(Ability)V.elementAt(i);
-				    int ii=CMLib.ableMapper().lowestQualifyingLevel(A.ID());
-				    if(ii<lowest)
-				    { 
-				        lowest=ii; 
-				        lowestA=A;
-				    }
+					final Ability A=V.elementAt(i);
+					final int ii=CMLib.ableMapper().lowestQualifyingLevel(A.ID());
+					if(ii<lowest)
+					{
+						lowest=ii;
+						lowestA=A;
+					}
 				}
-				if(lowestA==null) 
-				    lowestA=(Ability)V.firstElement();
+				if(lowestA==null)
+					lowestA=V.firstElement();
 				if(lowestA!=null)
 				{
-				    V.removeElement(lowestA);
-				    craftingSkills.addElement(lowestA);
+					V.removeElement(lowestA);
+					craftingSkills.add(lowestA);
 				}
 				else
-				    break;
+					break;
 			}
 		}
 		if(commands.size()<1)
 		{
-			mob.tell("Metacraft what (recipe, everything, every x), (optionally) out of what material, and (optionally) to self, to here, or to file [FILENAME]?");
+			mob.tell(L("Metacraft what ([recipe], everything, every [recipe], all [skill name]), (optionally) out of what material, and (optionally) to self, to here, or to file [FILENAME]?"));
 			return false;
 		}
 		String mat=null;
-        String toWHERE = "SELF";
+		String toWHERE = "SELF";
 		if(commands.size()>1)
 		{
-            for(int x=1;x<commands.size()-1;x++)
-            {
-                if(((String)commands.elementAt(x)).equalsIgnoreCase("to"))
-                {
-                    if(((String)commands.elementAt(x+1)).equalsIgnoreCase("self"))
-                    {
-                        toWHERE="SELF";
-                        commands.removeElementAt(x);
-                        commands.removeElementAt(x);
-                        break;
-                    }
-                    if(((String)commands.elementAt(x+1)).equalsIgnoreCase("here"))
-                    {
-                        toWHERE="HERE";
-                        commands.removeElementAt(x);
-                        commands.removeElementAt(x);
-                        break;
-                    }
-                    if(((String)commands.elementAt(x+1)).equalsIgnoreCase("file")&&(x<commands.size()-2))
-                    {
-                        toWHERE=(String)commands.elementAt(x+2);
-                        commands.removeElementAt(x);
-                        commands.removeElementAt(x);
-                        commands.removeElementAt(x);
-                        break;
-                    }
-                }
-            }
-            if(commands.size()>1)
-            {
-    			mat=((String)commands.lastElement()).toUpperCase();
-    			commands.removeElementAt(commands.size()-1);
-            }
+			for(int x=1;x<commands.size()-1;x++)
+			{
+				if(commands.get(x).equalsIgnoreCase("to"))
+				{
+					if(commands.get(x+1).equalsIgnoreCase("self"))
+					{
+						toWHERE="SELF";
+						commands.remove(x);
+						commands.remove(x);
+						break;
+					}
+					if(commands.get(x+1).equalsIgnoreCase("here"))
+					{
+						toWHERE="HERE";
+						commands.remove(x);
+						commands.remove(x);
+						break;
+					}
+					if(commands.get(x+1).equalsIgnoreCase("file")&&(x<commands.size()-2))
+					{
+						toWHERE=commands.get(x+2);
+						commands.remove(x);
+						commands.remove(x);
+						commands.remove(x);
+						break;
+					}
+				}
+			}
+			if(commands.size()>1)
+			{
+				mat=(commands.get(commands.size()-1)).toUpperCase();
+				commands.remove(commands.size()-1);
+			}
 		}
 		int material=-1;
 		if(mat!=null)
 			material=RawMaterial.CODES.FIND_StartsWith(mat);
 		if((mat!=null)&&(material<0))
 		{
-			mob.tell("'"+mat+"' is not a recognized material.");
+			mob.tell(L("'@x1' is not a recognized material.",mat));
 			return false;
 		}
 		ItemCraftor skill=null;
 		String recipe=CMParms.combine(commands,0);
-		Vector skillsToUse=new Vector();
+		List<Ability> skillsToUse=new Vector<Ability>();
 		boolean everyFlag=false;
 		if(recipe.equalsIgnoreCase("everything"))
 		{
-			skillsToUse=(Vector)craftingSkills.clone();
+			skillsToUse=new XVector<Ability>(craftingSkills);
 			everyFlag=true;
 			recipe=null;
 		}
 		else
-	    if(recipe.toUpperCase().startsWith("EVERY "))
-	    {
+		if(recipe.toUpperCase().startsWith("EVERY "))
+		{
 			everyFlag=true;
-	    	recipe=recipe.substring(6).trim();
+			recipe=recipe.substring(6).trim();
 			for(int i=0;i<craftingSkills.size();i++)
 			{
-				skill=(ItemCraftor)craftingSkills.elementAt(i);
-				Vector V=skill.matchingRecipeNames(recipe,false);
-				if((V!=null)&&(V.size()>0)) skillsToUse.addElement(skill);
+				skill=(ItemCraftor)craftingSkills.get(i);
+				final List<List<String>> V=skill.matchingRecipeNames(recipe,false);
+				if((V!=null)&&(V.size()>0))
+					skillsToUse.add(skill);
 			}
 			if(skillsToUse.size()==0)
 			for(int i=0;i<craftingSkills.size();i++)
 			{
-				skill=(ItemCraftor)craftingSkills.elementAt(i);
-				Vector V=skill.matchingRecipeNames(recipe,true);
-				if((V!=null)&&(V.size()>0)) skillsToUse.addElement(skill);
+				skill=(ItemCraftor)craftingSkills.get(i);
+				final List<List<String>> V=skill.matchingRecipeNames(recipe,true);
+				if((V!=null)&&(V.size()>0))
+					skillsToUse.add(skill);
 			}
-	    }
+		}
+		else
+		if(recipe.toUpperCase().startsWith("ALL "))
+		{
+			everyFlag=true;
+			String skillName=recipe.toUpperCase().substring(4);
+			skill = (ItemCraftor)CMLib.english().fetchEnvironmental(craftingSkills, skillName, true);
+			if(skill == null)
+				skill = (ItemCraftor)CMLib.english().fetchEnvironmental(craftingSkills, skillName, false);
+			if(skill == null)
+			{
+				mob.tell(L("'@x1' is not a known crafting skill.",recipe));
+				return false;
+			}
+			skillsToUse = new XVector<Ability>(skill);
+			recipe=null;
+		}
 		else
 		{
 			for(int i=0;i<craftingSkills.size();i++)
 			{
-				skill=(ItemCraftor)craftingSkills.elementAt(i);
-				Vector V=skill.matchingRecipeNames(recipe,false);
-				if((V!=null)&&(V.size()>0)){ skillsToUse.addElement(skill);}
+				skill=(ItemCraftor)craftingSkills.get(i);
+				final List<List<String>> V=skill.matchingRecipeNames(recipe,false);
+				if((V!=null)&&(V.size()>0)){ skillsToUse.add(skill);}
 			}
 			if(skillsToUse.size()==0)
 			for(int i=0;i<craftingSkills.size();i++)
 			{
-				skill=(ItemCraftor)craftingSkills.elementAt(i);
-				Vector V=skill.matchingRecipeNames(recipe,true);
-				if((V!=null)&&(V.size()>0)){ skillsToUse.addElement(skill);}
+				skill=(ItemCraftor)craftingSkills.get(i);
+				final List<List<String>> V=skill.matchingRecipeNames(recipe,true);
+				if((V!=null)&&(V.size()>0)){ skillsToUse.add(skill);}
 			}
 		}
 		if(skillsToUse.size()==0)
 		{
-			mob.tell("'"+recipe+"' can not be made with any of the known crafting skills.");
+			mob.tell(L("'@x1' can not be made with any of the known crafting skills.",recipe));
 			return false;
 		}
-		
+
 		boolean success=false;
-        StringBuffer xml = new StringBuffer("<ITEMS>");
-        HashSet files = new HashSet();
+		final StringBuffer xml = new StringBuffer("<ITEMS>");
+		final HashSet<String> files = new HashSet<String>();
 		for(int s=0;s<skillsToUse.size();s++)
 		{
-			skill=(ItemCraftor)skillsToUse.elementAt(s);
-			Vector items=null;
+			skill=(ItemCraftor)skillsToUse.get(s);
+			final List<Item> items=new Vector<Item>();
 			if(everyFlag)
 			{
-				items=new Vector();
 				if(recipe==null)
 				{
-					Vector V=null;
+					List<ItemCraftor.ItemKeyPair> V=null;
 					if(material>=0)
-						V=skill.craftAllItemsVectors(material);
+						V=skill.craftAllItemSets(material,false);
 					else
+						V=skill.craftAllItemSets(false);
+
+					if(V!=null)
 					{
-						Vector V2=new Vector();
-						V=skill.craftAllItemsVectors();
-						if(V!=null)
+						for(final ItemCraftor.ItemKeyPair L: V)
 						{
-							for(int v=0;v<V.size();v++)
-								V2.addAll((Vector)V.elementAt(v));
-							V=V2;
+							items.add(L.item);
+							if(L.key!=null)
+								items.add(L.key);
 						}
 					}
-					if(V!=null)
-					for(int v=0;v<V.size();v++)
-						CMParms.addToVector((Vector)V.elementAt(v),items);
 				}
 				else
 				if(material>=0)
-					items=skill.craftItem(recipe,material);
+				{
+					final ItemCraftor.ItemKeyPair pair = skill.craftItem(recipe,material,false);
+					if(pair!=null)
+						items.addAll(pair.asList());
+				}
 				else
-					items=skill.craftItem(recipe);
+				{
+					final ItemCraftor.ItemKeyPair pair = skill.craftItem(recipe);
+					if(pair!=null)
+						items.addAll(pair.asList());
+				}
 			}
 			else
 			if(material>=0)
-				items=skill.craftItem(recipe,material);
+			{
+				final ItemCraftor.ItemKeyPair pair = skill.craftItem(recipe,material,false);
+				if(pair!=null)
+					items.addAll(pair.asList());
+			}
 			else
-				items=skill.craftItem(recipe);
-			if((items==null)||(items.size()==0)) continue;
+			{
+				final ItemCraftor.ItemKeyPair pair = skill.craftItem(recipe);
+				if(pair!=null)
+					items.addAll(pair.asList());
+			}
+			if(items.size()==0)
+				continue;
 			success=true;
-            if(toWHERE.equals("SELF")||toWHERE.equals("HERE"))
-    			for(int v=0;v<items.size();v++)
-    			{
-    				Item building=(Item)items.elementAt(v);
-                    if(toWHERE.equals("HERE"))
-                    {
-                        mob.location().addItemRefuse(building,CMProps.getIntVar(CMProps.SYSTEMI_EXPIRE_PLAYER_DROP));
-                        mob.location().show(mob,null,null,CMMsg.MSG_OK_ACTION,building.name()+" appears here.");
-                    }
-                    else
-                    {
-        				mob.giveItem(building);
-        				mob.location().show(mob,null,null,CMMsg.MSG_OK_ACTION,building.name()+" appears in <S-YOUPOSS> hands.");
-                    }
-    			}
-            else
-                xml.append(CMLib.coffeeMaker().getItemsXML(items,new Hashtable(),files,0));
-			mob.location().recoverEnvStats();
-			if(!everyFlag) break;
+			if(toWHERE.equals("SELF")||toWHERE.equals("HERE"))
+			{
+				for(final Item building : items)
+				{
+					if(building instanceof ClanItem)
+					{
+						final Pair<Clan,Integer> p=CMLib.clans().findPrivilegedClan(mob, Clan.Function.ENCHANT);
+						if(p!=null)
+						{
+							final Clan C=p.first;
+							final String clanName=(" "+C.getGovernmentName()+" "+C.name());
+							building.setName(CMStrings.replaceFirst(building.Name(), " Clan None", clanName));
+							building.setDisplayText(CMStrings.replaceFirst(building.displayText(), " Clan None", clanName));
+							building.setDescription(CMStrings.replaceFirst(building.description(), " Clan None", clanName));
+							((ClanItem)building).setClanID(C.clanID());
+						}
+					}
+					if(toWHERE.equals("HERE"))
+					{
+						mob.location().addItem(building,ItemPossessor.Expire.Player_Drop);
+						mob.location().show(mob,null,null,CMMsg.MSG_OK_ACTION,L("@x1 appears here.",building.name()));
+					}
+					else
+					{
+						mob.moveItemTo(building);
+						mob.location().show(mob,null,null,CMMsg.MSG_OK_ACTION,L("@x1 appears in <S-YOUPOSS> hands.",building.name()));
+					}
+				}
+			}
+			else
+				xml.append(CMLib.coffeeMaker().getItemsXML(items,new Hashtable<String,List<Item>>(),files,null));
+			mob.location().recoverPhyStats();
+			if(!everyFlag)
+				break;
 		}
-        if(success
-        &&(!toWHERE.equals("SELF"))
-        &&(!toWHERE.equals("HERE")))
-        {
-            CMFile file = new CMFile(toWHERE,mob,false);
-            if(!file.canWrite())
-                mob.tell("Unable to open file '"+toWHERE+"' for writing.");
-            else
-            {
-                xml.append("</ITEMS>");
-                if(files.size()>0)
-                {
-                    StringBuffer str=new StringBuffer("<FILES>");
-                    for(Iterator i=files.iterator();i.hasNext();)
-                    {
-                        Object O=i.next();
-                        String filename=(String)O;
-                        StringBuffer buf=new CMFile(Resources.makeFileResourceName(filename),null,true).text();
-                        if((buf!=null)&&(buf.length()>0))
-                        {
-                            str.append("<FILE NAME=\""+filename+"\">");
-                            str.append(buf);
-                            str.append("</FILE>");
-                        }
-                    }
-                    str.append("</FILES>");
-                    xml.append(str);
-                }
-                file.saveText(xml);
-                mob.tell("File '"+file.getAbsolutePath()+"' written.");
-            }
-        }
+		if(success
+		&&(!toWHERE.equals("SELF"))
+		&&(!toWHERE.equals("HERE")))
+		{
+			final CMFile file = new CMFile(toWHERE,mob);
+			if(!file.canWrite())
+				mob.tell(L("Unable to open file '@x1' for writing.",toWHERE));
+			else
+			{
+				xml.append("</ITEMS>");
+				if(files.size()>0)
+				{
+					final StringBuffer str=new StringBuffer("<FILES>");
+					for(final Iterator<String> i=files.iterator();i.hasNext();)
+					{
+						final String filename=i.next();
+						final StringBuffer buf=new CMFile(Resources.makeFileResourceName(filename),null,CMFile.FLAG_LOGERRORS).text();
+						if((buf!=null)&&(buf.length()>0))
+						{
+							str.append("<FILE NAME=\""+filename+"\">");
+							str.append(buf);
+							str.append("</FILE>");
+						}
+					}
+					str.append("</FILES>");
+					xml.append(str);
+				}
+				file.saveText(xml);
+				mob.tell(L("File '@x1' written.",file.getAbsolutePath()));
+			}
+		}
 		if(!success)
 		{
-			mob.tell("The metacraft failed.");
+			mob.tell(L("The metacraft failed."));
 			return false;
 		}
 		return true;

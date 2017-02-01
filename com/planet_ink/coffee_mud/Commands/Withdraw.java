@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Commands;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,20 +10,21 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2004-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -30,101 +32,116 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
+
 public class Withdraw extends StdCommand
 {
 	public Withdraw(){}
 
-	private String[] access={"WITHDRAW"};
-	public String[] getAccessWords(){return access;}
-	public boolean execute(MOB mob, Vector commands, int metaFlags)
+	private final String[] access=I(new String[]{"WITHDRAW"});
+	@Override public String[] getAccessWords(){return access;}
+
+	@Override
+	public boolean execute(MOB mob, List<String> commands, int metaFlags)
 		throws java.io.IOException
 	{
-		Environmental shopkeeper=CMLib.english().parseShopkeeper(mob,commands,"Withdraw what or how much from whom?");
-		if(shopkeeper==null) return false;
-        ShopKeeper SHOP=CMLib.coffeeShops().getShopKeeper(shopkeeper);
+		Vector<String> origCmds=new XVector<String>(commands);
+		final Environmental shopkeeper=CMLib.english().parseShopkeeper(mob,commands,"Withdraw what or how much from whom?");
+		if(shopkeeper==null)
+			return false;
+		final ShopKeeper SHOP=CMLib.coffeeShops().getShopKeeper(shopkeeper);
 		if((!(SHOP instanceof Banker))&&(!(SHOP instanceof PostOffice)))
 		{
-			mob.tell("You can not withdraw anything from "+shopkeeper.name()+".");
+			CMLib.commands().doCommandFail(mob,origCmds,L("You can not withdraw anything from @x1.",shopkeeper.name()));
 			return false;
 		}
 		if(commands.size()==0)
 		{
-			mob.tell("Withdraw what or how much?");
+			CMLib.commands().doCommandFail(mob,origCmds,L("Withdraw what or how much?"));
 			return false;
 		}
 		String str=CMParms.combine(commands,0);
-		if(str.equalsIgnoreCase("all")) str=""+Integer.MAX_VALUE;
-	    long numCoins=CMLib.english().numPossibleGold(null,str);
-	    String currency=CMLib.english().numPossibleGoldCurrency(shopkeeper,str);
-	    double denomination=CMLib.english().numPossibleGoldDenomination(shopkeeper,currency,str);
+		if(str.equalsIgnoreCase("all"))
+			str=""+Integer.MAX_VALUE;
+		final long numCoins=CMLib.english().numPossibleGold(null,str);
+		final String currency=CMLib.english().numPossibleGoldCurrency(shopkeeper,str);
+		final double denomination=CMLib.english().numPossibleGoldDenomination(shopkeeper,currency,str);
 		Item thisThang=null;
-        if(SHOP instanceof Banker)
-        {
-    		if(numCoins>0)
-    		{
-    		    if(denomination==0.0)
-    		    {
-    				mob.tell("Withdraw how much?");
-    				return false;
-    		    }
-				thisThang=((Banker)SHOP).findDepositInventory(mob,""+Integer.MAX_VALUE);
+		if(SHOP instanceof Banker)
+		{
+			final String accountName=((Banker)SHOP).getBankClientName(mob, Clan.Function.WITHDRAW, false);
+			if(numCoins>0)
+			{
+				if(denomination==0.0)
+				{
+					CMLib.commands().doCommandFail(mob,origCmds,L("Withdraw how much?"));
+					return false;
+				}
+				thisThang=((Banker)SHOP).findDepositInventory(accountName,""+Integer.MAX_VALUE);
 				if(thisThang instanceof Coins)
-				    thisThang=CMLib.beanCounter().makeCurrency(currency,denomination,numCoins);
-    		}
-    		else
-    			thisThang=((Banker)SHOP).findDepositInventory(mob,str);
-    
-    		if(((thisThang==null)||((thisThang instanceof Coins)&&(((Coins)thisThang).getNumberOfCoins()<=0)))
-    		&&(!((Banker)SHOP).isSold(ShopKeeper.DEAL_CLANBANKER))
-    		&&(mob.isMarriedToLiege()))
-    		{
-    			MOB mob2=CMLib.players().getPlayer(mob.getLiegeID());
-    			if(numCoins>0)
-    			{
-    				thisThang=((Banker)SHOP).findDepositInventory(mob2,""+Integer.MAX_VALUE);
-    				if(thisThang instanceof Coins)
-    				    thisThang=CMLib.beanCounter().makeCurrency(currency,denomination,numCoins);
-    				else
-    			    {
-    					mob.tell("Withdraw how much?");
-    					return false;
-    			    }
-    			}
-    			else
-    				thisThang=((Banker)SHOP).findDepositInventory(mob2,str);
-    		}
-        }
-        else
-        if(SHOP instanceof PostOffice)
-        {
-            thisThang=((PostOffice)SHOP).findBoxContents(mob,str);
-            if((thisThang==null)
-            &&(!((PostOffice)SHOP).isSold(ShopKeeper.DEAL_CLANPOSTMAN))
-            &&(mob.isMarriedToLiege()))
-            {
-                MOB mob2=CMLib.players().getPlayer(mob.getLiegeID());
-                thisThang=((PostOffice)SHOP).findBoxContents(mob2,str);
-            }
-        }
+					thisThang=CMLib.beanCounter().makeCurrency(currency,denomination,numCoins);
+			}
+			else
+				thisThang=((Banker)SHOP).findDepositInventory(accountName,str);
+
+			if(((thisThang==null)||((thisThang instanceof Coins)&&(((Coins)thisThang).getNumberOfCoins()<=0)))
+			&&(!((Banker)SHOP).isSold(ShopKeeper.DEAL_CLANBANKER))
+			&&(mob.isMarriedToLiege()))
+			{
+				final MOB mob2=CMLib.players().getPlayer(mob.getLiegeID());
+				if(mob2!=null)
+				{
+					final String accountName2=((Banker)SHOP).getBankClientName(mob2, Clan.Function.WITHDRAW, false);
+					if(numCoins>0)
+					{
+						thisThang=((Banker)SHOP).findDepositInventory(accountName2,""+Integer.MAX_VALUE);
+						if(thisThang instanceof Coins)
+							thisThang=CMLib.beanCounter().makeCurrency(currency,denomination,numCoins);
+						else
+						{
+							CMLib.commands().doCommandFail(mob,origCmds,L("Withdraw how much?"));
+							return false;
+						}
+					}
+					else
+						thisThang=((Banker)SHOP).findDepositInventory(accountName2,str);
+				}
+			}
+		}
+		else
+		if(SHOP instanceof PostOffice)
+		{
+			final String accountName=((PostOffice)SHOP).getSenderName(mob, Clan.Function.WITHDRAW, false);
+			thisThang=((PostOffice)SHOP).findBoxContents(accountName,str);
+			if((thisThang==null)
+			&&(!((PostOffice)SHOP).isSold(ShopKeeper.DEAL_CLANPOSTMAN))
+			&&(mob.isMarriedToLiege()))
+			{
+				final MOB mob2=CMLib.players().getPlayer(mob.getLiegeID());
+				if(mob2!=null)
+				{
+					final String accountName2=((PostOffice)SHOP).getSenderName(mob, Clan.Function.WITHDRAW, false);
+					thisThang=((PostOffice)SHOP).findBoxContents(accountName2,str);
+				}
+			}
+		}
 
 		if((thisThang==null)||(!CMLib.flags().canBeSeenBy(thisThang,mob)))
 		{
-			mob.tell("That doesn't appear to be available.  Try LIST.");
+			CMLib.commands().doCommandFail(mob,origCmds,L("That doesn't appear to be available.  Try LIST."));
 			return false;
 		}
-        String str2="<S-NAME> withdraw(s) <O-NAME> from <S-HIS-HER> account with "+shopkeeper.name()+".";
-        if(SHOP instanceof PostOffice)
-            str2="<S-NAME> withdraw(s) <O-NAME> from <S-HIS-HER> postal box with "+shopkeeper.name()+".";
-		CMMsg newMsg=CMClass.getMsg(mob,shopkeeper,thisThang,CMMsg.MSG_WITHDRAW,str2);
+		String str2="<S-NAME> withdraw(s) <O-NAME> from <S-HIS-HER> account with "+shopkeeper.name()+".";
+		if(SHOP instanceof PostOffice)
+			str2="<S-NAME> withdraw(s) <O-NAME> from <S-HIS-HER> postal box with "+shopkeeper.name()+".";
+		final CMMsg newMsg=CMClass.getMsg(mob,shopkeeper,thisThang,CMMsg.MSG_WITHDRAW,str2);
 		if(!mob.location().okMessage(mob,newMsg))
 			return false;
 		mob.location().send(mob,newMsg);
 		return false;
 	}
-    public double combatActionsCost(MOB mob, Vector cmds){return CMath.div(CMProps.getIntVar(CMProps.SYSTEMI_DEFCOMCMDTIME),100.0);}
-    public double actionsCost(MOB mob, Vector cmds){return CMath.div(CMProps.getIntVar(CMProps.SYSTEMI_DEFCMDTIME),100.0);}
-	public boolean canBeOrdered(){return false;}
+	@Override public double combatActionsCost(final MOB mob, final List<String> cmds){return CMProps.getCommandCombatActionCost(ID());}
+	@Override public double actionsCost(final MOB mob, final List<String> cmds){return CMProps.getCommandActionCost(ID());}
+	@Override public boolean canBeOrdered(){return false;}
 
-	
+
 }

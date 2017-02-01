@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Spells;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -14,17 +15,16 @@ import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
-
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2001-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,106 +32,164 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
+
 public class Spell_Scribe extends Spell
 {
-	public String ID() { return "Spell_Scribe"; }
-	public String name(){return "Scribe";}
-	protected int canTargetCode(){return CAN_ITEMS;}
-	public int classificationCode(){return Ability.ACODE_SPELL|Ability.DOMAIN_EVOCATION;}
-	protected int overrideMana(){return Integer.MAX_VALUE;}
-	public long flags(){return Ability.FLAG_NOORDERING;}
-    public int abstractQuality(){ return Ability.QUALITY_INDIFFERENT;}
+	@Override
+	public String ID()
+	{
+		return "Spell_Scribe";
+	}
 
-	public boolean invoke(MOB mob, Vector commands, Environmental givenTarget, boolean auto, int asLevel)
+	private final static String	localizedName	= CMLib.lang().L("Scribe");
+
+	@Override
+	public String name()
+	{
+		return localizedName;
+	}
+
+	@Override
+	protected int canTargetCode()
+	{
+		return CAN_ITEMS;
+	}
+
+	@Override
+	public int classificationCode()
+	{
+		return Ability.ACODE_SPELL | Ability.DOMAIN_EVOCATION;
+	}
+
+	@Override
+	protected int overrideMana()
+	{
+		return Ability.COST_ALL-50;
+	}
+
+	@Override
+	public long flags()
+	{
+		return Ability.FLAG_NOORDERING;
+	}
+
+	@Override
+	public int abstractQuality()
+	{
+		return Ability.QUALITY_INDIFFERENT;
+	}
+
+	@Override
+	public boolean invoke(MOB mob, List<String> commands, Physical givenTarget, boolean auto, int asLevel)
 	{
 		if(commands.size()<2)
 		{
-			mob.tell("Scribe which spell onto what?");
+			mob.tell(L("Scribe which spell onto what?"));
 			return false;
 		}
-		Environmental target=mob.location().fetchFromMOBRoomFavorsItems(mob,null,(String)commands.lastElement(),Wearable.FILTER_UNWORNONLY);
+		final Physical target=mob.location().fetchFromMOBRoomFavorsItems(mob,null,commands.get(commands.size()-1),Wearable.FILTER_UNWORNONLY);
 		if((target==null)||(!CMLib.flags().canBeSeenBy(target,mob)))
 		{
-			mob.tell("You don't see '"+((String)commands.lastElement())+"' here.");
+			mob.tell(L("You don't see '@x1' here.",(commands.get(commands.size()-1))));
 			return false;
 		}
 		if(!(target instanceof Scroll))
 		{
-			mob.tell("You can't scribe onto that.");
+			mob.tell(L("You can't scribe onto that."));
 			return false;
 		}
 
-		commands.removeElementAt(commands.size()-1);
-		Scroll scroll=(Scroll)target;
+		commands.remove(commands.size()-1);
+		final Scroll scroll=(Scroll)target;
 
-		String spellName=CMParms.combine(commands,0).trim();
+		final String spellName=CMParms.combine(commands,0).trim();
 		Spell scrollThis=null;
-		for(int a=0;a<mob.numAbilities();a++)
+		for(final Enumeration<Ability> a=mob.allAbilities();a.hasMoreElements();)
 		{
-			Ability A=mob.fetchAbility(a);
+			final Ability A=a.nextElement();
 			if((A!=null)
 			&&(A instanceof Spell)
 			&&(A.name().equalsIgnoreCase(spellName))
 			&&(!A.ID().equals(this.ID())))
 				scrollThis=(Spell)A;
 		}
-        if(scrollThis==null)
-        for(int a=0;a<mob.numAbilities();a++)
-        {
-            Ability A=mob.fetchAbility(a);
-            if((A!=null)
-            &&(A instanceof Spell)
-            &&(CMLib.english().containsString(A.name(),spellName))
-            &&(!A.ID().equals(this.ID())))
-                scrollThis=(Spell)A;
-        }
 		if(scrollThis==null)
 		{
-			mob.tell("You don't know how to scribe '"+spellName+"'.");
+			for(final Enumeration<Ability> a=mob.allAbilities();a.hasMoreElements();)
+			{
+				final Ability A=a.nextElement();
+				if((A!=null)
+				&&(A instanceof Spell)
+				&&(CMLib.english().containsString(A.name(),spellName))
+				&&(!A.ID().equals(this.ID())))
+					scrollThis=(Spell)A;
+			}
+		}
+		
+		if(scrollThis==null)
+		{
+			mob.tell(L("You don't know how to scribe '@x1'.",spellName));
 			return false;
 		}
 		if(CMLib.ableMapper().lowestQualifyingLevel(scrollThis.ID())>24)
 		{
-			mob.tell("That spell is too powerful to scribe.");
+			mob.tell(L("That spell is too powerful to scribe."));
+			return false;
+		}
+
+		int numSpells=(CMLib.ableMapper().qualifyingClassLevel(mob,this)-CMLib.ableMapper().qualifyingLevel(mob,this));
+		if(numSpells<0) 
+			numSpells=1;
+		if(scroll.getSpells().size()>numSpells)
+		{
+			mob.tell(L("You aren't powerful enough to scribe any more spells onto @x1.",scroll.name()));
+			return false;
+		}
+
+		final List<Ability> spells=scroll.getSpells();
+		for(final Ability spell: spells)
+		{
+			if(spell.ID().equals(scrollThis.ID()))
+			{
+				mob.tell(L("That spell is already scribed onto @x1.",scroll.name()));
+				return false;
+			}
+		}
+
+		int level=25;
+		for(final Ability A : spells)
+		{
+			int lvl=CMLib.ableMapper().qualifyingLevel(mob,A);
+			if(lvl<0)
+				lvl=CMLib.ableMapper().lowestQualifyingLevel(A.ID());
+			level -= lvl;
+		}
+		if(level <= 0)
+		{
+			mob.tell(L("You can only scribe on blank scrolls, or scroll with less than 25 levels of spells on it."));
 			return false;
 		}
 		
-		int numSpells=(CMLib.ableMapper().qualifyingClassLevel(mob,this)-CMLib.ableMapper().qualifyingLevel(mob,this));
-		if(numSpells<0) numSpells=0;
-		if(scroll.getSpells().size()>numSpells)
-		{
-			mob.tell("You aren't powerful enough to scribe any more spells onto "+scroll.name()+".");
-			return false;
-		}
-
-		for(int i=0;i<scroll.getSpells().size();i++)
-			if(((Ability)scroll.getSpells().elementAt(i)).ID().equals(scrollThis.ID()))
-			{
-				mob.tell("That spell is already scribed onto "+scroll.name()+".");
-				return false;
-			}
-
-		int experienceToLose=10*CMLib.ableMapper().lowestQualifyingLevel(scrollThis.ID());
+		int experienceToLose=5+CMLib.ableMapper().lowestQualifyingLevel(scrollThis.ID());
 		if((mob.getExperience()-experienceToLose)<0)
 		{
-			mob.tell("You don't have enough experience to cast this spell.");
+			mob.tell(L("You don't have enough experience to cast this spell."));
 			return false;
 		}
 		// lose all the mana!
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
 			return false;
 
-        experienceToLose=getXPCOSTAdjustment(mob,experienceToLose);
+		experienceToLose=getXPCOSTAdjustment(mob,experienceToLose);
 		CMLib.leveler().postExperience(mob,null,null,-experienceToLose,false);
-		mob.tell("You lose "+experienceToLose+" experience points for the effort.");
+		mob.tell(L("You lose @x1 experience points for the effort.",""+experienceToLose));
 
-		boolean success=proficiencyCheck(mob,0,auto);
+		final boolean success=proficiencyCheck(mob,0,auto);
 
 		if(success)
 		{
 			setMiscText(scrollThis.ID());
-			CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),"^S<S-NAME> move(s) <S-HIS-HER> fingers around <T-NAMESELF>, incanting softly.^?");
+			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),L("^S<S-NAME> move(s) <S-HIS-HER> fingers around <T-NAMESELF>, incanting softly.^?"));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);
@@ -146,7 +204,7 @@ public class Spell_Scribe extends Spell
 
 		}
 		else
-			beneficialWordsFizzle(mob,target,"<S-NAME> move(s) <S-HIS-HER> fingers around <T-NAMESELF>, incanting softly, and looking very frustrated.");
+			beneficialWordsFizzle(mob,target,L("<S-NAME> move(s) <S-HIS-HER> fingers around <T-NAMESELF>, incanting softly, and looking very frustrated."));
 
 
 		// return whether it worked

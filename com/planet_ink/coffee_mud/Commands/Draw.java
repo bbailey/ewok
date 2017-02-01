@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Commands;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -9,21 +10,21 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
-
 import java.util.*;
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2004-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -31,55 +32,59 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-@SuppressWarnings("unchecked")
+
 public class Draw extends Get
 {
 	public Draw(){}
 
-	private String[] access={"DRAW"};
-	public String[] getAccessWords(){return access;}
+	private final String[] access=I(new String[]{"DRAW"});
+	@Override public String[] getAccessWords(){return access;}
 
-	public Vector getSheaths(MOB mob)
+	public Vector<Container> getSheaths(MOB mob)
 	{
-		Vector sheaths=new Vector();
+		final Vector<Container> sheaths=new Vector<Container>();
 		if(mob!=null)
-		for(int i=0;i<mob.inventorySize();i++)
+		for(int i=0;i<mob.numItems();i++)
 		{
-			Item I=mob.fetchInventory(i);
+			final Item I=mob.getItem(i);
 			if((I!=null)
 			&&(!I.amWearingAt(Wearable.IN_INVENTORY))
 			&&(I instanceof Container)
 			&&(((Container)I).capacity()>0)
 			&&(((Container)I).containTypes()!=Container.CONTAIN_ANYTHING))
 			{
-				Vector contents=((Container)I).getContents();
+				final List<Item> contents=((Container)I).getContents();
 				for(int c=0;c<contents.size();c++)
-					if(contents.elementAt(c) instanceof Weapon)
+				{
+					if(contents.get(c) instanceof Weapon)
 					{
-						sheaths.addElement(I);
+						sheaths.add((Container)I);
 						break;
 					}
+				}
 			}
 		}
 		return sheaths;
 	}
 
-	public boolean execute(MOB mob, Vector commands, int metaFlags)
+	@Override
+	public boolean execute(MOB mob, List<String> commands, int metaFlags)
 		throws java.io.IOException
 	{
 		boolean quiet=false;
 		boolean noerrors=false;
 		boolean ifNecessary=false;
-		if((commands.size()>0)&&(((String)commands.lastElement()).equalsIgnoreCase("IFNECESSARY")))
+		Vector<String> origCmds=new XVector<String>(commands);
+		if((commands.size()>0)&&(commands.get(commands.size()-1).equalsIgnoreCase("IFNECESSARY")))
 		{
 			quiet=true;
 			noerrors=true;
-			commands.removeElementAt(commands.size()-1);
+			commands.remove(commands.size()-1);
 			if((commands.size()>0)
-			&&(((String)commands.lastElement()).equalsIgnoreCase("HELD")))
+			&&(commands.get(commands.size()-1).equalsIgnoreCase("HELD")))
 			{
-				commands.removeElementAt(commands.size()-1);
-				if(mob.fetchFirstWornItem(Wearable.WORN_HELD)!=null)
+				commands.remove(commands.size()-1);
+				if(mob.fetchHeldItem()!=null)
 					return false;
 			}
 			else
@@ -88,73 +93,77 @@ public class Draw extends Get
 		}
 		else
 		{
-			if((commands.size()>0)&&(((String)commands.lastElement()).equalsIgnoreCase("QUIETLY")))
+			if((commands.size()>0)&&(commands.get(commands.size()-1).equalsIgnoreCase("QUIETLY")))
 			{
-				commands.removeElementAt(commands.size()-1);
+				commands.remove(commands.size()-1);
 				quiet=true;
 			}
-			if((commands.size()>0)&&(((String)commands.lastElement()).equalsIgnoreCase("IFNECESSARY")))
+			if((commands.size()>0)&&(commands.get(commands.size()-1).equalsIgnoreCase("IFNECESSARY")))
 			{
 				ifNecessary=true;
-				commands.removeElementAt(commands.size()-1);
+				commands.remove(commands.size()-1);
 				noerrors=true;
 			}
 		}
 
 		boolean allFlag=false;
-		Vector containers=new Vector();
+		List<Container> containers=new Vector<Container>();
 		String containerName="";
 		String whatToGet="";
 		int c=0;
-		Vector sheaths=getSheaths(mob);
+		final Vector<Container> sheaths=getSheaths(mob);
 		if(commands.size()>0)
-			commands.removeElementAt(0);
+			commands.remove(0);
 		if(commands.size()==0)
 		{
 			if(sheaths.size()>0)
-				containerName=((Item)sheaths.elementAt(0)).name();
+				containerName=((Item)sheaths.get(0)).name();
 			else
 				containerName="a weapon";
-			for(int i=0;i<mob.inventorySize();i++)
+			for(int i=0;i<mob.numItems();i++)
 			{
-				Item I=mob.fetchInventory(i);
+				final Item I=mob.getItem(i);
 				if((I instanceof Weapon)
-				   &&(I.container()!=null)
-				   &&(sheaths.contains(I.container())))
+				&&(I.container()!=null)
+				&&(sheaths.contains(I.container())))
 				{
-					containers.addElement(I.container());
+					containers.add(I.container());
 					whatToGet=I.name();
 					break;
 				}
 			}
 			if(whatToGet.length()==0)
-				for(int i=0;i<mob.inventorySize();i++)
+			{
+				for(int i=0;i<mob.numItems();i++)
 				{
-					Item I=mob.fetchInventory(i);
+					final Item I=mob.getItem(i);
 					if(I instanceof Weapon)
 					{
 						whatToGet=I.name();
 						break;
 					}
 				}
+			}
 		}
 		else
 		{
-			containerName=(String)commands.lastElement();
-			commands.insertElementAt("all",0);
+			containerName=commands.get(commands.size()-1);
+			commands.add(0,"all");
 			containers=CMLib.english().possibleContainers(mob,commands,Wearable.FILTER_WORNONLY,true);
-			if(containers.size()==0) containers=sheaths;
+			if(containers.size()==0)
+				containers=sheaths;
 			whatToGet=CMParms.combine(commands,0);
-			allFlag=((String)commands.elementAt(0)).equalsIgnoreCase("all");
+			allFlag=commands.get(0).equalsIgnoreCase("all");
 			if(whatToGet.toUpperCase().startsWith("ALL.")){ allFlag=true; whatToGet="ALL "+whatToGet.substring(4);}
 			if(whatToGet.toUpperCase().endsWith(".ALL")){ allFlag=true; whatToGet="ALL "+whatToGet.substring(0,whatToGet.length()-4);}
 		}
 		boolean doneSomething=false;
 		while((c<containers.size())||(containers.size()==0))
 		{
-			Vector V=new Vector();
-			Item container=null;
-			if(containers.size()>0) container=(Item)containers.elementAt(c++);
+			final Vector<Weapon> V=new Vector<Weapon>();
+			Container container=null;
+			if(containers.size()>0)
+				container=containers.get(c++);
 			int addendum=1;
 			String addendumStr="";
 			boolean doBugFix = true;
@@ -163,18 +172,20 @@ public class Draw extends Get
 				doBugFix=false;
 				Environmental getThis=null;
 				if((container!=null)&&(mob.isMine(container)))
-				   getThis=mob.fetchInventory(container,whatToGet+addendumStr);
-				if(getThis==null) break;
+				   getThis=mob.findItem(container,whatToGet+addendumStr);
+				if(getThis==null)
+					break;
 				if(getThis instanceof Weapon)
-					V.addElement(getThis);
+					V.add((Weapon)getThis);
 				addendumStr="."+(++addendum);
 			}
 
 			for(int i=0;i<V.size();i++)
 			{
-				Item getThis=(Item)V.elementAt(i);
+				final Item getThis=V.get(i);
 				long wearCode=0;
-				if(container!=null)	wearCode=container.rawWornCode();
+				if(container!=null)
+					wearCode=container.rawWornCode();
 				if((ifNecessary)
 				&&(mob.freeWearPositions(Wearable.WORN_WIELD,(short)0,(short)0)==0)
 				&&(mob.freeWearPositions(Wearable.WORN_HELD,(short)0,(short)0)==0))
@@ -185,41 +196,43 @@ public class Draw extends Get
 					{
 						if(mob.freeWearPositions(Wearable.WORN_WIELD,(short)0,(short)0)==0)
 						{
-							CMMsg newMsg=CMClass.getMsg(mob,getThis,null,CMMsg.MSG_HOLD,null);
+							final CMMsg newMsg=CMClass.getMsg(mob,getThis,null,CMMsg.MSG_HOLD,null);
 							if(mob.location().okMessage(mob,newMsg))
 								mob.location().send(mob,newMsg);
 						}
 						else
 						{
-							CMMsg newMsg=CMClass.getMsg(mob,getThis,null,CMMsg.MSG_WIELD,null);
+							final CMMsg newMsg=CMClass.getMsg(mob,getThis,null,CMMsg.MSG_WIELD,null);
 							if(mob.location().okMessage(mob,newMsg))
 								mob.location().send(mob,newMsg);
 						}
 					}
 				}
-				if(container!=null)	container.setRawWornCode(wearCode);
+				if(container!=null)
+					container.setRawWornCode(wearCode);
 				doneSomething=true;
 			}
 
-			if(containers.size()==0) break;
+			if(containers.size()==0)
+				break;
 		}
 		if((!doneSomething)&&(!noerrors))
 		{
 			if(containers.size()>0)
 			{
-				Item container=(Item)containers.elementAt(0);
-				if(((Container)container).isOpen())
-					mob.tell("You don't see that in "+container.name()+".");
+				final Container container=containers.get(0);
+				if(container.isOpen())
+					CMLib.commands().doCommandFail(mob,origCmds,L("You don't see that in @x1.",container.name()));
 				else
-					mob.tell(container.name()+" is closed.");
+					CMLib.commands().doCommandFail(mob,origCmds,L("@x1 is closed.",container.name()));
 			}
 			else
-				mob.tell("You don't see "+containerName+" here.");
+				CMLib.commands().doCommandFail(mob,origCmds,L("You don't see @x1 here.",containerName));
 		}
 		return false;
 	}
-    public double actionsCost(MOB mob, Vector cmds){return CMath.div(CMProps.getIntVar(CMProps.SYSTEMI_DEFCMDTIME),100.0);}
-	public boolean canBeOrdered(){return true;}
+	@Override public double actionsCost(final MOB mob, final List<String> cmds){return CMProps.getCommandActionCost(ID());}
+	@Override public boolean canBeOrdered(){return true;}
 
-	
+
 }

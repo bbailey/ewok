@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Prayers;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -14,19 +15,17 @@ import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
-
-
 import java.util.*;
 
 
-/* 
-   Copyright 2000-2010 Bo Zimmerman
+/*
+   Copyright 2004-2016 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+	   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -35,37 +34,40 @@ import java.util.*;
    limitations under the License.
 */
 
-@SuppressWarnings("unchecked")
+
 public class Prayer_Divorce extends Prayer
 {
-	public String ID() { return "Prayer_Divorce"; }
-	public String name(){ return "Divorce";}
-	public int classificationCode(){return Ability.ACODE_PRAYER|Ability.DOMAIN_CORRUPTION;}
-	public long flags(){return Ability.FLAG_UNHOLY;}
-	public int abstractQuality(){return Ability.QUALITY_OK_OTHERS;}
+	@Override public String ID() { return "Prayer_Divorce"; }
+	private final static String localizedName = CMLib.lang().L("Divorce");
+	@Override public String name() { return localizedName; }
+	@Override public int classificationCode(){return Ability.ACODE_PRAYER|Ability.DOMAIN_CORRUPTION;}
+	@Override public long flags(){return Ability.FLAG_UNHOLY;}
+	@Override public int abstractQuality(){return Ability.QUALITY_OK_OTHERS;}
 
-	public boolean invoke(MOB mob, Vector commands, Environmental givenTarget, boolean auto, int asLevel)
+	@Override
+	public boolean invoke(MOB mob, List<String> commands, Physical givenTarget, boolean auto, int asLevel)
 	{
-		MOB target=getTarget(mob,commands,givenTarget);
-		if(target==null) return false;
+		final MOB target=getTarget(mob,commands,givenTarget);
+		if(target==null)
+			return false;
 		if(!target.isMarriedToLiege())
 		{
-			mob.tell(target.name()+" is not married!");
+			mob.tell(L("@x1 is not married!",target.name(mob)));
 			return false;
 		}
-		if(target.fetchWornItem("wedding band")!=null)
+		if(target.fetchItem(null,Wearable.FILTER_WORNONLY,"wedding band")!=null)
 		{
-			mob.tell(target.name()+" must remove the wedding band first.");
+			mob.tell(L("@x1 must remove the wedding band first.",target.name(mob)));
 			return false;
 		}
 
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
 			return false;
 
-		boolean success=proficiencyCheck(mob,0,auto);
+		final boolean success=proficiencyCheck(mob,0,auto);
 		if(success)
 		{
-			CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),auto?"":"^S<S-NAME> divorce(s) <T-NAMESELF> from "+target.getLiegeID()+".^?");
+			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),auto?"":L("^S<S-NAME> divorce(s) <T-NAMESELF> from @x1.^?",target.getLiegeID()));
 			if(mob.location().okMessage(mob,msg))
 			{
 				if((!target.isMonster())&&(target.soulMate()==null))
@@ -78,58 +80,69 @@ public class Prayer_Divorce extends Prayer
 					femaleName=target.Name();
 					maleName=target.getLiegeID();
 				}
-                Vector channels=CMLib.channels().getFlaggedChannelNames(ChannelsLibrary.ChannelFlag.DIVORCES);
-                for(int i=0;i<channels.size();i++)
-                    CMLib.commands().postChannel((String)channels.elementAt(i),mob.getClanID(),maleName+" and "+femaleName+" are now divorced.",true);
-				MOB M=CMLib.players().getPlayer(target.getLiegeID());
-				if(M!=null) M.setLiegeID("");
+				final List<String> channels=CMLib.channels().getFlaggedChannelNames(ChannelsLibrary.ChannelFlag.DIVORCES);
+				for(int i=0;i<channels.size();i++)
+					CMLib.commands().postChannel(channels.get(i),mob.clans(),L("@x1 and @x2 are now divorced.",maleName,femaleName),true);
+				final MOB M=CMLib.players().getPlayer(target.getLiegeID());
+				if(M!=null)
+					M.setLiegeID("");
 				target.setLiegeID("");
 				try
 				{
-					for(Enumeration e=CMLib.map().rooms();e.hasMoreElements();)
+					for(final Enumeration<Room> e=CMLib.map().rooms();e.hasMoreElements();)
 					{
-						Room R=(Room)e.nextElement();
-						LandTitle T=CMLib.law().getLandTitle(R);
-						if((T!=null)&&(T.landOwner().equals(maleName)))
+						final Room R=e.nextElement();
+						final LandTitle T=CMLib.law().getLandTitle(R);
+						if((T!=null)&&(T.getOwnerName().equals(maleName)))
 						{
-							T.setLandOwner(femaleName);
+							T.setOwnerName(femaleName);
 							CMLib.database().DBUpdateRoom(R);
 						}
 						for(int i=0;i<R.numInhabitants();i++)
 						{
-							MOB M2=R.fetchInhabitant(i);
+							final MOB M2=R.fetchInhabitant(i);
 							if((M2!=null)&&(M2 instanceof Banker))
 							{
-								Banker B=(Banker)M2;
-								Vector V=B.getDepositedItems(maleName);
+								final Banker B=(Banker)M2;
+								final List<Item> allMaleItems=B.getDepositedItems(maleName);
 								Item coins=B.findDepositInventory(femaleName,""+Integer.MAX_VALUE);
-								for(int v=0;v<V.size();v++)
+								for(int v=0;v<allMaleItems.size();v++)
 								{
-									Item I=(Item)V.elementAt(v);
-									if(I==null) break;
-									B.delDepositInventory(maleName,I);
-									if(I instanceof Coins)
+									final Item I=allMaleItems.get(v);
+									if((I!=null)&&(I.container()==null))
 									{
-										if(coins!=null)
-											B.delDepositInventory(femaleName,coins);
-										else
+										final List<Item> items=B.delDepositInventory(maleName,I);
+										if(I instanceof Coins)
 										{
-											coins=CMClass.getItem("StdCoins");
-											((Coins)coins).setNumberOfCoins(0);
+											if(coins!=null)
+												B.delDepositInventory(femaleName,coins);
+											else
+											{
+												coins=CMClass.getItem("StdCoins");
+												((Coins)coins).setNumberOfCoins(0);
+											}
+											((Coins)coins).setNumberOfCoins(((Coins)coins).getNumberOfCoins() + Math.round(((Coins)I).getTotalValue() / ((Coins)coins).getDenomination()));
+											B.addDepositInventory(femaleName,coins,null);
 										}
-										B.addDepositInventory(femaleName,coins);
+										else
+										for(Item oI : items)
+											B.addDepositInventory(femaleName,oI,oI.container());
 									}
-									else
-										B.addDepositInventory(femaleName,I);
+								}
+								for(int v=0;v<allMaleItems.size();v++)
+								{
+									final Item I=allMaleItems.get(v);
+									if(I!=null)
+										I.destroy();
 								}
 							}
 						}
 					}
-			    }catch(NoSuchElementException e){}
+				}catch(final NoSuchElementException e){}
 			}
 		}
 		else
-			beneficialWordsFizzle(mob,target,"<S-NAME> clear(s) <S-HIS-HER> throat.");
+			beneficialWordsFizzle(mob,target,L("<S-NAME> clear(s) <S-HIS-HER> throat."));
 
 		return success;
 	}
